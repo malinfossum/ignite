@@ -1,0 +1,18 @@
+/* main.css — Ignite app styles.
+   App-specific layout and components live here.
+   Shared foundation lives in base.css. */
+
+body {
+	display: grid;
+	grid-template-columns: 240px 1fr;
+	min-height: 100vh;
+}
+
+#sidebar {
+	border-right: 1px solid #1f1f22;
+	padding: 1rem;
+}
+
+#main {
+	padding: 1.5rem;
+}

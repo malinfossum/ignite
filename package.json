@@ -1,0 +1,29 @@
+{
+	"name": "ignite",
+	"version": "0.1.0",
+	"private": true,
+	"description": "A small flame, kept going — an ADHD-friendly, open-source task app.",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview",
+		"format": "biome format --write .",
+		"lint": "biome lint .",
+		"check": "biome check ."
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/malinfossum/ignite.git"
+	},
+	"author": "Malin Fossum",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/malinfossum/ignite/issues"
+	},
+	"homepage": "https://github.com/malinfossum/ignite#readme",
+	"devDependencies": {
+		"@biomejs/biome": "2.4.12",
+		"vite": "^8.0.9"
+	}
+}
