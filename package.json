@@ -10,7 +10,9 @@
 		"preview": "vite preview",
 		"format": "biome format --write .",
 		"lint": "biome lint .",
-		"check": "biome check ."
+		"check": "biome check .",
+		"test": "vitest",
+		"test:run": "vitest run"
 	},
 	"repository": {
 		"type": "git",
@@ -24,6 +26,8 @@
 	"homepage": "https://github.com/malinfossum/ignite#readme",
 	"devDependencies": {
 		"@biomejs/biome": "2.4.12",
-		"vite": "^8.0.9"
+		"fake-indexeddb": "^6.2.5",
+		"vite": "^8.0.9",
+		"vitest": "^4.1.4"
 	}
 }
