@@ -48,3 +48,30 @@ describe("nextOccurrence — weekly", () => {
 		);
 	});
 });
+
+describe("nextOccurrence — monthly", () => {
+	it("returns the same day of the next month", () => {
+		const from = new Date("2026-04-15T10:00:00");
+		const next = nextOccurrence({ type: "monthly", day: 15 }, from);
+		expect(next.toISOString()).toBe(
+			new Date("2026-05-15T10:00:00").toISOString(),
+		);
+	});
+
+	it("clamps to last day when target month is shorter", () => {
+		// Jan 31 → Feb 28 (non-leap year)
+		const from = new Date("2027-01-31T10:00:00");
+		const next = nextOccurrence({ type: "monthly", day: 31 }, from);
+		expect(next.toISOString()).toBe(
+			new Date("2027-02-28T10:00:00").toISOString(),
+		);
+	});
+
+	it("rolls over the year boundary", () => {
+		const from = new Date("2026-12-10T10:00:00");
+		const next = nextOccurrence({ type: "monthly", day: 10 }, from);
+		expect(next.toISOString()).toBe(
+			new Date("2027-01-10T10:00:00").toISOString(),
+		);
+	});
+});

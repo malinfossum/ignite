@@ -7,6 +7,8 @@ export function nextOccurrence(rule, fromDate) {
 			return addDays(fromDate, 1);
 		case "weekly":
 			return nextWeekday(fromDate, rule.weekdays);
+		case "monthly":
+			return nextMonth(fromDate, rule.day);
 		default:
 			throw new Error(`Unknown recurrence type: ${rule.type}`);
 	}
@@ -26,6 +28,22 @@ function nextWeekday(from, weekdays) {
 		const candidate = addDays(from, i);
 		if (weekdays.includes(candidate.getDay())) return candidate;
 	}
-	// Unreachable: 7 consecutive days cover every weekday.
 	throw new Error("weekly recurrence has no valid weekdays");
+}
+
+function nextMonth(from, targetDay) {
+	// JS Date normalizes month values > 11 into the following year.
+	const year = from.getFullYear();
+	const month = from.getMonth() + 1;
+	const lastDayOfNextMonth = new Date(year, month + 1, 0).getDate();
+	const day = Math.min(targetDay, lastDayOfNextMonth);
+	return new Date(
+		year,
+		month,
+		day,
+		from.getHours(),
+		from.getMinutes(),
+		from.getSeconds(),
+		from.getMilliseconds(),
+	);
 }
