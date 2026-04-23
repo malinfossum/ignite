@@ -1,9 +1,12 @@
 // Thin promise wrapper over IndexedDB. Exposes:
 //   openDB(name?) → Promise<DBWrapper>
-//   wrapper.get / getAll / getByIndex / put / delete / close / raw
-//
-// Schema version is baked into `CURRENT_VERSION`. Bump it and extend
-// `runUpgrade` when a new store or index is needed later.
+//   wrapper.get(store, id)
+//   wrapper.getAll(store)
+//   wrapper.getByIndex(store, indexName, value)
+//   wrapper.put(store, record)
+//   wrapper.delete(store, id)
+//   wrapper.close()
+//   wrapper.raw       // underlying IDBDatabase — for tests/diagnostics only
 
 const DEFAULT_NAME = "ignite";
 const CURRENT_VERSION = 1;
@@ -34,9 +37,23 @@ function runUpgrade(db, oldVersion) {
 }
 
 function wrap(db) {
+	const run = (storeName, mode, fn) =>
+		new Promise((resolve, reject) => {
+			const tx = db.transaction(storeName, mode);
+			const store = tx.objectStore(storeName);
+			const req = fn(store);
+			req.onsuccess = () => resolve(req.result);
+			req.onerror = () => reject(req.error);
+		});
+
 	return {
 		raw: db,
 		close: () => db.close(),
-		// CRUD methods added in Task 8.
+		get: (store, id) => run(store, "readonly", (s) => s.get(id)),
+		getAll: (store) => run(store, "readonly", (s) => s.getAll()),
+		getByIndex: (store, indexName, value) =>
+			run(store, "readonly", (s) => s.index(indexName).getAll(value)),
+		put: (store, record) => run(store, "readwrite", (s) => s.put(record)),
+		delete: (store, id) => run(store, "readwrite", (s) => s.delete(id)),
 	};
 }

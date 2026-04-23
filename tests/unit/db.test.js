@@ -30,3 +30,75 @@ describe("openDB — schema v1", () => {
 		expect(indexNames).toEqual(["completed", "dueAt", "sectionId", "starred"]);
 	});
 });
+
+describe("DBWrapper CRUD", () => {
+	it("put then get returns the record", async () => {
+		const db = await fresh();
+		await db.put("areas", {
+			id: "a1",
+			name: "Test",
+			icon: "",
+			critical: false,
+			order: 0,
+		});
+		const read = await db.get("areas", "a1");
+		expect(read.name).toBe("Test");
+	});
+
+	it("getAll returns every record in a store", async () => {
+		const db = await fresh();
+		await db.put("areas", {
+			id: "a1",
+			name: "One",
+			icon: "",
+			critical: false,
+			order: 0,
+		});
+		await db.put("areas", {
+			id: "a2",
+			name: "Two",
+			icon: "",
+			critical: false,
+			order: 1,
+		});
+		const all = await db.getAll("areas");
+		expect(all.length).toBe(2);
+	});
+
+	it("delete removes a record", async () => {
+		const db = await fresh();
+		await db.put("areas", {
+			id: "a1",
+			name: "Test",
+			icon: "",
+			critical: false,
+			order: 0,
+		});
+		await db.delete("areas", "a1");
+		expect(await db.get("areas", "a1")).toBeUndefined();
+	});
+
+	it("getByIndex filters records by an indexed field", async () => {
+		const db = await fresh();
+		await db.put("tasks", {
+			id: "t1",
+			sectionId: "s1",
+			title: "A",
+			completed: 0,
+			starred: 0,
+			createdAt: new Date().toISOString(),
+			order: 0,
+		});
+		await db.put("tasks", {
+			id: "t2",
+			sectionId: "s2",
+			title: "B",
+			completed: 0,
+			starred: 0,
+			createdAt: new Date().toISOString(),
+			order: 0,
+		});
+		const inS1 = await db.getByIndex("tasks", "sectionId", "s1");
+		expect(inS1.map((t) => t.id)).toEqual(["t1"]);
+	});
+});
