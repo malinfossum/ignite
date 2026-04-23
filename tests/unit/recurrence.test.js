@@ -75,3 +75,29 @@ describe("nextOccurrence — monthly", () => {
 		);
 	});
 });
+
+describe("nextOccurrence — yearly", () => {
+	it("returns the same month+day next year", () => {
+		const from = new Date("2026-04-07T09:00:00");
+		const next = nextOccurrence({ type: "yearly", month: 4, day: 7 }, from);
+		expect(next.toISOString()).toBe(
+			new Date("2027-04-07T09:00:00").toISOString(),
+		);
+	});
+
+	it("clamps Feb 29 to Feb 28 in non-leap years", () => {
+		// 2028 is a leap year. From Feb 29 2028, next year is 2029 (non-leap)
+		// → should clamp to Feb 28.
+		const from = new Date("2028-02-29T09:00:00");
+		const next = nextOccurrence({ type: "yearly", month: 2, day: 29 }, from);
+		expect(next.toISOString()).toBe(
+			new Date("2029-02-28T09:00:00").toISOString(),
+		);
+	});
+
+	it("throws on unknown recurrence type", () => {
+		expect(() =>
+			nextOccurrence({ type: "garbage" }, new Date("2026-04-20")),
+		).toThrow(/Unknown recurrence type/);
+	});
+});

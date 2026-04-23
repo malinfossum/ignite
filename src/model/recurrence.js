@@ -1,5 +1,11 @@
 // Pure functions. No I/O. Given a recurrence rule and a reference date,
 // returns the next Date the task should fire.
+//
+// Rule shapes:
+//   { type: "daily" }
+//   { type: "weekly", weekdays: [0..6] }   // 0 = Sunday
+//   { type: "monthly", day: 1..31 }        // clamped to last day of target month
+//   { type: "yearly", month: 1..12, day: 1..31 }
 
 export function nextOccurrence(rule, fromDate) {
 	switch (rule.type) {
@@ -9,6 +15,8 @@ export function nextOccurrence(rule, fromDate) {
 			return nextWeekday(fromDate, rule.weekdays);
 		case "monthly":
 			return nextMonth(fromDate, rule.day);
+		case "yearly":
+			return nextYear(fromDate, rule.month, rule.day);
 		default:
 			throw new Error(`Unknown recurrence type: ${rule.type}`);
 	}
@@ -32,7 +40,6 @@ function nextWeekday(from, weekdays) {
 }
 
 function nextMonth(from, targetDay) {
-	// JS Date normalizes month values > 11 into the following year.
 	const year = from.getFullYear();
 	const month = from.getMonth() + 1;
 	const lastDayOfNextMonth = new Date(year, month + 1, 0).getDate();
@@ -40,6 +47,22 @@ function nextMonth(from, targetDay) {
 	return new Date(
 		year,
 		month,
+		day,
+		from.getHours(),
+		from.getMinutes(),
+		from.getSeconds(),
+		from.getMilliseconds(),
+	);
+}
+
+function nextYear(from, ruleMonth1Based, targetDay) {
+	const year = from.getFullYear() + 1;
+	const monthIndex = ruleMonth1Based - 1;
+	const lastDayOfThatMonth = new Date(year, monthIndex + 1, 0).getDate();
+	const day = Math.min(targetDay, lastDayOfThatMonth);
+	return new Date(
+		year,
+		monthIndex,
 		day,
 		from.getHours(),
 		from.getMinutes(),
