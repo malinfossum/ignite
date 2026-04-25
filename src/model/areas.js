@@ -1,5 +1,14 @@
 import { uuid } from "../utils/id.js";
 
+const FOCUS_ID = "focus";
+const FOCUS_DEFAULTS = {
+	id: FOCUS_ID,
+	name: "Focus",
+	icon: "🔥",
+	critical: false,
+	order: 0,
+};
+
 // createAreaModel(db) → Promise<AreaModel>
 //
 //   AreaModel = {
@@ -11,12 +20,15 @@ import { uuid } from "../utils/id.js";
 //   }
 //
 // Subscribe/notify pattern: every mutation writes the DB, then notifies.
+// Focus area is seeded on first construction and cannot be deleted.
 
 export async function createAreaModel(db) {
 	const listeners = new Set();
 	const notify = () => {
 		for (const fn of listeners) fn();
 	};
+
+	await ensureFocus(db);
 
 	return {
 		subscribe(fn) {
@@ -47,8 +59,16 @@ export async function createAreaModel(db) {
 		},
 
 		async remove(id) {
+			if (id === FOCUS_ID) {
+				throw new Error("Cannot delete Focus area");
+			}
 			await db.delete("areas", id);
 			notify();
 		},
 	};
+}
+
+async function ensureFocus(db) {
+	const existing = await db.get("areas", FOCUS_ID);
+	if (!existing) await db.put("areas", { ...FOCUS_DEFAULTS });
 }

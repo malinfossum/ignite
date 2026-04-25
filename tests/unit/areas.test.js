@@ -27,7 +27,11 @@ describe("createAreaModel — CRUD", () => {
 		await model.create({ name: "Projects" });
 		await model.create({ name: "Shopping" });
 		const all = await model.list();
-		expect(all.map((a) => a.name).sort()).toEqual(["Projects", "Shopping"]);
+		expect(all.map((a) => a.name).sort()).toEqual([
+			"Focus",
+			"Projects",
+			"Shopping",
+		]);
 	});
 
 	it("update patches fields", async () => {
@@ -60,5 +64,32 @@ describe("createAreaModel — subscribe/notify", () => {
 		unsubscribe();
 		await model.create({ name: "ShouldNotNotify" });
 		expect(calls).toBe(3);
+	});
+});
+
+describe("createAreaModel — Focus seed", () => {
+	it("seeds the Focus area on first construction", async () => {
+		const { model } = await freshModel();
+		const all = await model.list();
+		const focus = all.find((a) => a.id === "focus");
+		expect(focus).toBeDefined();
+		expect(focus.name).toBe("Focus");
+	});
+
+	it("is idempotent — constructing twice does not duplicate Focus", async () => {
+		const db = await openDB(`ignite-test-${crypto.randomUUID()}`);
+		openHandles.push(db);
+		await createAreaModel(db);
+		const model2 = await createAreaModel(db);
+		const all = await model2.list();
+		const focuses = all.filter((a) => a.id === "focus");
+		expect(focuses.length).toBe(1);
+	});
+
+	it("refuses to delete the Focus area", async () => {
+		const { model } = await freshModel();
+		await expect(model.remove("focus")).rejects.toThrow(/cannot delete focus/i);
+		const stillThere = (await model.list()).find((a) => a.id === "focus");
+		expect(stillThere).toBeDefined();
 	});
 });
