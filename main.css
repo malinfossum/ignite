@@ -2,17 +2,38 @@
    App-specific layout and components live here.
    Shared foundation lives in base.css. */
 
+:root {
+	--color-bg: #0f0f10;
+	--color-text: #e8e8ea;
+	--color-border: #1f1f22;
+
+	--sidebar-width: 240px;
+	--main-padding: 1.5rem;
+}
+
 body {
 	display: grid;
-	grid-template-columns: 240px 1fr;
+	grid-template-columns: var(--sidebar-width) 1fr;
 	min-height: 100vh;
 }
 
 #sidebar {
-	border-right: 1px solid #1f1f22;
+	border-right: 1px solid var(--color-border);
 	padding: 1rem;
 }
 
 #main {
-	padding: 1.5rem;
+	padding: var(--main-padding);
+}
+
+/* Below tablet width, stack sidebar above main instead of beside it. */
+@media (max-width: 768px) {
+	body {
+		grid-template-columns: 1fr;
+	}
+
+	#sidebar {
+		border-right: none;
+		border-bottom: 1px solid var(--color-border);
+	}
 }
