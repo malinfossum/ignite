@@ -49,3 +49,24 @@ describe("createSettingsModel", () => {
 		expect(calls).toBe(1);
 	});
 });
+
+describe("createSettingsModel — sidebarCollapsed", () => {
+	it("defaults to false on a fresh install", async () => {
+		const { model } = await freshModel();
+		const current = await model.get();
+		expect(current.sidebarCollapsed).toBe(false);
+	});
+
+	it("persists via setSidebarCollapsed and notifies", async () => {
+		const { model } = await freshModel();
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		await model.setSidebarCollapsed(true);
+		expect(calls).toEqual(["notified"]);
+
+		const after = await model.get();
+		expect(after.sidebarCollapsed).toBe(true);
+	});
+});

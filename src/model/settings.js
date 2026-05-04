@@ -10,6 +10,7 @@ const DEFAULTS = {
 	quietEnd: 7,
 	lastKnownPermission: "default",
 	lastView: "#today",
+	sidebarCollapsed: false,
 };
 
 export async function createSettingsModel(db) {
@@ -37,6 +38,10 @@ export async function createSettingsModel(db) {
 			await db.put("settings", updated);
 			notify();
 			return updated;
+		},
+
+		async setSidebarCollapsed(value) {
+			return this.update({ sidebarCollapsed: !!value });
 		},
 	};
 }
