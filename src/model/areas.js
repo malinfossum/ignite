@@ -1,11 +1,21 @@
 import { uuid } from "../utils/id.js";
 
 const FOCUS_ID = "focus";
+export const FOCUS_DEFAULT_SECTION_ID = "focus-default";
+
 const FOCUS_DEFAULTS = {
 	id: FOCUS_ID,
 	name: "Focus",
 	icon: "🔥",
 	critical: false,
+	order: 0,
+};
+
+const FOCUS_DEFAULT_SECTION = {
+	id: FOCUS_DEFAULT_SECTION_ID,
+	areaId: FOCUS_ID,
+	name: "",
+	collapsed: false,
 	order: 0,
 };
 
@@ -71,4 +81,6 @@ export async function createAreaModel(db) {
 async function ensureFocus(db) {
 	const existing = await db.get("areas", FOCUS_ID);
 	if (!existing) await db.put("areas", { ...FOCUS_DEFAULTS });
+	const existingSection = await db.get("sections", FOCUS_DEFAULT_SECTION_ID);
+	if (!existingSection) await db.put("sections", { ...FOCUS_DEFAULT_SECTION });
 }

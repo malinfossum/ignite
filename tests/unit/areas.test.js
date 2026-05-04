@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createAreaModel } from "../../src/model/areas.js";
+import {
+	createAreaModel,
+	FOCUS_DEFAULT_SECTION_ID,
+} from "../../src/model/areas.js";
 import { openDB } from "../../src/model/db.js";
 
 let openHandles = [];
@@ -91,5 +94,22 @@ describe("createAreaModel — Focus seed", () => {
 		await expect(model.remove("focus")).rejects.toThrow(/cannot delete focus/i);
 		const stillThere = (await model.list()).find((a) => a.id === "focus");
 		expect(stillThere).toBeDefined();
+	});
+});
+
+describe("Focus default section seed", () => {
+	it("seeds the default Focus section with a stable id on first construction", async () => {
+		const { db } = await freshModel();
+		const section = await db.get("sections", FOCUS_DEFAULT_SECTION_ID);
+		expect(section).toBeDefined();
+		expect(section.areaId).toBe("focus");
+	});
+
+	it("does not duplicate the default section on re-construction", async () => {
+		const { db } = await freshModel();
+		await createAreaModel(db);
+		const all = await db.getAll("sections");
+		const focusSections = all.filter((s) => s.areaId === "focus");
+		expect(focusSections).toHaveLength(1);
 	});
 });
