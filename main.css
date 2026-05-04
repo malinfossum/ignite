@@ -4,11 +4,18 @@
 
 :root {
 	--color-bg: #0f0f10;
+	--color-bg-elevated: #18181b;
 	--color-text: #e8e8ea;
+	--color-text-muted: #9a9aa3;
 	--color-border: #1f1f22;
+	--color-accent: #f56b0a;
+	--color-overdue: #c94a4a;
 
 	--sidebar-width: 240px;
+	--sidebar-rail-width: 48px;
+	--main-max-width: 960px;
 	--main-padding: 1.5rem;
+	--radius: 6px;
 }
 
 /* Mobile baseline: stacked layout. */
@@ -21,20 +28,276 @@ body {
 #sidebar {
 	border-bottom: 1px solid var(--color-border);
 	padding: 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
 }
 
 #main {
+	width: 100%;
+	max-width: var(--main-max-width);
+	margin-inline: auto;
 	padding: var(--main-padding);
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
 }
 
 /* Tablet and up: side-by-side layout. */
 @media (min-width: 768px) {
 	body {
 		grid-template-columns: var(--sidebar-width) 1fr;
+		transition: grid-template-columns 200ms ease;
+	}
+	body.is-sidebar-collapsed {
+		grid-template-columns: var(--sidebar-rail-width) 1fr;
 	}
 
 	#sidebar {
 		border-right: 1px solid var(--color-border);
 		border-bottom: none;
 	}
+}
+
+/* --- Sidebar --- */
+/* Toggle is hidden on mobile (sidebar stacks above main, no collapse needed). */
+.sidebar__toggle {
+	display: none;
+	background: none;
+	border: 1px solid var(--color-border);
+	color: var(--color-text-muted);
+	border-radius: var(--radius);
+	width: 32px;
+	height: 32px;
+	cursor: pointer;
+	align-self: flex-start;
+}
+.sidebar__toggle:hover {
+	color: var(--color-text);
+	border-color: var(--color-text-muted);
+}
+@media (min-width: 768px) {
+	.sidebar__toggle {
+		display: block;
+	}
+}
+
+.sidebar__areas {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+.sidebar__area {
+	display: grid;
+	grid-template-columns: 1.5rem 1fr auto;
+	gap: 0.5rem;
+	align-items: center;
+	padding: 0.4rem 0.5rem;
+	border-radius: var(--radius);
+	color: var(--color-text-muted);
+}
+.sidebar__area:hover {
+	background: var(--color-bg-elevated);
+	color: var(--color-text);
+}
+.sidebar__count {
+	font-variant-numeric: tabular-nums;
+	color: var(--color-text-muted);
+	font-size: 0.85rem;
+}
+
+/* Collapsed state — desktop only; hides labels and counts. */
+@media (min-width: 768px) {
+	body.is-sidebar-collapsed .sidebar__name,
+	body.is-sidebar-collapsed .sidebar__count {
+		display: none;
+	}
+}
+
+/* --- Capture --- */
+.capture__form {
+	display: flex;
+}
+.capture__input {
+	flex: 1;
+	background: var(--color-bg-elevated);
+	color: var(--color-text);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius);
+	padding: 0.6rem 0.75rem;
+	font: inherit;
+}
+.capture__input::placeholder {
+	color: var(--color-text-muted);
+}
+.capture__input:focus {
+	outline: none;
+	border-color: var(--color-accent);
+}
+
+/* --- NEXT card --- */
+.next-card {
+	background: var(--color-bg-elevated);
+	border: 1px solid var(--color-border);
+	border-left: 3px solid var(--color-accent);
+	border-radius: var(--radius);
+	padding: 1rem;
+}
+.next-card__label {
+	margin: 0 0 0.5rem;
+	font-size: 0.7rem;
+	letter-spacing: 0.12em;
+	color: var(--color-accent);
+	text-transform: uppercase;
+}
+.next-card__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+/* --- Groups --- */
+.group__heading {
+	margin: 0 0 0.5rem;
+	font-size: 0.85rem;
+	color: var(--color-text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+.group--overdue .group__heading {
+	color: var(--color-overdue);
+}
+.group__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+/* --- Task row --- */
+.task {
+	position: relative;
+	display: grid;
+	grid-template-columns: auto 1fr auto auto auto auto;
+	gap: 0.6rem;
+	align-items: center;
+	padding: 0.5rem 0.6rem;
+	border-radius: var(--radius);
+}
+.task:hover {
+	background: var(--color-bg-elevated);
+}
+.task__check {
+	accent-color: var(--color-accent);
+	width: 1rem;
+	height: 1rem;
+	cursor: pointer;
+}
+.task__title {
+	color: var(--color-text);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.task__star,
+.task__menu-btn {
+	background: none;
+	border: none;
+	color: var(--color-text-muted);
+	cursor: pointer;
+	padding: 0.25rem 0.4rem;
+	border-radius: var(--radius);
+	font-size: 1rem;
+}
+.task__star[aria-pressed="true"] {
+	color: var(--color-accent);
+}
+.task__star:hover,
+.task__menu-btn:hover {
+	color: var(--color-text);
+	background: var(--color-bg);
+}
+.task__time-label,
+.task__recurring {
+	color: var(--color-text-muted);
+	font-size: 0.85rem;
+}
+
+/* --- Task `…` menu --- */
+/* Anchored to the row via the row's position: relative + this absolute. */
+.task-menu {
+	position: absolute;
+	right: 0.5rem;
+	top: 100%;
+	z-index: 10;
+	margin-top: 0.25rem;
+	background: var(--color-bg-elevated);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius);
+	padding: 0.25rem;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+	min-width: 8rem;
+}
+.task-menu__item {
+	display: block;
+	width: 100%;
+	background: none;
+	border: none;
+	color: var(--color-text);
+	text-align: left;
+	padding: 0.4rem 0.6rem;
+	border-radius: var(--radius);
+	cursor: pointer;
+	font: inherit;
+}
+.task-menu__item:hover {
+	background: var(--color-bg);
+}
+
+/* --- Toast --- */
+#toast-root {
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 1rem;
+	display: flex;
+	justify-content: center;
+	pointer-events: none;
+	z-index: 100;
+}
+.toast {
+	background: var(--color-bg-elevated);
+	color: var(--color-text);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius);
+	padding: 0.6rem 0.75rem;
+	display: flex;
+	gap: 1rem;
+	align-items: center;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+	pointer-events: auto;
+}
+.toast__undo {
+	background: none;
+	border: none;
+	color: var(--color-accent);
+	cursor: pointer;
+	font: inherit;
+	padding: 0.2rem 0.4rem;
+}
+.toast__undo:hover {
+	text-decoration: underline;
+}
+
+/* --- Empty state --- */
+.empty {
+	color: var(--color-text-muted);
+	font-style: italic;
+	padding: 2rem 0;
+	text-align: center;
 }
