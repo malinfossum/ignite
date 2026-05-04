@@ -1,7 +1,7 @@
 // app.js — application wiring.
-// M1 milestone: constructs the data layer only. Models are created here
-// but not yet consumed by any view — that arrives in M2.
+// M2: builds DOM scaffolding, constructs models, hands off to the controller.
 
+import { createController } from "./controller.js";
 import { createAreaModel } from "./model/areas.js";
 import { openDB } from "./model/db.js";
 import { createSectionModel } from "./model/sections.js";
@@ -15,16 +15,28 @@ async function boot() {
 	const tasks = await createTaskModel(db);
 	const settings = await createSettingsModel(db);
 
-	// Sanity log — proves the boot path works. Remove in M2.
-	const areaList = await areas.list();
-	console.log(
-		`Ignite booted. Areas: ${areaList.length} (focus seeded: ${areaList.some(
-			(a) => a.id === "focus",
-		)}).`,
-	);
+	const sidebarRoot = document.getElementById("sidebar");
+	const mainEl = document.getElementById("main");
 
-	// Expose for quick DevTools inspection during M1 — drop in M2.
-	window.ignite = { db, areas, sections, tasks, settings };
+	mainEl.innerHTML = `
+		<section class="capture" id="capture-root"></section>
+		<section class="today" id="today-root"></section>
+	`;
+
+	const toastRoot = document.createElement("div");
+	toastRoot.id = "toast-root";
+	document.body.appendChild(toastRoot);
+
+	const controller = createController({
+		models: { areas, sections, tasks, settings },
+		els: {
+			sidebarRoot,
+			captureRoot: document.getElementById("capture-root"),
+			todayRoot: document.getElementById("today-root"),
+			toastRoot,
+		},
+	});
+	controller.start();
 }
 
 boot().catch((err) => {
