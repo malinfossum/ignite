@@ -1,0 +1,151 @@
+import { describe, expect, it } from "vitest";
+import {
+	formatTimeLabel,
+	groupTasksForToday,
+	pickNextTask,
+} from "../../src/utils/time.js";
+
+const NOW = new Date("2026-04-28T14:00:00");
+// Helper: build a task with sensible defaults.
+const task = (overrides) => ({
+	id: "t1",
+	sectionId: "focus-default",
+	title: "Test task",
+	notes: "",
+	completed: false,
+	starred: false,
+	critical: false,
+	dueAt: null,
+	recurrence: null,
+	leadTime: 0,
+	scheduledTags: [],
+	createdAt: "2026-04-28T08:00:00.000Z",
+	order: 0,
+	...overrides,
+});
+
+describe("formatTimeLabel", () => {
+	it("returns 'now' for dueAt within the next minute", () => {
+		const dueAt = new Date(NOW.getTime() + 30_000).toISOString();
+		expect(formatTimeLabel(dueAt, NOW)).toBe("now");
+	});
+
+	it("returns 'in N min' for dueAt within the next hour", () => {
+		const dueAt = new Date(NOW.getTime() + 45 * 60_000).toISOString();
+		expect(formatTimeLabel(dueAt, NOW)).toBe("in 45 min");
+	});
+
+	it("returns the time of day for dueAt later today (24h)", () => {
+		const dueAt = new Date("2026-04-28T18:30:00").toISOString();
+		expect(formatTimeLabel(dueAt, NOW)).toBe("18:30");
+	});
+
+	it("returns 'was HH:MM' for dueAt earlier today", () => {
+		const dueAt = new Date("2026-04-28T09:00:00").toISOString();
+		expect(formatTimeLabel(dueAt, NOW)).toBe("was 09:00");
+	});
+
+	it("returns 'Tomorrow HH:MM' for dueAt tomorrow", () => {
+		const dueAt = new Date("2026-04-29T09:00:00").toISOString();
+		expect(formatTimeLabel(dueAt, NOW)).toBe("Tomorrow 09:00");
+	});
+
+	it("returns 'Ddd HH:MM' for dueAt within the next 7 days", () => {
+		const dueAt = new Date("2026-05-01T09:00:00").toISOString();
+		expect(formatTimeLabel(dueAt, NOW)).toBe("Fri 09:00");
+	});
+
+	it("returns 'Mon DD · HH:MM' for dueAt beyond 7 days", () => {
+		const dueAt = new Date("2026-05-15T09:00:00").toISOString();
+		expect(formatTimeLabel(dueAt, NOW)).toBe("May 15 · 09:00");
+	});
+
+	it("respects 12-hour format when requested", () => {
+		const dueAt = new Date("2026-04-28T18:30:00").toISOString();
+		expect(formatTimeLabel(dueAt, NOW, "12h")).toBe("6:30 PM");
+	});
+});
+
+describe("groupTasksForToday", () => {
+	it("partitions tasks into overdue, today, and starred", () => {
+		const tasks = [
+			task({ id: "a", dueAt: "2026-04-27T09:00:00.000Z" }), // overdue (yesterday)
+			task({ id: "b", dueAt: "2026-04-28T18:00:00.000Z" }), // today
+			task({ id: "c", starred: true, dueAt: null }), // starred undated
+			task({ id: "d", dueAt: "2026-05-10T09:00:00.000Z" }), // future, ignored
+		];
+		const result = groupTasksForToday(tasks, NOW);
+		expect(result.overdue.map((t) => t.id)).toEqual(["a"]);
+		expect(result.today.map((t) => t.id)).toEqual(["b"]);
+		expect(result.starred.map((t) => t.id)).toEqual(["c"]);
+	});
+
+	it("excludes completed tasks from every group", () => {
+		const tasks = [
+			task({ id: "a", completed: true, dueAt: "2026-04-27T09:00:00.000Z" }),
+			task({ id: "b", completed: true, dueAt: "2026-04-28T18:00:00.000Z" }),
+			task({ id: "c", completed: true, starred: true }),
+		];
+		const result = groupTasksForToday(tasks, NOW);
+		expect(result.overdue).toEqual([]);
+		expect(result.today).toEqual([]);
+		expect(result.starred).toEqual([]);
+	});
+
+	it("keeps same-day past-due tasks in Today (with 'was' label), not Overdue", () => {
+		const tasks = [task({ id: "a", dueAt: "2026-04-28T09:00:00.000Z" })];
+		const result = groupTasksForToday(tasks, NOW);
+		expect(result.overdue).toEqual([]);
+		expect(result.today.map((t) => t.id)).toEqual(["a"]);
+	});
+
+	it("sorts today by dueAt ascending and starred by order ascending", () => {
+		const tasks = [
+			task({ id: "b", dueAt: "2026-04-28T18:00:00.000Z" }),
+			task({ id: "a", dueAt: "2026-04-28T16:00:00.000Z" }),
+			task({ id: "z", starred: true, order: 2 }),
+			task({ id: "y", starred: true, order: 0 }),
+		];
+		const result = groupTasksForToday(tasks, NOW);
+		expect(result.today.map((t) => t.id)).toEqual(["a", "b"]);
+		expect(result.starred.map((t) => t.id)).toEqual(["y", "z"]);
+	});
+});
+
+describe("pickNextTask", () => {
+	it("picks the earliest upcoming time-dated task", () => {
+		const tasks = [
+			task({ id: "a", dueAt: "2026-04-28T18:00:00.000Z" }),
+			task({ id: "b", dueAt: "2026-04-28T16:00:00.000Z" }),
+		];
+		expect(pickNextTask(tasks, NOW)?.id).toBe("b");
+	});
+
+	it("falls back to oldest overdue when nothing is upcoming", () => {
+		const tasks = [
+			task({ id: "a", dueAt: "2026-04-26T09:00:00.000Z" }),
+			task({ id: "b", dueAt: "2026-04-27T09:00:00.000Z" }),
+		];
+		expect(pickNextTask(tasks, NOW)?.id).toBe("a");
+	});
+
+	it("falls back to first starred undated when nothing is dated", () => {
+		const tasks = [
+			task({ id: "a", starred: true, order: 2 }),
+			task({ id: "b", starred: true, order: 0 }),
+		];
+		expect(pickNextTask(tasks, NOW)?.id).toBe("b");
+	});
+
+	it("returns null on empty input", () => {
+		expect(pickNextTask([], NOW)).toBeNull();
+	});
+
+	it("ignores completed tasks", () => {
+		const tasks = [
+			task({ id: "a", completed: true, dueAt: "2026-04-28T18:00:00.000Z" }),
+			task({ id: "b", starred: true, order: 0 }),
+		];
+		expect(pickNextTask(tasks, NOW)?.id).toBe("b");
+	});
+});
