@@ -87,6 +87,12 @@ export async function createTaskModel(db) {
 			await db.delete("tasks", id);
 			notify();
 		},
+
+		async restore(taskData) {
+			await db.put("tasks", toStorage(taskData));
+			notify();
+			return taskData;
+		},
 	};
 }
 

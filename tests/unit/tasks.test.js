@@ -120,3 +120,32 @@ describe("createTaskModel — update / toggle / remove", () => {
 		expect(calls).toBe(4);
 	});
 });
+
+describe("createTaskModel — restore", () => {
+	it("re-inserts a deleted task with the same id and fields", async () => {
+		const { model } = await freshModel();
+		const original = await model.create({
+			sectionId: "s1",
+			title: "Buy bread",
+			starred: true,
+		});
+		await model.remove(original.id);
+		await model.restore(original);
+		const list = await model.list();
+		expect(list).toHaveLength(1);
+		expect(list[0].id).toBe(original.id);
+		expect(list[0].title).toBe("Buy bread");
+		expect(list[0].starred).toBe(true);
+	});
+
+	it("notifies subscribers", async () => {
+		const { model } = await freshModel();
+		const original = await model.create({ sectionId: "s1", title: "x" });
+		await model.remove(original.id);
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+		await model.restore(original);
+		expect(calls).toEqual(["notified"]);
+	});
+});
