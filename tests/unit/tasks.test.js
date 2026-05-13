@@ -149,3 +149,43 @@ describe("createTaskModel — restore", () => {
 		expect(calls).toEqual(["notified"]);
 	});
 });
+
+describe("createTaskModel — removeMany", () => {
+	it("deletes multiple tasks in one notify", async () => {
+		const { model } = await freshModel();
+		const a = await model.create({ sectionId: "s1", title: "A" });
+		const b = await model.create({ sectionId: "s1", title: "B" });
+		const c = await model.create({ sectionId: "s1", title: "C" });
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		await model.removeMany([a.id, b.id]);
+		const list = await model.list();
+		expect(list.map((t) => t.id)).toEqual([c.id]);
+		expect(calls).toEqual(["notified"]);
+	});
+});
+
+describe("createTaskModel — restoreMany", () => {
+	it("re-inserts multiple tasks with original ids in one notify", async () => {
+		const { model } = await freshModel();
+		const a = await model.create({
+			sectionId: "s1",
+			title: "A",
+			starred: true,
+		});
+		const b = await model.create({ sectionId: "s1", title: "B" });
+		await model.removeMany([a.id, b.id]);
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		await model.restoreMany([a, b]);
+		const list = await model.list();
+		expect(list).toHaveLength(2);
+		expect(list.find((t) => t.id === a.id).starred).toBe(true);
+		expect(list.find((t) => t.id === b.id).title).toBe("B");
+		expect(calls).toEqual(["notified"]);
+	});
+});

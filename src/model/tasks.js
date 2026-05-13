@@ -93,6 +93,18 @@ export async function createTaskModel(db) {
 			notify();
 			return taskData;
 		},
+
+		async removeMany(ids) {
+			await Promise.all(ids.map((id) => db.delete("tasks", id)));
+			notify();
+		},
+
+		async restoreMany(snapshots) {
+			await Promise.all(
+				snapshots.map((snap) => db.put("tasks", toStorage(snap))),
+			);
+			notify();
+		},
 	};
 }
 
