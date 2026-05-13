@@ -45,6 +45,9 @@ body {
 
 /* Tablet and up: side-by-side layout. */
 @media (min-width: 768px) {
+	:root {
+		--main-padding: 2rem;
+	}
 	body {
 		grid-template-columns: var(--sidebar-width) 1fr;
 		transition: grid-template-columns 200ms ease;
