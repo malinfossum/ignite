@@ -1,4 +1,5 @@
 import { uuid } from "../utils/id.js";
+import { FOCUS_DEFAULT_SECTION_ID } from "./areas.js";
 
 // createSectionModel(db) → Promise<SectionModel>
 //
@@ -9,6 +10,11 @@ import { uuid } from "../utils/id.js";
 //   create({ areaId, name, collapsed? }) → Promise<Section>,
 //   update(id, patch) → Promise<Section>,
 //   remove(id) → Promise<void>,
+//   removeMany(ids) → Promise<void>,
+//   setCollapsed(id, value) → Promise<void>,
+//   rename(id, name) → Promise<void>,
+//   swapOrder(idA, idB) → Promise<void>,
+//   restore(snapshot) → Promise<Section>,
 // }
 
 export async function createSectionModel(db) {
@@ -56,8 +62,55 @@ export async function createSectionModel(db) {
 		},
 
 		async remove(id) {
+			if (id === FOCUS_DEFAULT_SECTION_ID) {
+				throw new Error("Cannot delete default Focus section");
+			}
 			await db.delete("sections", id);
 			notify();
+		},
+
+		async setCollapsed(id, value) {
+			const existing = await db.get("sections", id);
+			if (!existing) throw new Error(`Section not found: ${id}`);
+			await db.put("sections", { ...existing, collapsed: !!value });
+			notify();
+		},
+
+		async rename(id, name) {
+			const trimmed = String(name ?? "").trim();
+			if (!trimmed) throw new Error("rename(section): name cannot be empty");
+			const existing = await db.get("sections", id);
+			if (!existing) throw new Error(`Section not found: ${id}`);
+			await db.put("sections", { ...existing, name: trimmed });
+			notify();
+		},
+
+		async swapOrder(idA, idB) {
+			const [a, b] = await Promise.all([
+				db.get("sections", idA),
+				db.get("sections", idB),
+			]);
+			if (!a) throw new Error(`Section not found: ${idA}`);
+			if (!b) throw new Error(`Section not found: ${idB}`);
+			await Promise.all([
+				db.put("sections", { ...a, order: b.order }),
+				db.put("sections", { ...b, order: a.order }),
+			]);
+			notify(); // single notify after both writes
+		},
+
+		async restore(snapshot) {
+			await db.put("sections", { ...snapshot });
+			notify();
+			return snapshot;
+		},
+
+		async removeMany(ids) {
+			if (ids.some((id) => id === FOCUS_DEFAULT_SECTION_ID)) {
+				throw new Error("Cannot delete default Focus section");
+			}
+			await Promise.all(ids.map((id) => db.delete("sections", id)));
+			notify(); // single notify after all deletes
 		},
 	};
 }
