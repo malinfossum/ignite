@@ -1,0 +1,349 @@
+// createAreaView(rootEl, { areaId, callbacks }) → { render(state), destroy(), enterRename(id) }
+//
+// Renders one area page: title, sections list, "＋ New section" footer.
+//
+// Closure state:
+//   openMenuId             - section id whose ⋯ menu is open, or null
+//   renamingId             - section id currently in rename mode, or null
+//   pendingFocusSectionId  - after the next render, look up this section's
+//                            ⋯ button and focus it. Used for menu-close,
+//                            rename commit/cancel, and post-create rename.
+//   pendingMenuFocusSectionId - after the next render, look up the first
+//                            [role="menuitem"] inside this section's menu
+//                            and focus it. Used when the menu opens via
+//                            keyboard (Enter on ⋯) — see open-section-menu.
+//   pendingRenameSelect    - true when entering rename; on the next render
+//                            the input is .focus()-ed AND .select()-ed.
+//                            Cleared after that one render so subsequent
+//                            re-renders (60s tick, unrelated notifies)
+//                            preserve cursor position.
+//
+// We do NOT capture element references for focus return. Across an
+// innerHTML rewrite, captured elements detach and .focus() on them is a
+// silent no-op. The pending* flags + post-render lookups by data-attribute
+// work because they query the freshly-rendered DOM.
+//
+// callbacks:
+//   onAddSection({ areaId })
+//   onToggleSection({ sectionId, collapsed })
+//   onCommitRename({ sectionId, name })   - empty/whitespace ⇒ cancel
+//   onMoveUp({ sectionId })
+//   onMoveDown({ sectionId })
+//   onDeleteSection({ sectionId })
+//   onToggleComplete(taskId)
+//   onToggleStar(taskId, currentStarred)
+
+import { bindActions, bindKeys, escapeHtml } from "../utils/dom.js";
+import { renderSection } from "./section.js";
+
+export function createAreaView(rootEl, { areaId, callbacks }) {
+	let lastState = null;
+	let openMenuId = null;
+	let renamingId = null;
+	let pendingFocusSectionId = null;
+	let pendingMenuFocusSectionId = null;
+	let pendingRenameSelect = false;
+
+	const closeMenu = () => {
+		if (!openMenuId) return;
+		pendingFocusSectionId = openMenuId;
+		openMenuId = null;
+		doRender();
+	};
+
+	const cancelRename = () => {
+		if (!renamingId) return;
+		pendingFocusSectionId = renamingId;
+		renamingId = null;
+		doRender();
+	};
+
+	const docClickHandler = (event) => {
+		if (!openMenuId) return;
+		if (rootEl.contains(event.target)) return;
+		closeMenu();
+	};
+	document.addEventListener("click", docClickHandler);
+
+	const sectionFromEvent = (actionEl) => {
+		const sectionEl = actionEl.closest("[data-section-id]");
+		if (!sectionEl || !lastState) return null;
+		return (
+			lastState.sections.find((s) => s.id === sectionEl.dataset.sectionId) ??
+			null
+		);
+	};
+
+	const taskFromEvent = (actionEl) => {
+		const taskEl = actionEl.closest("[data-id]");
+		if (!taskEl || !lastState) return null;
+		return lastState.tasks.find((t) => t.id === taskEl.dataset.id) ?? null;
+	};
+
+	const unbindClick = bindActions(rootEl, {
+		"add-section": () => callbacks.onAddSection({ areaId }),
+
+		"toggle-section": (_event, actionEl) => {
+			const s = sectionFromEvent(actionEl);
+			if (s)
+				callbacks.onToggleSection({ sectionId: s.id, collapsed: !s.collapsed });
+		},
+
+		"open-section-menu": (event, actionEl) => {
+			event.stopPropagation();
+			const s = sectionFromEvent(actionEl);
+			if (!s) return;
+			if (openMenuId === s.id) {
+				closeMenu();
+				return;
+			}
+			openMenuId = s.id;
+			// Heuristic: keyboard activations (Enter/Space) report
+			// event.detail === 0; mouse clicks report >= 1. When opened
+			// via keyboard we move focus to the first menu item; mouse
+			// users keep focus on ⋯ (their pointer is what they care about).
+			if (event.detail === 0) {
+				pendingMenuFocusSectionId = s.id;
+			}
+			doRender();
+		},
+
+		"rename-section": (_event, actionEl) => {
+			const s = sectionFromEvent(actionEl);
+			if (!s) return;
+			openMenuId = null;
+			renamingId = s.id;
+			pendingRenameSelect = true;
+			doRender();
+		},
+
+		"commit-rename": (_event, actionEl) => {
+			// click delegation also fires this on blur via the handler at
+			// the bottom of doRender (we listen to blur on the input).
+			commitRenameFromInput(actionEl);
+		},
+
+		"move-up": (_event, actionEl) => {
+			const s = sectionFromEvent(actionEl);
+			openMenuId = null;
+			if (s) {
+				pendingFocusSectionId = s.id;
+				callbacks.onMoveUp({ sectionId: s.id });
+			}
+		},
+
+		"move-down": (_event, actionEl) => {
+			const s = sectionFromEvent(actionEl);
+			openMenuId = null;
+			if (s) {
+				pendingFocusSectionId = s.id;
+				callbacks.onMoveDown({ sectionId: s.id });
+			}
+		},
+
+		"delete-section": (_event, actionEl) => {
+			const s = sectionFromEvent(actionEl);
+			openMenuId = null;
+			// No pendingFocusSectionId — the section is about to vanish.
+			// The toast appears (announced via aria-live) and the user
+			// Tabs to Undo from there.
+			if (s) callbacks.onDeleteSection({ sectionId: s.id });
+		},
+
+		"toggle-complete": (_event, actionEl) => {
+			const t = taskFromEvent(actionEl);
+			if (t) callbacks.onToggleComplete(t.id);
+		},
+
+		"toggle-star": (_event, actionEl) => {
+			const t = taskFromEvent(actionEl);
+			if (t) callbacks.onToggleStar(t.id, t.starred);
+		},
+	});
+
+	const unbindKeys = bindKeys(rootEl, {
+		Escape: () => {
+			if (renamingId) {
+				cancelRename();
+				return;
+			}
+			if (openMenuId) {
+				closeMenu();
+			}
+		},
+		Enter: (event, actionEl) => {
+			if (renamingId && actionEl?.dataset?.action === "commit-rename") {
+				event.preventDefault(); // prevent form-like default
+				commitRenameFromInput(actionEl);
+			}
+		},
+	});
+
+	function commitRenameFromInput(inputEl) {
+		const id = inputEl?.dataset?.sectionId ?? renamingId;
+		if (!id) return;
+		const value = (inputEl?.value ?? "").trim();
+		renamingId = null;
+		pendingFocusSectionId = id;
+		if (value) {
+			callbacks.onCommitRename({ sectionId: id, name: value });
+			// Model write is async; the model-notify-driven re-render will
+			// pick up pendingFocusSectionId and focus the new ⋯ button.
+		} else {
+			doRender(); // empty/cancel — re-render now to consume the flag
+		}
+	}
+
+	// Blur on the rename input also commits. We re-attach this in doRender
+	// because the input is removed/re-added across renders.
+	function attachBlurOnRenameInput() {
+		const input = rootEl.querySelector(".section__rename-input");
+		if (!input) return;
+		input.addEventListener(
+			"blur",
+			() => {
+				if (renamingId) commitRenameFromInput(input);
+			},
+			{ once: true },
+		);
+	}
+
+	function doRender() {
+		if (!lastState) return;
+		rootEl.innerHTML = template(lastState, areaId, {
+			openMenuId,
+			renamingId,
+		});
+		attachBlurOnRenameInput();
+
+		// Rename input focus handling — only select() on first render
+		// after entering rename mode. Subsequent re-renders preserve cursor.
+		const input = rootEl.querySelector(".section__rename-input");
+		if (input) {
+			if (pendingRenameSelect) {
+				input.focus();
+				input.select();
+				pendingRenameSelect = false;
+			} else if (document.activeElement !== input) {
+				input.focus();
+			}
+		}
+
+		// Post-render lookup: focus the section's ⋯ button by data-attribute.
+		// This is how we restore focus after innerHTML rewrites — element
+		// references captured BEFORE the rewrite are detached and can't
+		// receive focus.
+		if (pendingFocusSectionId) {
+			const trigger = rootEl.querySelector(
+				`[data-section-id="${CSS.escape(pendingFocusSectionId)}"] .section__menu-btn`,
+			);
+			trigger?.focus();
+			pendingFocusSectionId = null;
+		}
+
+		// Post-render lookup: when the menu was opened via keyboard, move
+		// focus to the first menu item.
+		if (pendingMenuFocusSectionId) {
+			const firstItem = rootEl.querySelector(
+				`[data-section-id="${CSS.escape(pendingMenuFocusSectionId)}"] [role="menu"] [role="menuitem"]:first-child`,
+			);
+			firstItem?.focus();
+			pendingMenuFocusSectionId = null;
+		}
+	}
+
+	return {
+		render(state) {
+			lastState = state;
+			doRender();
+		},
+		// Public hook for the controller to flip a freshly-created section
+		// into rename mode without the view subscribing to model changes.
+		enterRename(sectionId) {
+			renamingId = sectionId;
+			pendingRenameSelect = true;
+			doRender();
+		},
+		destroy() {
+			// Destroy-commit: if a rename is in flight and the input has a
+			// non-empty trimmed value, commit it before tearing down so
+			// typed work isn't silently lost.
+			if (renamingId) {
+				const input = rootEl.querySelector(".section__rename-input");
+				const value = (input?.value ?? "").trim();
+				if (value) {
+					callbacks.onCommitRename({ sectionId: renamingId, name: value });
+				}
+				renamingId = null;
+			}
+			unbindClick();
+			unbindKeys();
+			document.removeEventListener("click", docClickHandler);
+			rootEl.innerHTML = "";
+			lastState = null;
+			openMenuId = null;
+			pendingFocusSectionId = null;
+			pendingMenuFocusSectionId = null;
+			pendingRenameSelect = false;
+		},
+	};
+}
+
+function template(state, areaId, { openMenuId, renamingId }) {
+	const area = state.areas.find((a) => a.id === areaId);
+	if (!area) {
+		return `
+			<section class="area area--not-found">
+				<h1 class="area__title">Area not found.</h1>
+				<p class="area__not-found-help">
+					<a href="#today" class="area__back-link">Back to Today</a>
+				</p>
+			</section>
+		`;
+	}
+
+	const sections = state.sections
+		.filter((s) => s.areaId === areaId)
+		.sort((a, b) => a.order - b.order);
+
+	const tasksBySection = new Map();
+	for (const t of state.tasks) {
+		if (!t.completed) {
+			const list = tasksBySection.get(t.sectionId) ?? [];
+			list.push(t);
+			tasksBySection.set(t.sectionId, list);
+		}
+	}
+	for (const list of tasksBySection.values()) {
+		list.sort((a, b) => a.order - b.order);
+	}
+
+	const sectionHtml = sections
+		.map((s, i) =>
+			renderSection({
+				section: s,
+				tasks: tasksBySection.get(s.id) ?? [],
+				isUndeletable: s.id === "focus-default",
+				isFirst: i === 0,
+				isLast: i === sections.length - 1,
+				openMenuId,
+				renamingId,
+				now: state.now,
+			}),
+		)
+		.join("");
+
+	const titleHtml = area.name
+		? `<h1 class="area__title">${escapeHtml(area.name)}</h1>`
+		: "";
+
+	return `
+		<section class="area" data-area-id="${escapeHtml(area.id)}">
+			<header class="area__header">${titleHtml}</header>
+			<div class="area__sections">${sectionHtml}</div>
+			<footer class="area__footer">
+				<button type="button" class="area__add-section" data-action="add-section">＋ New section</button>
+			</footer>
+		</section>
+	`;
+}
