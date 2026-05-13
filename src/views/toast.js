@@ -3,6 +3,8 @@
 // One toast at a time. show() replaces any existing toast (and its timer).
 // The toast auto-dismisses after 5 seconds, calling onDismiss if provided.
 
+import { escapeHtml } from "../utils/dom.js";
+
 const DURATION_MS = 5_000;
 
 export function createToastView(rootEl) {
@@ -52,13 +54,4 @@ export function createToastView(rootEl) {
 			clearActive();
 		},
 	};
-}
-
-function escapeHtml(s) {
-	return String(s)
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#39;");
 }

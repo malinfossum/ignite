@@ -2,6 +2,7 @@
 // concatenate. Always escape user-provided fields before interpolating —
 // titles can contain `<` and would otherwise execute as HTML.
 
+import { escapeHtml } from "../utils/dom.js";
 import { formatTimeLabel } from "../utils/time.js";
 
 export function renderTaskRow(task, { now } = { now: new Date() }) {
@@ -27,13 +28,4 @@ export function renderTaskRow(task, { now } = { now: new Date() }) {
 			<button class="task__menu-btn" type="button" data-action="open-menu" aria-haspopup="menu">⋯</button>
 		</li>
 	`;
-}
-
-function escapeHtml(s) {
-	return String(s)
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#39;");
 }

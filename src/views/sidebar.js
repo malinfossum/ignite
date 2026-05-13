@@ -3,7 +3,7 @@
 // Renders a toggle button + the areas list with active-task counts.
 // CSS owns the expanded/collapsed visual; the template is the same in both.
 
-import { bindActions } from "../utils/dom.js";
+import { bindActions, escapeHtml } from "../utils/dom.js";
 
 export function createSidebarView(rootEl, { onToggleCollapse }) {
 	const unbind = bindActions(rootEl, {
@@ -51,13 +51,4 @@ function renderAreaItem(area, state) {
 			<span class="sidebar__count">${count}</span>
 		</li>
 	`;
-}
-
-function escapeHtml(s) {
-	return String(s)
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#39;");
 }
