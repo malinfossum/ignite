@@ -113,3 +113,71 @@ describe("Focus default section seed", () => {
 		expect(focusSections).toHaveLength(1);
 	});
 });
+
+describe("ensureFocus — section name migration", () => {
+	it("renames the focus-default section from empty to 'Tasks' on boot", async () => {
+		// Simulate an M2 record: Focus area + focus-default section with name "".
+		const db = await openDB(`ignite-test-${crypto.randomUUID()}`);
+		try {
+			await db.put("areas", {
+				id: "focus",
+				name: "Focus",
+				icon: "🔥",
+				critical: false,
+				order: 0,
+			});
+			await db.put("sections", {
+				id: "focus-default",
+				areaId: "focus",
+				name: "",
+				collapsed: false,
+				order: 0,
+			});
+
+			await createAreaModel(db);
+
+			const section = await db.get("sections", "focus-default");
+			expect(section.name).toBe("Tasks");
+		} finally {
+			db.close();
+		}
+	});
+
+	it("does not overwrite a renamed focus-default section", async () => {
+		const db = await openDB(`ignite-test-${crypto.randomUUID()}`);
+		try {
+			await db.put("areas", {
+				id: "focus",
+				name: "Focus",
+				icon: "🔥",
+				critical: false,
+				order: 0,
+			});
+			await db.put("sections", {
+				id: "focus-default",
+				areaId: "focus",
+				name: "Inbox",
+				collapsed: false,
+				order: 0,
+			});
+
+			await createAreaModel(db);
+
+			const section = await db.get("sections", "focus-default");
+			expect(section.name).toBe("Inbox");
+		} finally {
+			db.close();
+		}
+	});
+
+	it("seeds focus-default with name 'Tasks' on a fresh DB", async () => {
+		const db = await openDB(`ignite-test-${crypto.randomUUID()}`);
+		try {
+			await createAreaModel(db);
+			const section = await db.get("sections", "focus-default");
+			expect(section.name).toBe("Tasks");
+		} finally {
+			db.close();
+		}
+	});
+});

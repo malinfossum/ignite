@@ -14,7 +14,7 @@ const FOCUS_DEFAULTS = {
 const FOCUS_DEFAULT_SECTION = {
 	id: FOCUS_DEFAULT_SECTION_ID,
 	areaId: FOCUS_ID,
-	name: "",
+	name: "Tasks",
 	collapsed: false,
 	order: 0,
 };
@@ -82,5 +82,10 @@ async function ensureFocus(db) {
 	const existing = await db.get("areas", FOCUS_ID);
 	if (!existing) await db.put("areas", { ...FOCUS_DEFAULTS });
 	const existingSection = await db.get("sections", FOCUS_DEFAULT_SECTION_ID);
-	if (!existingSection) await db.put("sections", { ...FOCUS_DEFAULT_SECTION });
+	if (!existingSection) {
+		await db.put("sections", { ...FOCUS_DEFAULT_SECTION });
+	} else if (existingSection.name === "") {
+		// M2 → M3 migration: empty seed name → "Tasks".
+		await db.put("sections", { ...existingSection, name: "Tasks" });
+	}
 }
