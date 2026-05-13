@@ -19,7 +19,7 @@
 		"url": "git+https://github.com/malinfossum/ignite.git"
 	},
 	"author": "Malin Fossum",
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"bugs": {
 		"url": "https://github.com/malinfossum/ignite/issues"
 	},

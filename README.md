@@ -55,4 +55,6 @@ Future milestones cover the reminders engine and the PWA install flow. Design sp
 
 ## License
 
-MIT © Malin Fossum
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full text.
+
+Copyright 2026 Malin Fossum

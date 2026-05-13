@@ -414,5 +414,5 @@ a detailed implementation plan:
 8. **PWA polish** — manifest, install prompt, icons, dark-mode CSS pass,
    Lighthouse audit, Firefox/Safari fallback banner
 9. **Data export/import** — JSON round-trip, settings page wiring
-10. **Pre-release** — README, license (MIT), GitHub repo, deploy to static host
+10. **Pre-release** — README, license (Apache-2.0), GitHub repo, deploy to static host
     (Netlify/Vercel), test install on Brave
