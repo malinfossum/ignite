@@ -1,11 +1,12 @@
-// createToastView(rootEl) → { show({ message, onUndo, onDismiss }), destroy() }
+// createToastView(rootEl) → { show({ message, onUndo, onDismiss, durationMs }), destroy() }
 //
 // One toast at a time. show() replaces any existing toast (and its timer).
-// The toast auto-dismisses after 5 seconds, calling onDismiss if provided.
+// The toast auto-dismisses after durationMs (default 5000ms), calling onDismiss
+// if provided. Cascade-delete passes 8000ms; single task-delete uses the default.
 
 import { escapeHtml } from "../utils/dom.js";
 
-const DURATION_MS = 5_000;
+const DEFAULT_DURATION_MS = 5_000;
 
 export function createToastView(rootEl) {
 	let timer = null;
@@ -20,7 +21,7 @@ export function createToastView(rootEl) {
 		rootEl.innerHTML = "";
 	}
 
-	function show({ message, onUndo, onDismiss } = {}) {
+	function show({ message, onUndo, onDismiss, durationMs } = {}) {
 		clearActive();
 
 		rootEl.innerHTML = `
@@ -45,7 +46,7 @@ export function createToastView(rootEl) {
 			activeUndoHandler = null;
 			rootEl.innerHTML = "";
 			if (onDismiss) onDismiss();
-		}, DURATION_MS);
+		}, durationMs ?? DEFAULT_DURATION_MS);
 	}
 
 	return {
