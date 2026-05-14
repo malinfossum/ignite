@@ -116,6 +116,14 @@ export function createController({ models, els }) {
 				await moveSection(sectionId, "down");
 			},
 
+			onMoveTaskUp: async ({ taskId }) => {
+				await moveTask(taskId, "up");
+			},
+
+			onMoveTaskDown: async ({ taskId }) => {
+				await moveTask(taskId, "down");
+			},
+
 			onDeleteSection: async ({ sectionId }) => {
 				const allSections = await sections.list();
 				const sectionSnapshot = allSections.find((s) => s.id === sectionId);
@@ -162,6 +170,20 @@ export function createController({ models, els }) {
 		if (neighbourIdx < 0 || neighbourIdx >= peers.length) return;
 		const neighbour = peers[neighbourIdx];
 		await sections.swapOrder(target.id, neighbour.id);
+	}
+
+	async function moveTask(taskId, direction) {
+		const allTasks = await tasks.list();
+		const target = allTasks.find((t) => t.id === taskId);
+		if (!target) return;
+		const peers = (await tasks.listBySection(target.sectionId)).filter(
+			(t) => !t.completed,
+		); // already sorted by order in listBySection
+		const idx = peers.findIndex((t) => t.id === taskId);
+		const neighbourIdx = direction === "up" ? idx - 1 : idx + 1;
+		if (neighbourIdx < 0 || neighbourIdx >= peers.length) return;
+		const neighbour = peers[neighbourIdx];
+		await tasks.swapOrder(target.id, neighbour.id);
 	}
 
 	function cascadeMessage(name, count) {
