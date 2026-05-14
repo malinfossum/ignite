@@ -197,3 +197,31 @@ describe("createTaskModel — title capitalization", () => {
 		expect(t.title).toBe("Hello world");
 	});
 });
+
+describe("createTaskModel — swapOrder", () => {
+	it("swaps order values between two tasks in one notify", async () => {
+		const { model } = await freshModel();
+		const a = await model.create({ sectionId: "s1", title: "A" });
+		const b = await model.create({ sectionId: "s1", title: "B" });
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		await model.swapOrder(a.id, b.id);
+		const list = await model.listBySection("s1");
+		expect(list[0].id).toBe(b.id);
+		expect(list[1].id).toBe(a.id);
+		expect(calls).toEqual(["notified"]); // single notify
+	});
+
+	it("throws when either task id is missing", async () => {
+		const { model } = await freshModel();
+		await expect(model.swapOrder("nope-a", "nope-b")).rejects.toThrow(
+			/Task not found/,
+		);
+		const a = await model.create({ sectionId: "s1", title: "A" });
+		await expect(model.swapOrder(a.id, "nope-b")).rejects.toThrow(
+			/Task not found/,
+		);
+	});
+});

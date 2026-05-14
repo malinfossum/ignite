@@ -3,6 +3,20 @@ import { capitalizeFirst } from "../utils/text.js";
 
 // createTaskModel(db) → Promise<TaskModel>
 //
+// TaskModel = {
+//   subscribe(fn) → unsubscribe,
+//   list() → Promise<Task[]>,
+//   listBySection(sectionId) → Promise<Task[]>,  // ordered by `order`
+//   create({ sectionId, title, ...metadata }) → Promise<Task>,
+//   update(id, patch) → Promise<Task>,
+//   toggleCompleted(id) → Promise<Task>,
+//   remove(id) → Promise<void>,
+//   removeMany(ids) → Promise<void>,
+//   swapOrder(idA, idB) → Promise<void>,
+//   restore(snapshot) → Promise<Task>,
+//   restoreMany(snapshots) → Promise<void>,
+// }
+//
 // Storage note: IndexedDB can't index booleans. We persist `completed`,
 // `starred`, and `critical` as 0/1 and convert at the model boundary, so the
 // public API always uses true/false.
@@ -98,6 +112,20 @@ export async function createTaskModel(db) {
 		async removeMany(ids) {
 			await Promise.all(ids.map((id) => db.delete("tasks", id)));
 			notify();
+		},
+
+		async swapOrder(idA, idB) {
+			const [a, b] = await Promise.all([
+				db.get("tasks", idA),
+				db.get("tasks", idB),
+			]);
+			if (!a) throw new Error(`Task not found: ${idA}`);
+			if (!b) throw new Error(`Task not found: ${idB}`);
+			await Promise.all([
+				db.put("tasks", { ...a, order: b.order }),
+				db.put("tasks", { ...b, order: a.order }),
+			]);
+			notify(); // single notify after both writes
 		},
 
 		async restoreMany(snapshots) {
