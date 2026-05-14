@@ -4,7 +4,7 @@
 
 An ADHD-friendly, installable task app — open source, local-first, zero bloat.
 
-**Status:** M1 (data layer) complete — 44 tests passing. M2 (first views) up next. Not yet usable end-to-end.
+**Status:** M1-M3 complete — 93 tests passing. Capture tasks, view Today, manage areas and sections inline. M4 (task reorder) in progress. PWA install + reminders engine still to come.
 
 ---
 
@@ -47,9 +47,13 @@ npm run build      # production build
 
 **M1 — Data layer (complete):** IndexedDB wrapper, models for Areas / Sections / Tasks / Settings, recurrence engine with daily / weekly / monthly / yearly rules. 44 unit tests.
 
-**M2 — First views (next):** sidebar + main render, area/section/task display, basic interaction.
+**M2 — First views (complete):** Today view with capture bar, sidebar with area list, task rows with star + delete + undo, hash routing, sidebar collapse, 60-second clock tick. 67 tests.
 
-Future milestones cover the reminders engine and the PWA install flow. Design spec and implementation plan live in `docs/superpowers/`.
+**M3 — Area view + section CRUD (complete):** dedicated `#area/:id` page with sections, inline section rename, add / move / delete sections, cascade undo for deletes, full keyboard + screen-reader paths, `focus-default` seed section, auto-capitalization of first character on create/rename. 91 tests.
+
+**M4 — Task reorder (in progress):** Move up / Move down in the task ⋯ menu, mirroring the section pattern. Model + controller layers shipped; view wiring in flight.
+
+Future milestones cover drag-to-reorder, full task metadata editing, reminders engine, and PWA install flow. Design specs and implementation plans live in `docs/superpowers/`.
 
 ---
 
