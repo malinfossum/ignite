@@ -13,6 +13,7 @@ import { createToastView } from "./views/toast.js";
 import { createTodayView } from "./views/today.js";
 
 const TICK_MS = 60_000;
+const CASCADE_TOAST_MS = 8_000;
 
 export function parseHash(hash) {
 	const raw = (hash || "").replace(/^#/, "");
@@ -90,31 +91,75 @@ export function createController({ models, els }) {
 	}
 
 	function areaCallbacks() {
-		// STUBS — Task 12 fills these in. Wired now so the area view boots
-		// and routing can be manually verified in isolation.
 		return {
-			onAddSection: ({ areaId }) => {
-				console.log("[stub] onAddSection", areaId);
+			onAddSection: async ({ areaId }) => {
+				const section = await sections.create({
+					areaId,
+					name: "New section",
+				});
+				currentMainView?.enterRename?.(section.id);
 			},
-			onToggleSection: ({ sectionId, collapsed }) => {
-				console.log("[stub] onToggleSection", sectionId, collapsed);
+
+			onToggleSection: async ({ sectionId, collapsed }) => {
+				await sections.setCollapsed(sectionId, collapsed);
 			},
-			onCommitRename: ({ sectionId, name }) => {
-				console.log("[stub] onCommitRename", sectionId, name);
+
+			onCommitRename: async ({ sectionId, name }) => {
+				await sections.rename(sectionId, name);
 			},
-			onMoveUp: ({ sectionId }) => {
-				console.log("[stub] onMoveUp", sectionId);
+
+			onMoveUp: async ({ sectionId }) => {
+				await moveSection(sectionId, "up");
 			},
-			onMoveDown: ({ sectionId }) => {
-				console.log("[stub] onMoveDown", sectionId);
+
+			onMoveDown: async ({ sectionId }) => {
+				await moveSection(sectionId, "down");
 			},
-			onDeleteSection: ({ sectionId }) => {
-				console.log("[stub] onDeleteSection", sectionId);
+
+			onDeleteSection: async ({ sectionId }) => {
+				const allSections = await sections.list();
+				const sectionSnapshot = allSections.find((s) => s.id === sectionId);
+				if (!sectionSnapshot) return;
+				const taskSnapshots = await tasks.listBySection(sectionId);
+
+				await tasks.removeMany(taskSnapshots.map((t) => t.id));
+				await sections.remove(sectionId);
+
+				toast.show({
+					message: cascadeMessage(sectionSnapshot.name, taskSnapshots.length),
+					durationMs: CASCADE_TOAST_MS,
+					onUndo: async () => {
+						await sections.restore(sectionSnapshot);
+						await tasks.restoreMany(taskSnapshots);
+					},
+				});
 			},
+
 			onToggleComplete: (id) => tasks.toggleCompleted(id),
+
 			onToggleStar: (id, currentStarred) =>
 				tasks.update(id, { starred: !currentStarred }),
 		};
+	}
+
+	async function moveSection(sectionId, direction) {
+		const all = await sections.list();
+		const target = all.find((s) => s.id === sectionId);
+		if (!target) return;
+		const peers = all
+			.filter((s) => s.areaId === target.areaId)
+			.sort((a, b) => a.order - b.order);
+		const idx = peers.findIndex((s) => s.id === sectionId);
+		const neighbourIdx = direction === "up" ? idx - 1 : idx + 1;
+		if (neighbourIdx < 0 || neighbourIdx >= peers.length) return;
+		const neighbour = peers[neighbourIdx];
+		await sections.swapOrder(target.id, neighbour.id);
+	}
+
+	function cascadeMessage(name, count) {
+		if (count === 0) return `"${name}" deleted`;
+		if (count === 1) return `"${name}" and 1 task deleted`;
+		return `"${name}" and ${count} tasks deleted`;
 	}
 
 	function onHashChange() {
