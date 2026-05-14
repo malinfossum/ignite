@@ -4,6 +4,7 @@
 //
 // Closure state:
 //   openMenuId             - section id whose ⋯ menu is open, or null
+//   openTaskMenuId         - task id whose ⋯ menu is open, or null
 //   renamingId             - section id currently in rename mode, or null
 //   pendingFocusSectionId  - after the next render, look up this section's
 //                            ⋯ button and focus it. Used for menu-close,
@@ -30,6 +31,7 @@
 //   onMoveUp({ sectionId })
 //   onMoveDown({ sectionId })
 //   onDeleteSection({ sectionId })
+//   onDeleteTask(task)
 //   onToggleComplete(taskId)
 //   onToggleStar(taskId, currentStarred)
 
@@ -39,6 +41,7 @@ import { renderSection } from "./section.js";
 export function createAreaView(rootEl, { areaId, callbacks }) {
 	let lastState = null;
 	let openMenuId = null;
+	let openTaskMenuId = null;
 	let renamingId = null;
 	let pendingFocusSectionId = null;
 	let pendingMenuFocusSectionId = null;
@@ -51,6 +54,12 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		doRender();
 	};
 
+	const closeTaskMenu = () => {
+		if (!openTaskMenuId) return;
+		openTaskMenuId = null;
+		doRender();
+	};
+
 	const cancelRename = () => {
 		if (!renamingId) return;
 		pendingFocusSectionId = renamingId;
@@ -59,11 +68,31 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	};
 
 	const docClickHandler = (event) => {
-		if (!openMenuId) return;
 		if (rootEl.contains(event.target)) return;
-		closeMenu();
+		if (openMenuId) closeMenu();
+		if (openTaskMenuId) closeTaskMenu();
 	};
 	document.addEventListener("click", docClickHandler);
+
+	// Esc lives on document, not rootEl. After doRender() rewrites innerHTML
+	// the previously-focused element is detached and focus drops to <body>,
+	// which is outside rootEl. A keydown on body bubbles up to document only —
+	// it never visits rootEl. Matches the today.js pattern.
+	const docKeyHandler = (event) => {
+		if (event.key !== "Escape") return;
+		if (renamingId) {
+			cancelRename();
+			return;
+		}
+		if (openMenuId) {
+			closeMenu();
+			return;
+		}
+		if (openTaskMenuId) {
+			closeTaskMenu();
+		}
+	};
+	document.addEventListener("keydown", docKeyHandler);
 
 	const sectionFromEvent = (actionEl) => {
 		const sectionEl = actionEl.closest("[data-section-id]");
@@ -97,6 +126,8 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 				closeMenu();
 				return;
 			}
+			// Mutual exclusion with task menu
+			openTaskMenuId = null;
 			openMenuId = s.id;
 			// Heuristic: keyboard activations (Enter/Space) report
 			// event.detail === 0; mouse clicks report >= 1. When opened
@@ -159,18 +190,25 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			const t = taskFromEvent(actionEl);
 			if (t) callbacks.onToggleStar(t.id, t.starred);
 		},
+
+		"open-menu": (event, actionEl) => {
+			event.stopPropagation();
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			// Mutual exclusion with section menu
+			openMenuId = null;
+			openTaskMenuId = openTaskMenuId === t.id ? null : t.id;
+			doRender();
+		},
+
+		"delete-task": (_event, actionEl) => {
+			const t = taskFromEvent(actionEl);
+			openTaskMenuId = null;
+			if (t) callbacks.onDeleteTask(t);
+		},
 	});
 
 	const unbindKeys = bindKeys(rootEl, {
-		Escape: () => {
-			if (renamingId) {
-				cancelRename();
-				return;
-			}
-			if (openMenuId) {
-				closeMenu();
-			}
-		},
 		Enter: (event, actionEl) => {
 			if (renamingId && actionEl?.dataset?.action === "commit-rename") {
 				event.preventDefault(); // prevent form-like default
@@ -213,6 +251,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		rootEl.innerHTML = template(lastState, areaId, {
 			openMenuId,
 			renamingId,
+			openTaskMenuId,
 		});
 		attachBlurOnRenameInput();
 
@@ -279,9 +318,11 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			unbindClick();
 			unbindKeys();
 			document.removeEventListener("click", docClickHandler);
+			document.removeEventListener("keydown", docKeyHandler);
 			rootEl.innerHTML = "";
 			lastState = null;
 			openMenuId = null;
+			openTaskMenuId = null;
 			pendingFocusSectionId = null;
 			pendingMenuFocusSectionId = null;
 			pendingRenameSelect = false;
@@ -289,7 +330,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	};
 }
 
-function template(state, areaId, { openMenuId, renamingId }) {
+function template(state, areaId, { openMenuId, renamingId, openTaskMenuId }) {
 	const area = state.areas.find((a) => a.id === areaId);
 	if (!area) {
 		return `
@@ -328,6 +369,7 @@ function template(state, areaId, { openMenuId, renamingId }) {
 				isLast: i === sections.length - 1,
 				openMenuId,
 				renamingId,
+				openTaskMenuId,
 				now: state.now,
 			}),
 		)

@@ -11,6 +11,7 @@
 //   isFirst, isLast  - edge flags for Move up/down disabled state
 //   openMenuId       - section id whose menu is currently open, or null
 //   renamingId       - section id currently in rename mode, or null
+//   openTaskMenuId   - task id whose ⋯ menu is currently open, or null
 //   now              - Date used by renderTaskRow for time labels
 
 import { escapeHtml } from "../utils/dom.js";
@@ -24,6 +25,7 @@ export function renderSection({
 	isLast,
 	openMenuId,
 	renamingId,
+	openTaskMenuId,
 	now,
 }) {
 	const isOpen = openMenuId === section.id;
@@ -37,7 +39,7 @@ export function renderSection({
 	const menu =
 		isOpen && !isRenaming ? renderMenu({ isFirst, isLast, isUndeletable }) : "";
 
-	const body = renderBody(tasks, now);
+	const body = renderBody(tasks, now, openTaskMenuId);
 
 	return `
 		<section
@@ -119,11 +121,24 @@ function renderMenu({ isFirst, isLast, isUndeletable }) {
 	`;
 }
 
-function renderBody(tasks, now) {
-	const rows = tasks.map((t) => renderTaskRow(t, { now })).join("");
+function renderBody(tasks, now, openTaskMenuId) {
+	const rows = tasks
+		.map((t) => renderTaskRowWithMenu(t, now, openTaskMenuId))
+		.join("");
 	return `
 		<div class="section__body">
 			<ul class="section__tasks">${rows}</ul>
 		</div>
 	`;
+}
+
+function renderTaskRowWithMenu(task, now, openTaskMenuId) {
+	const row = renderTaskRow(task, { now });
+	if (openTaskMenuId !== task.id) return row;
+	return row.replace(
+		"</li>",
+		`<div class="task-menu" role="menu">
+			<button class="task-menu__item" type="button" data-action="delete-task" role="menuitem">Delete</button>
+		</div></li>`,
+	);
 }

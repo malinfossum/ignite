@@ -135,6 +135,14 @@ export function createController({ models, els }) {
 				});
 			},
 
+			onDeleteTask: (task) => {
+				tasks.remove(task.id);
+				toast.show({
+					message: "Task deleted",
+					onUndo: () => tasks.restore(task),
+				});
+			},
+
 			onToggleComplete: (id) => tasks.toggleCompleted(id),
 
 			onToggleStar: (id, currentStarred) =>
