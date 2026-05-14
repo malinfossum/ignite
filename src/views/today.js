@@ -135,8 +135,9 @@ function renderGroup(
 }
 
 function renderTaskRowWithMenu(task, now, openMenuTaskId) {
-	const row = renderTaskRow(task, { now });
-	if (openMenuTaskId !== task.id) return row;
+	const isOpen = openMenuTaskId === task.id;
+	const row = renderTaskRow(task, { now, isOpen });
+	if (!isOpen) return row;
 	// Inject the menu inside the <li> as its last child. The <li> is set to
 	// position: relative in CSS, so the menu's absolute positioning anchors
 	// against the row. (Putting it after </li> would make it a direct child

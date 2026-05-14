@@ -5,7 +5,10 @@
 import { escapeHtml } from "../utils/dom.js";
 import { formatTimeLabel } from "../utils/time.js";
 
-export function renderTaskRow(task, { now } = { now: new Date() }) {
+export function renderTaskRow(
+	task,
+	{ now, isOpen = false } = { now: new Date() },
+) {
 	const checked = task.completed ? "checked" : "";
 	const starredAttr = task.starred
 		? 'aria-pressed="true"'
@@ -25,7 +28,10 @@ export function renderTaskRow(task, { now } = { now: new Date() }) {
 			<button class="task__star" type="button" data-action="toggle-star" ${starredAttr}>${starGlyph}</button>
 			${recurring}
 			${timeLabel}
-			<button class="task__menu-btn" type="button" data-action="open-menu" aria-haspopup="menu">⋯</button>
+			<button class="task__menu-btn" type="button" data-action="open-menu"
+				aria-haspopup="menu"
+				aria-expanded="${isOpen}"
+				aria-label="Task options: ${escapeHtml(task.title)}">⋯</button>
 		</li>
 	`;
 }
