@@ -304,3 +304,296 @@ body {
 	padding: 2rem 0;
 	text-align: center;
 }
+
+/* ----------------------------------------------------------------- */
+/* M3 — Area view + sections                                          */
+/* ----------------------------------------------------------------- */
+
+/* Note: capture bar stays visible on both routes (M3 amendment to Q4).
+   The `body.is-area-route` class is still toggled by the controller and
+   reserved for future area-only styling, but no rule uses it in M3. */
+
+/* Area shell */
+.area {
+	display: flex;
+	flex-direction: column;
+	gap: 1.25rem;
+	padding: var(--main-padding, 1.5rem);
+}
+
+.area__header {
+	display: flex;
+	align-items: baseline;
+	gap: 0.75rem;
+}
+
+.area__title {
+	font-size: 1.5rem;
+	font-weight: 600;
+	color: var(--color-text);
+	margin: 0;
+}
+
+.area--not-found {
+	color: var(--color-text-muted);
+}
+
+.area__back-link {
+	color: var(--color-accent);
+	text-decoration: underline;
+}
+
+.area__sections {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.area__footer {
+	margin-top: 0.5rem;
+}
+
+.area__add-section {
+	background: transparent;
+	color: var(--color-text-muted);
+	border: 1px dashed var(--color-border);
+	border-radius: 8px;
+	padding: 0.75rem 1rem;
+	width: 100%;
+	min-block-size: 44px;
+	cursor: pointer;
+	font: inherit;
+	text-align: left;
+}
+.area__add-section:hover {
+	color: var(--color-text);
+	border-color: var(--color-accent);
+}
+.area__add-section:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+/* Section block */
+.section {
+	background: var(--color-bg-elevated);
+	border-radius: 12px;
+	border: 1px solid var(--color-border);
+	overflow: hidden;
+}
+
+.section__header {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.25rem 0.5rem;
+}
+
+.section__toggle {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	background: transparent;
+	border: 0;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	padding: 0.5rem 0.75rem;
+	min-block-size: 44px;
+	cursor: pointer;
+	border-radius: 6px;
+}
+.section__toggle:hover {
+	background: rgba(255, 255, 255, 0.04);
+}
+.section__toggle:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+.section__chevron {
+	display: inline-block;
+	font-size: 0.85rem;
+	color: var(--color-text-muted);
+	transition: transform 150ms ease;
+}
+
+/* Section title is rendered as <h2>; reset the default H2 user-agent
+   styles (margin, font-size) so it sits inline inside the toggle button. */
+.section__title {
+	font-size: 1rem;
+	font-weight: 600;
+	color: var(--color-text);
+	margin: 0;
+	line-height: 1.2;
+}
+
+/* Menu trigger */
+.section__menu-btn {
+	background: transparent;
+	border: 0;
+	color: var(--color-text-muted);
+	font-size: 1.25rem;
+	cursor: pointer;
+	padding: 0;
+	min-block-size: 44px;
+	min-inline-size: 44px;
+	border-radius: 6px;
+}
+.section__menu-btn:hover {
+	color: var(--color-text);
+	background: rgba(255, 255, 255, 0.04);
+}
+.section__menu-btn:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+/* Inline rename input */
+.section__header--editing {
+	padding: 0.25rem 0.5rem;
+}
+.section__rename-input {
+	flex: 1;
+	background: var(--color-bg-elevated);
+	color: var(--color-text);
+	border: 1px solid var(--color-accent);
+	border-radius: 6px;
+	padding: 0.5rem 0.75rem;
+	font: inherit;
+	min-block-size: 44px;
+}
+.section__rename-input:focus {
+	outline: none;
+}
+
+/* Section body */
+.section__body {
+	padding: 0 0.5rem 0.75rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.section__tasks {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+/* Collapsed state — CSS hook on the outer <section> */
+.section[data-collapsed="true"] .section__body {
+	display: none;
+}
+.section[data-collapsed="true"] .section__chevron {
+	transform: rotate(-90deg);
+}
+
+/* Section dropdown menu */
+.section-menu {
+	position: relative;
+	margin: 0 0.5rem;
+	list-style: none;
+	padding: 0.25rem;
+	background: var(--color-bg-elevated);
+	border: 1px solid var(--color-border);
+	border-radius: 8px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+	display: flex;
+	flex-direction: column;
+}
+
+.section-menu__item {
+	display: block;
+	width: 100%;
+	background: transparent;
+	border: 0;
+	color: var(--color-text);
+	font: inherit;
+	text-align: left;
+	padding: 0.5rem 0.75rem;
+	min-block-size: 44px;
+	cursor: pointer;
+	border-radius: 6px;
+}
+.section-menu__item:hover:not(:disabled) {
+	background: rgba(255, 255, 255, 0.04);
+}
+.section-menu__item:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+.section-menu__item:disabled {
+	color: var(--color-text-muted);
+	cursor: not-allowed;
+}
+
+/* Sidebar wordmark + active state */
+.sidebar__home {
+	background: transparent;
+	border: 0;
+	color: var(--color-text);
+	font-size: 1.1rem;
+	font-weight: 700;
+	cursor: pointer;
+	padding: 0.75rem 1rem;
+	min-block-size: 44px;
+	text-align: left;
+	width: 100%;
+}
+.sidebar__home:hover {
+	color: var(--color-accent);
+}
+.sidebar__home:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+.sidebar__home.is-active {
+	color: var(--color-accent);
+}
+
+/* Sidebar area row buttons */
+.sidebar__area {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	width: 100%;
+	background: transparent;
+	border: 0;
+	color: var(--color-text);
+	font: inherit;
+	text-align: left;
+	padding: 0.5rem 0.75rem;
+	min-block-size: 44px;
+	cursor: pointer;
+	border-radius: 6px;
+}
+.sidebar__area:hover {
+	background: rgba(255, 255, 255, 0.04);
+}
+.sidebar__area:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+.sidebar__area.is-active {
+	color: var(--color-accent);
+	background: rgba(255, 255, 255, 0.04);
+}
+
+/* Reduced motion: disable chevron rotation animation */
+@media (prefers-reduced-motion: reduce) {
+	.section__chevron {
+		transition: none;
+	}
+}
+
+/* Desktop+ */
+@media (min-width: 1024px) {
+	.area__title {
+		font-size: 1.75rem;
+	}
+}
