@@ -5,6 +5,7 @@
 :root {
 	--color-bg: #0f0f10;
 	--color-bg-elevated: #18181b;
+	--color-bg-hover: rgba(255, 255, 255, 0.04);
 	--color-text: #e8e8ea;
 	--color-text-muted: #9a9aa3;
 	--color-border: #1f1f22;
@@ -92,19 +93,6 @@ body {
 	display: flex;
 	flex-direction: column;
 	gap: 0.25rem;
-}
-.sidebar__area {
-	display: grid;
-	grid-template-columns: 1.5rem 1fr auto;
-	gap: 0.5rem;
-	align-items: center;
-	padding: 0.4rem 0.5rem;
-	border-radius: var(--radius);
-	color: var(--color-text-muted);
-}
-.sidebar__area:hover {
-	background: var(--color-bg-elevated);
-	color: var(--color-text);
 }
 .sidebar__count {
 	font-variant-numeric: tabular-nums;
@@ -404,7 +392,7 @@ body {
 	border-radius: 6px;
 }
 .section__toggle:hover {
-	background: rgba(255, 255, 255, 0.04);
+	background: var(--color-bg-hover);
 }
 .section__toggle:focus-visible {
 	outline: 2px solid var(--color-accent);
@@ -442,7 +430,7 @@ body {
 }
 .section__menu-btn:hover {
 	color: var(--color-text);
-	background: rgba(255, 255, 255, 0.04);
+	background: var(--color-bg-hover);
 }
 .section__menu-btn:focus-visible {
 	outline: 2px solid var(--color-accent);
@@ -520,7 +508,7 @@ body {
 	border-radius: 6px;
 }
 .section-menu__item:hover:not(:disabled) {
-	background: rgba(255, 255, 255, 0.04);
+	background: var(--color-bg-hover);
 }
 .section-menu__item:focus-visible {
 	outline: 2px solid var(--color-accent);
@@ -572,7 +560,7 @@ body {
 	border-radius: 6px;
 }
 .sidebar__area:hover {
-	background: rgba(255, 255, 255, 0.04);
+	background: var(--color-bg-hover);
 }
 .sidebar__area:focus-visible {
 	outline: 2px solid var(--color-accent);
@@ -580,7 +568,7 @@ body {
 }
 .sidebar__area.is-active {
 	color: var(--color-accent);
-	background: rgba(255, 255, 255, 0.04);
+	background: var(--color-bg-hover);
 }
 
 /* Reduced motion: disable chevron rotation animation */
