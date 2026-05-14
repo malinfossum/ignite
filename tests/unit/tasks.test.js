@@ -189,3 +189,11 @@ describe("createTaskModel — restoreMany", () => {
 		expect(calls).toEqual(["notified"]);
 	});
 });
+
+describe("createTaskModel — title capitalization", () => {
+	it("capitalizes the first character of title on create", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({ sectionId: "s1", title: "hello world" });
+		expect(t.title).toBe("Hello world");
+	});
+});

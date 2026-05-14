@@ -190,3 +190,19 @@ describe("createSectionModel — focus-default undeletable guard", () => {
 		expect(stored.some((s) => s.id === other.id)).toBe(true);
 	});
 });
+
+describe("createSectionModel — name capitalization", () => {
+	it("capitalizes the first character of name on create", async () => {
+		const { model } = await freshModel();
+		const s = await model.create({ areaId: "focus", name: "inbox" });
+		expect(s.name).toBe("Inbox");
+	});
+
+	it("capitalizes the first character on rename", async () => {
+		const { model } = await freshModel();
+		const s = await model.create({ areaId: "focus", name: "Old" });
+		await model.rename(s.id, "  routines  ");
+		const [stored] = await model.listByArea("focus");
+		expect(stored.name).toBe("Routines");
+	});
+});

@@ -1,4 +1,5 @@
 import { uuid } from "../utils/id.js";
+import { capitalizeFirst } from "../utils/text.js";
 
 // createTaskModel(db) → Promise<TaskModel>
 //
@@ -47,7 +48,7 @@ export async function createTaskModel(db) {
 			const task = {
 				id: uuid(),
 				sectionId,
-				title,
+				title: capitalizeFirst(title),
 				notes,
 				completed: false,
 				starred,

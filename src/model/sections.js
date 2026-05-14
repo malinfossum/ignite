@@ -1,4 +1,5 @@
 import { uuid } from "../utils/id.js";
+import { capitalizeFirst } from "../utils/text.js";
 import { FOCUS_DEFAULT_SECTION_ID } from "./areas.js";
 
 // createSectionModel(db) → Promise<SectionModel>
@@ -46,7 +47,13 @@ export async function createSectionModel(db) {
 				(s) => s.areaId === areaId,
 			);
 			const order = siblings.length;
-			const section = { id: uuid(), areaId, name, collapsed, order };
+			const section = {
+				id: uuid(),
+				areaId,
+				name: capitalizeFirst(name),
+				collapsed,
+				order,
+			};
 			await db.put("sections", section);
 			notify();
 			return section;
@@ -77,11 +84,11 @@ export async function createSectionModel(db) {
 		},
 
 		async rename(id, name) {
-			const trimmed = String(name ?? "").trim();
-			if (!trimmed) throw new Error("rename(section): name cannot be empty");
+			const cleaned = capitalizeFirst(name);
+			if (!cleaned) throw new Error("rename(section): name cannot be empty");
 			const existing = await db.get("sections", id);
 			if (!existing) throw new Error(`Section not found: ${id}`);
-			await db.put("sections", { ...existing, name: trimmed });
+			await db.put("sections", { ...existing, name: cleaned });
 			notify();
 		},
 
