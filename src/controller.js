@@ -1,11 +1,12 @@
 // createController({ models, els }) → { start(), stop() }
 //
-// Wires sidebar (always-on), capture (always-on), main view (route-driven),
-// toast (orchestrated by controller for delete-undo). Subscribes to all
-// model notifies; rebuilds state and re-renders sidebar + currentMainView.
+// Wires sidebar (always-on), capture (always-on; CSS-hidden on area route),
+// toast (always-on), and a route-driven main view (Today or Area). Subscribes
+// to all model notifies; rebuilds state and re-renders sidebar + currentMainView.
 // Owns the 60s clock tick that calls currentMainView.render(state) only.
 
 import { FOCUS_DEFAULT_SECTION_ID } from "./model/areas.js";
+import { createAreaView } from "./views/area.js";
 import { createCaptureView } from "./views/capture.js";
 import { createSidebarView } from "./views/sidebar.js";
 import { createToastView } from "./views/toast.js";
@@ -23,12 +24,13 @@ export function parseHash(hash) {
 
 export function createController({ models, els }) {
 	const { areas, sections, tasks, settings } = models;
-	const { sidebarRoot, captureRoot, todayRoot, toastRoot } = els;
+	const { sidebarRoot, captureRoot, mainRoot, toastRoot } = els;
 
 	let sidebar = null;
 	let capture = null;
 	let toast = null;
 	let currentMainView = null;
+	let currentRoute = { name: "today" };
 	let tickHandle = null;
 	let unsubs = [];
 
@@ -41,6 +43,7 @@ export function createController({ models, els }) {
 			sections: sectionList,
 			tasks: taskList,
 			settings: settingsRecord,
+			route: currentRoute,
 			now: new Date(),
 		};
 	}
@@ -51,44 +54,78 @@ export function createController({ models, els }) {
 			"is-sidebar-collapsed",
 			!!(state.settings.sidebarCollapsed ?? false),
 		);
+		document.body.classList.toggle(
+			"is-area-route",
+			currentRoute.name === "area",
+		);
 		sidebar?.render(state);
 		currentMainView?.render(state);
 	}
 
-	function mountMainView(name) {
-		// M2: only "today" is wired. Everything else falls back to today.
+	function mountMainView(route) {
 		currentMainView?.destroy();
 		currentMainView = null;
 
-		// All recognized routes use the same #today-root container in M2.
-		const rootMap = { today: todayRoot };
-		const root = rootMap[name] ?? todayRoot;
+		if (route.name === "today") {
+			currentMainView = createTodayView(mainRoot, {
+				onToggleComplete: (id) => tasks.toggleCompleted(id),
+				onToggleStar: (id, currentStarred) =>
+					tasks.update(id, { starred: !currentStarred }),
+				onDelete: (taskData) => {
+					tasks.remove(taskData.id);
+					toast.show({
+						message: "Task deleted",
+						onUndo: () => tasks.restore(taskData),
+					});
+				},
+			});
+			return;
+		}
 
-		currentMainView = createTodayView(root, {
-			onToggleComplete: (id) => tasks.toggleCompleted(id),
-			onToggleStar: (id, currentStarred) =>
-				tasks.update(id, { starred: !currentStarred }),
-			onDelete: (taskData) => {
-				tasks.remove(taskData.id);
-				toast.show({
-					message: "Task deleted",
-					onUndo: () => tasks.restore(taskData),
-				});
-			},
+		// route.name === "area"
+		currentMainView = createAreaView(mainRoot, {
+			areaId: route.id,
+			callbacks: areaCallbacks(),
 		});
 	}
 
+	function areaCallbacks() {
+		// STUBS — Task 12 fills these in. Wired now so the area view boots
+		// and routing can be manually verified in isolation.
+		return {
+			onAddSection: ({ areaId }) => {
+				console.log("[stub] onAddSection", areaId);
+			},
+			onToggleSection: ({ sectionId, collapsed }) => {
+				console.log("[stub] onToggleSection", sectionId, collapsed);
+			},
+			onCommitRename: ({ sectionId, name }) => {
+				console.log("[stub] onCommitRename", sectionId, name);
+			},
+			onMoveUp: ({ sectionId }) => {
+				console.log("[stub] onMoveUp", sectionId);
+			},
+			onMoveDown: ({ sectionId }) => {
+				console.log("[stub] onMoveDown", sectionId);
+			},
+			onDeleteSection: ({ sectionId }) => {
+				console.log("[stub] onDeleteSection", sectionId);
+			},
+			onToggleComplete: (id) => tasks.toggleCompleted(id),
+			onToggleStar: (id, currentStarred) =>
+				tasks.update(id, { starred: !currentStarred }),
+		};
+	}
+
 	function onHashChange() {
-		const route = parseHash(window.location.hash);
-		mountMainView(route.name);
+		currentRoute = parseHash(window.location.hash);
+		mountMainView(currentRoute);
 		applyState();
 	}
 
 	function start() {
-		// Mount toast (above main).
 		toast = createToastView(toastRoot);
 
-		// Mount sidebar (always-on).
 		sidebar = createSidebarView(sidebarRoot, {
 			onToggleCollapse: async () => {
 				const current = await settings.get();
@@ -96,9 +133,14 @@ export function createController({ models, els }) {
 					!(current.sidebarCollapsed ?? false),
 				);
 			},
+			onGoToday: () => {
+				window.location.hash = "#today";
+			},
+			onOpenArea: (id) => {
+				window.location.hash = `#area/${id}`;
+			},
 		});
 
-		// Mount capture (always-on inside <main>).
 		capture = createCaptureView(captureRoot, {
 			onSubmit: (title) =>
 				tasks.create({
@@ -108,7 +150,6 @@ export function createController({ models, els }) {
 				}),
 		});
 
-		// Subscribe to model notifies.
 		unsubs.push(
 			areas.subscribe(applyState),
 			sections.subscribe(applyState),
@@ -116,15 +157,12 @@ export function createController({ models, els }) {
 			settings.subscribe(applyState),
 		);
 
-		// Initial route + render.
-		const route = parseHash(window.location.hash);
-		mountMainView(route.name);
+		currentRoute = parseHash(window.location.hash);
+		mountMainView(currentRoute);
 		applyState();
 
-		// Hash router.
 		window.addEventListener("hashchange", onHashChange);
 
-		// 60s tick — re-renders only the current main view.
 		tickHandle = setInterval(applyState, TICK_MS);
 	}
 

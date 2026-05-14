@@ -20,7 +20,7 @@ async function boot() {
 
 	mainEl.innerHTML = `
 		<section class="capture" id="capture-root"></section>
-		<section class="today" id="today-root"></section>
+		<section id="main-root"></section>
 	`;
 
 	const toastRoot = document.createElement("div");
@@ -32,7 +32,7 @@ async function boot() {
 		els: {
 			sidebarRoot,
 			captureRoot: document.getElementById("capture-root"),
-			todayRoot: document.getElementById("today-root"),
+			mainRoot: document.getElementById("main-root"),
 			toastRoot,
 		},
 	});
