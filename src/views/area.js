@@ -18,6 +18,10 @@
 //                            Cleared after that one render so subsequent
 //                            re-renders (60s tick, unrelated notifies)
 //                            preserve cursor position.
+//   pendingFocusTaskId     - mirror of pendingFocusSectionId for task rows.
+//                            After the next render, look up the task's
+//                            ⋯ button by data-id and focus it. Used for
+//                            Move up / Move down focus return.
 //
 // We do NOT capture element references for focus return. Across an
 // innerHTML rewrite, captured elements detach and .focus() on them is a
@@ -30,6 +34,8 @@
 //   onCommitRename({ sectionId, name })   - empty/whitespace ⇒ cancel
 //   onMoveUp({ sectionId })
 //   onMoveDown({ sectionId })
+//   onMoveTaskUp({ taskId })
+//   onMoveTaskDown({ taskId })
 //   onDeleteSection({ sectionId })
 //   onDeleteTask(task)
 //   onToggleComplete(taskId)
@@ -46,6 +52,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	let pendingFocusSectionId = null;
 	let pendingMenuFocusSectionId = null;
 	let pendingRenameSelect = false;
+	let pendingFocusTaskId = null;
 
 	const closeMenu = () => {
 		if (!openMenuId) return;
@@ -201,6 +208,24 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			doRender();
 		},
 
+		"move-task-up": (_event, actionEl) => {
+			const t = taskFromEvent(actionEl);
+			openTaskMenuId = null;
+			if (t) {
+				pendingFocusTaskId = t.id;
+				callbacks.onMoveTaskUp({ taskId: t.id });
+			}
+		},
+
+		"move-task-down": (_event, actionEl) => {
+			const t = taskFromEvent(actionEl);
+			openTaskMenuId = null;
+			if (t) {
+				pendingFocusTaskId = t.id;
+				callbacks.onMoveTaskDown({ taskId: t.id });
+			}
+		},
+
 		"delete-task": (_event, actionEl) => {
 			const t = taskFromEvent(actionEl);
 			openTaskMenuId = null;
@@ -280,6 +305,14 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			pendingFocusSectionId = null;
 		}
 
+		if (pendingFocusTaskId) {
+			const trigger = rootEl.querySelector(
+				`[data-id="${CSS.escape(pendingFocusTaskId)}"] .task__menu-btn`,
+			);
+			trigger?.focus();
+			pendingFocusTaskId = null;
+		}
+
 		// Post-render lookup: when the menu was opened via keyboard, move
 		// focus to the first menu item.
 		if (pendingMenuFocusSectionId) {
@@ -324,6 +357,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			openMenuId = null;
 			openTaskMenuId = null;
 			pendingFocusSectionId = null;
+			pendingFocusTaskId = null;
 			pendingMenuFocusSectionId = null;
 			pendingRenameSelect = false;
 		},
