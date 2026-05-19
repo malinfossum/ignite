@@ -245,6 +245,7 @@ body {
 	border-radius: var(--radius);
 	cursor: pointer;
 	font: inherit;
+	min-block-size: 44px;
 }
 .task-menu__item:hover {
 	background: var(--color-bg);
