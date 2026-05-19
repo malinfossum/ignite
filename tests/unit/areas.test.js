@@ -189,3 +189,30 @@ describe("createAreaModel — name capitalization", () => {
 		expect(a.name).toBe("Projects");
 	});
 });
+
+describe("createAreaModel — rename", () => {
+	it("trims, capitalizes, and updates the name in one notify", async () => {
+		const { model } = await freshModel();
+		const a = await model.create({ name: "Projects" });
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		await model.rename(a.id, "  studies  ");
+		const stored = (await model.list()).find((x) => x.id === a.id);
+		expect(stored.name).toBe("Studies");
+		expect(calls).toEqual(["notified"]);
+	});
+
+	it("rejects empty / whitespace-only names and missing ids", async () => {
+		const { model } = await freshModel();
+		const a = await model.create({ name: "Old" });
+		await expect(model.rename(a.id, "")).rejects.toThrow(/empty/i);
+		await expect(model.rename(a.id, "   ")).rejects.toThrow(/empty/i);
+		await expect(model.rename("no-such-id", "New")).rejects.toThrow(
+			/not found/i,
+		);
+		const stored = (await model.list()).find((x) => x.id === a.id);
+		expect(stored.name).toBe("Old");
+	});
+});

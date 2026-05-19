@@ -75,6 +75,15 @@ export async function createAreaModel(db) {
 			return updated;
 		},
 
+		async rename(id, name) {
+			const cleaned = capitalizeFirst(name);
+			if (!cleaned) throw new Error("rename(area): name cannot be empty");
+			const existing = await db.get("areas", id);
+			if (!existing) throw new Error(`Area not found: ${id}`);
+			await db.put("areas", { ...existing, name: cleaned });
+			notify();
+		},
+
 		async remove(id) {
 			if (id === FOCUS_ID) {
 				throw new Error("Cannot delete Focus area");
