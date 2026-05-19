@@ -181,3 +181,11 @@ describe("ensureFocus — section name migration", () => {
 		}
 	});
 });
+
+describe("createAreaModel — name capitalization", () => {
+	it("capitalizes the first character of name on create", async () => {
+		const { model } = await freshModel();
+		const a = await model.create({ name: "projects" });
+		expect(a.name).toBe("Projects");
+	});
+});

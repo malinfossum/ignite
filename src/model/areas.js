@@ -1,6 +1,7 @@
 import { uuid } from "../utils/id.js";
+import { capitalizeFirst } from "../utils/text.js";
 
-const FOCUS_ID = "focus";
+export const FOCUS_ID = "focus";
 export const FOCUS_DEFAULT_SECTION_ID = "focus-default";
 
 const FOCUS_DEFAULTS = {
@@ -53,7 +54,13 @@ export async function createAreaModel(db) {
 		async create({ name, icon = "", critical = false }) {
 			const all = await db.getAll("areas");
 			const order = all.length;
-			const area = { id: uuid(), name, icon, critical, order };
+			const area = {
+				id: uuid(),
+				name: capitalizeFirst(name),
+				icon,
+				critical,
+				order,
+			};
 			await db.put("areas", area);
 			notify();
 			return area;
