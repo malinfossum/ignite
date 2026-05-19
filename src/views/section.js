@@ -123,7 +123,14 @@ function renderMenu({ isFirst, isLast, isUndeletable }) {
 
 function renderBody(tasks, now, openTaskMenuId) {
 	const rows = tasks
-		.map((t) => renderTaskRowWithMenu(t, now, openTaskMenuId))
+		.map((t, i) =>
+			renderTaskRowWithMenu(t, {
+				now,
+				isFirst: i === 0,
+				isLast: i === tasks.length - 1,
+				openTaskMenuId,
+			}),
+		)
 		.join("");
 	return `
 		<div class="section__body">
@@ -132,13 +139,21 @@ function renderBody(tasks, now, openTaskMenuId) {
 	`;
 }
 
-function renderTaskRowWithMenu(task, now, openTaskMenuId) {
-	const row = renderTaskRow(task, { now });
-	if (openTaskMenuId !== task.id) return row;
+function renderTaskRowWithMenu(task, { now, isFirst, isLast, openTaskMenuId }) {
+	const isOpen = openTaskMenuId === task.id;
+	const row = renderTaskRow(task, { now, isOpen });
+	if (!isOpen) return row;
+	const upDisabled = isFirst ? "disabled" : "";
+	const downDisabled = isLast ? "disabled" : "";
 	return row.replace(
 		"</li>",
 		`<div class="task-menu" role="menu">
-			<button class="task-menu__item" type="button" data-action="delete-task" role="menuitem">Delete</button>
+			<button class="task-menu__item" type="button" data-action="move-task-up"
+				role="menuitem" ${upDisabled}>Move up</button>
+			<button class="task-menu__item" type="button" data-action="move-task-down"
+				role="menuitem" ${downDisabled}>Move down</button>
+			<button class="task-menu__item" type="button" data-action="delete-task"
+				role="menuitem">Delete</button>
 		</div></li>`,
 	);
 }
