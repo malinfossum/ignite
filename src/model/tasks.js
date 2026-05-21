@@ -7,6 +7,7 @@ import { capitalizeFirst } from "../utils/text.js";
 //   subscribe(fn) → unsubscribe,
 //   list() → Promise<Task[]>,
 //   listBySection(sectionId) → Promise<Task[]>,  // ordered by `order`
+//   listByArea(areaId) → Promise<Task[]>,  // all tasks whose section is in this area
 //   create({ sectionId, title, ...metadata }) → Promise<Task>,
 //   update(id, patch) → Promise<Task>,
 //   toggleCompleted(id) → Promise<Task>,
@@ -43,6 +44,17 @@ export async function createTaskModel(db) {
 		async listBySection(sectionId) {
 			const rows = await db.getByIndex("tasks", "sectionId", sectionId);
 			return rows.map(fromStorage).sort((a, b) => a.order - b.order);
+		},
+
+		async listByArea(areaId) {
+			const allSections = await db.getAll("sections");
+			const sectionIds = new Set(
+				allSections.filter((s) => s.areaId === areaId).map((s) => s.id),
+			);
+			const allTasks = await db.getAll("tasks");
+			return allTasks
+				.filter((t) => sectionIds.has(t.sectionId))
+				.map(fromStorage);
 		},
 
 		async create({

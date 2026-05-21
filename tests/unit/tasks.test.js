@@ -225,3 +225,37 @@ describe("createTaskModel — swapOrder", () => {
 		);
 	});
 });
+
+describe("createTaskModel — listByArea", () => {
+	it("returns all tasks whose section belongs to the area, regardless of section", async () => {
+		const { db, model } = await freshModel();
+		// Seed two sections in "focus" area and one in "other" area.
+		await db.put("sections", {
+			id: "s1",
+			areaId: "focus",
+			name: "S1",
+			order: 0,
+			collapsed: false,
+		});
+		await db.put("sections", {
+			id: "s2",
+			areaId: "focus",
+			name: "S2",
+			order: 1,
+			collapsed: false,
+		});
+		await db.put("sections", {
+			id: "s3",
+			areaId: "other",
+			name: "S3",
+			order: 0,
+			collapsed: false,
+		});
+		const t1 = await model.create({ sectionId: "s1", title: "T1" });
+		const t2 = await model.create({ sectionId: "s2", title: "T2" });
+		await model.create({ sectionId: "s3", title: "T3" });
+
+		const focusTasks = await model.listByArea("focus");
+		expect(focusTasks.map((t) => t.id).sort()).toEqual([t1.id, t2.id].sort());
+	});
+});
