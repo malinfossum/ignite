@@ -105,6 +105,14 @@ export async function createAreaModel(db) {
 			await db.delete("areas", id);
 			notify();
 		},
+
+		async removeMany(ids) {
+			if (ids.some((id) => id === FOCUS_ID)) {
+				throw new Error("Cannot delete Focus area");
+			}
+			await Promise.all(ids.map((id) => db.delete("areas", id)));
+			notify(); // single notify after all deletes
+		},
 	};
 }
 

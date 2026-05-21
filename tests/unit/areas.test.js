@@ -245,3 +245,32 @@ describe("createAreaModel — swapOrder", () => {
 		);
 	});
 });
+
+describe("createAreaModel — removeMany", () => {
+	it("deletes multiple areas in one notify", async () => {
+		const { model } = await freshModel();
+		const a = await model.create({ name: "A" });
+		const b = await model.create({ name: "B" });
+		await model.create({ name: "C" });
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		await model.removeMany([a.id, b.id]);
+		const list = (await model.list()).filter((x) => x.id !== "focus");
+		expect(list.map((x) => x.name)).toEqual(["C"]);
+		expect(calls).toEqual(["notified"]); // single notify, not two
+	});
+
+	it("rejects removeMany when the id list contains FOCUS_ID", async () => {
+		const { model } = await freshModel();
+		const other = await model.create({ name: "Other" });
+		await expect(model.removeMany([other.id, "focus"])).rejects.toThrow(
+			/cannot delete focus/i,
+		);
+		// Reject before any delete — both records still present.
+		const stored = await model.list();
+		expect(stored.some((x) => x.id === "focus")).toBe(true);
+		expect(stored.some((x) => x.id === other.id)).toBe(true);
+	});
+});
