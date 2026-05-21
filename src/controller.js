@@ -5,7 +5,7 @@
 // to all model notifies; rebuilds state and re-renders sidebar + currentMainView.
 // Owns the 60s clock tick that calls currentMainView.render(state) only.
 
-import { FOCUS_DEFAULT_SECTION_ID } from "./model/areas.js";
+import { FOCUS_DEFAULT_SECTION_ID, FOCUS_ID } from "./model/areas.js";
 import { createAreaView } from "./views/area.js";
 import { createCaptureView } from "./views/capture.js";
 import { createSidebarView } from "./views/sidebar.js";
@@ -172,6 +172,100 @@ export function createController({ models, els }) {
 		await sections.swapOrder(target.id, neighbour.id);
 	}
 
+	async function moveArea(areaId, direction) {
+		const all = await areas.list();
+		const peers = all.slice().sort((a, b) => a.order - b.order);
+		const idx = peers.findIndex((a) => a.id === areaId);
+		if (idx < 0) return;
+		const neighbourIdx = direction === "up" ? idx - 1 : idx + 1;
+		if (neighbourIdx < 0 || neighbourIdx >= peers.length) return;
+		const neighbour = peers[neighbourIdx];
+		await areas.swapOrder(areaId, neighbour.id);
+	}
+
+	async function deleteAreaCascade(areaId) {
+		// 0. Defensive guard — Focus area is never deletable.
+		// The UI's `isUndeletable` already hides the Delete item; this guard
+		// protects against programmatic calls (dev tools, future bugs).
+		// Without it, the cascade would partial-execute: tasks.removeMany
+		// would succeed, then sections.removeMany would throw on
+		// `focus-default`, leaving Focus's tasks gone and no toast shown.
+		if (areaId === FOCUS_ID) return;
+
+		// 1. Snapshot all three layers BEFORE any write.
+		const all = await areas.list();
+		const areaSnapshot = all.find((a) => a.id === areaId);
+		if (!areaSnapshot) return;
+		const sectionSnapshots = await sections.listByArea(areaId);
+		const taskSnapshots = await tasks.listByArea(areaId);
+
+		// 2. Redirect-if-active — BEFORE any model write.
+		// Without this, applyState fires between areas.remove and the redirect
+		// and the user sees an "Area not found" flash.
+		if (currentRoute.name === "area" && currentRoute.id === areaId) {
+			window.location.hash = "#today";
+		}
+
+		// 3. Cascade: tasks → sections → area.
+		await tasks.removeMany(taskSnapshots.map((t) => t.id));
+		await sections.removeMany(sectionSnapshots.map((s) => s.id));
+		await areas.remove(areaId);
+
+		// 4. Toast — reverse-cascade restore (parents before children).
+		toast.show({
+			message: cascadeAreaMessage(
+				areaSnapshot.name,
+				sectionSnapshots.length,
+				taskSnapshots.length,
+			),
+			durationMs: CASCADE_TOAST_MS,
+			onUndo: async () => {
+				await areas.restore(areaSnapshot);
+				await sections.restoreMany(sectionSnapshots);
+				await tasks.restoreMany(taskSnapshots);
+			},
+		});
+	}
+
+	function cascadeAreaMessage(name, sectionCount, taskCount) {
+		if (sectionCount === 0 && taskCount === 0) return `"${name}" deleted`;
+		const parts = [];
+		if (sectionCount === 1) parts.push("1 section");
+		else if (sectionCount > 1) parts.push(`${sectionCount} sections`);
+		if (taskCount === 1) parts.push("1 task");
+		else if (taskCount > 1) parts.push(`${taskCount} tasks`);
+		return `"${name}" and ${parts.join(", ")} deleted`;
+	}
+
+	function sidebarCallbacks() {
+		return {
+			onAddArea: async () => {
+				const area = await areas.create({ name: "New area" });
+				window.location.hash = `#area/${area.id}`;
+				sidebar.enterRename(area.id);
+			},
+			onCommitAreaRename: async ({ areaId, name }) => {
+				try {
+					await areas.rename(areaId, name);
+				} catch (err) {
+					// Race: area was just cascade-deleted (e.g., user clicked Delete
+					// before the destroy-commit fired). Drop silently.
+					if (/Area not found/.test(err.message)) return;
+					throw err;
+				}
+			},
+			onMoveAreaUp: async ({ areaId }) => {
+				await moveArea(areaId, "up");
+			},
+			onMoveAreaDown: async ({ areaId }) => {
+				await moveArea(areaId, "down");
+			},
+			onDeleteArea: async ({ areaId }) => {
+				await deleteAreaCascade(areaId);
+			},
+		};
+	}
+
 	async function moveTask(taskId, direction) {
 		const allTasks = await tasks.list();
 		const target = allTasks.find((t) => t.id === taskId);
@@ -214,6 +308,7 @@ export function createController({ models, els }) {
 			onOpenArea: (id) => {
 				window.location.hash = `#area/${id}`;
 			},
+			...sidebarCallbacks(),
 		});
 
 		capture = createCaptureView(captureRoot, {
