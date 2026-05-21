@@ -274,3 +274,37 @@ describe("createAreaModel — removeMany", () => {
 		expect(stored.some((x) => x.id === other.id)).toBe(true);
 	});
 });
+
+describe("createAreaModel — restore + restoreMany", () => {
+	it("restore re-inserts a deleted area with the same id, name, and order", async () => {
+		const { model } = await freshModel();
+		const a = await model.create({ name: "Projects" });
+		await model.remove(a.id);
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		await model.restore(a);
+		const list = (await model.list()).filter((x) => x.id !== "focus");
+		expect(list).toHaveLength(1);
+		expect(list[0].id).toBe(a.id);
+		expect(list[0].name).toBe("Projects");
+		expect(list[0].order).toBe(a.order);
+		expect(calls).toEqual(["notified"]);
+	});
+
+	it("restoreMany re-inserts multiple areas in one notify", async () => {
+		const { model } = await freshModel();
+		const a = await model.create({ name: "A" });
+		const b = await model.create({ name: "B" });
+		await model.removeMany([a.id, b.id]);
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		await model.restoreMany([a, b]);
+		const list = (await model.list()).filter((x) => x.id !== "focus");
+		expect(list.map((x) => x.name).sort()).toEqual(["A", "B"]);
+		expect(calls).toEqual(["notified"]); // single notify
+	});
+});

@@ -27,7 +27,12 @@ const FOCUS_DEFAULT_SECTION = {
 //     list() → Promise<Area[]>,
 //     create({ name, icon?, critical? }) → Promise<Area>,
 //     update(id, patch) → Promise<Area>,
+//     rename(id, name) → Promise<void>,
+//     swapOrder(idA, idB) → Promise<void>,
 //     remove(id) → Promise<void>,
+//     removeMany(ids) → Promise<void>,
+//     restore(snapshot) → Promise<Area>,
+//     restoreMany(snapshots) → Promise<void>,
 //   }
 //
 // Subscribe/notify pattern: every mutation writes the DB, then notifies.
@@ -112,6 +117,17 @@ export async function createAreaModel(db) {
 			}
 			await Promise.all(ids.map((id) => db.delete("areas", id)));
 			notify(); // single notify after all deletes
+		},
+
+		async restore(snapshot) {
+			await db.put("areas", { ...snapshot });
+			notify();
+			return snapshot;
+		},
+
+		async restoreMany(snapshots) {
+			await Promise.all(snapshots.map((s) => db.put("areas", { ...s })));
+			notify(); // single notify after all writes
 		},
 	};
 }
