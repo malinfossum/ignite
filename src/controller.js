@@ -182,8 +182,12 @@ export function createController({ models, els }) {
 	}
 
 	async function moveArea(areaId, direction) {
+		// Focus is pinned to the top — it never moves and nothing moves above it.
+		if (areaId === FOCUS_ID) return;
 		const all = await areas.list();
-		const peers = all.slice().sort((a, b) => a.order - b.order);
+		const peers = all
+			.filter((a) => a.id !== FOCUS_ID)
+			.sort((a, b) => a.order - b.order);
 		const idx = peers.findIndex((a) => a.id === areaId);
 		if (idx < 0) return;
 		const neighbourIdx = direction === "up" ? idx - 1 : idx + 1;
