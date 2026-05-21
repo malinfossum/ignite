@@ -105,7 +105,16 @@ export function createController({ models, els }) {
 			},
 
 			onCommitRename: async ({ sectionId, name }) => {
-				await sections.rename(sectionId, name);
+				try {
+					await sections.rename(sectionId, name);
+				} catch (err) {
+					// Race: section was cascade-deleted (e.g., user deleted the parent
+					// area while mid-rename of one of its sections, or destroy-commit
+					// raced cascade). Drop silently — toast undo will restore the
+					// section with its pre-rename name; the typed text is lost.
+					if (/Section not found/.test(err.message)) return;
+					throw err;
+				}
 			},
 
 			onMoveUp: async ({ sectionId }) => {
