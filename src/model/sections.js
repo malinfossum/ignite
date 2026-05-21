@@ -16,6 +16,7 @@ import { FOCUS_DEFAULT_SECTION_ID } from "./areas.js";
 //   rename(id, name) → Promise<void>,
 //   swapOrder(idA, idB) → Promise<void>,
 //   restore(snapshot) → Promise<Section>,
+//   restoreMany(snapshots) → Promise<void>,
 // }
 
 export async function createSectionModel(db) {
@@ -118,6 +119,11 @@ export async function createSectionModel(db) {
 			}
 			await Promise.all(ids.map((id) => db.delete("sections", id)));
 			notify(); // single notify after all deletes
+		},
+
+		async restoreMany(snapshots) {
+			await Promise.all(snapshots.map((s) => db.put("sections", { ...s })));
+			notify(); // single notify after all writes
 		},
 	};
 }

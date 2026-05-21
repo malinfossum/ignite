@@ -206,3 +206,20 @@ describe("createSectionModel — name capitalization", () => {
 		expect(stored.name).toBe("Routines");
 	});
 });
+
+describe("createSectionModel — restoreMany", () => {
+	it("re-inserts multiple deleted sections in one notify", async () => {
+		const { model } = await freshModel();
+		const a = await model.create({ areaId: "focus", name: "A" });
+		const b = await model.create({ areaId: "focus", name: "B" });
+		await model.removeMany([a.id, b.id]);
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		await model.restoreMany([a, b]);
+		const list = await model.listByArea("focus");
+		expect(list.map((s) => s.name).sort()).toEqual(["A", "B"]);
+		expect(calls).toEqual(["notified"]); // single notify
+	});
+});
