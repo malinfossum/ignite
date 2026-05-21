@@ -84,6 +84,20 @@ export async function createAreaModel(db) {
 			notify();
 		},
 
+		async swapOrder(idA, idB) {
+			const [a, b] = await Promise.all([
+				db.get("areas", idA),
+				db.get("areas", idB),
+			]);
+			if (!a) throw new Error(`Area not found: ${idA}`);
+			if (!b) throw new Error(`Area not found: ${idB}`);
+			await Promise.all([
+				db.put("areas", { ...a, order: b.order }),
+				db.put("areas", { ...b, order: a.order }),
+			]);
+			notify(); // single notify after both writes
+		},
+
 		async remove(id) {
 			if (id === FOCUS_ID) {
 				throw new Error("Cannot delete Focus area");

@@ -216,3 +216,32 @@ describe("createAreaModel — rename", () => {
 		expect(stored.name).toBe("Old");
 	});
 });
+
+describe("createAreaModel — swapOrder", () => {
+	it("swaps order values between two areas in one notify", async () => {
+		const { model } = await freshModel();
+		const a = await model.create({ name: "A" }); // order = 1 (Focus is 0)
+		const b = await model.create({ name: "B" }); // order = 2
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		await model.swapOrder(a.id, b.id);
+		const list = (await model.list()).filter((x) => x.id !== "focus");
+		list.sort((x, y) => x.order - y.order);
+		expect(list[0].id).toBe(b.id);
+		expect(list[1].id).toBe(a.id);
+		expect(calls).toEqual(["notified"]); // single notify after both writes
+	});
+
+	it("throws when either area id is missing", async () => {
+		const { model } = await freshModel();
+		await expect(model.swapOrder("nope-a", "nope-b")).rejects.toThrow(
+			/Area not found/,
+		);
+		const a = await model.create({ name: "A" });
+		await expect(model.swapOrder(a.id, "nope-b")).rejects.toThrow(
+			/Area not found/,
+		);
+	});
+});
