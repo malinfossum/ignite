@@ -219,9 +219,14 @@ export function createController({ models, els }) {
 			window.location.hash = "#today";
 		}
 
-		// 3. Cascade: tasks → sections → area.
-		await tasks.removeMany(taskSnapshots.map((t) => t.id));
-		await sections.removeMany(sectionSnapshots.map((s) => s.id));
+		// 3. Cascade: tasks → sections → area. Guard empty layers —
+		// removeMany([]) still notifies, adding redundant re-render passes.
+		if (taskSnapshots.length) {
+			await tasks.removeMany(taskSnapshots.map((t) => t.id));
+		}
+		if (sectionSnapshots.length) {
+			await sections.removeMany(sectionSnapshots.map((s) => s.id));
+		}
 		await areas.remove(areaId);
 
 		// 4. Toast — reverse-cascade restore (parents before children).
@@ -233,9 +238,15 @@ export function createController({ models, els }) {
 			),
 			durationMs: CASCADE_TOAST_MS,
 			onUndo: async () => {
+				// Reverse-cascade restore (parents before children); same
+				// empty-layer guard as the delete above.
 				await areas.restore(areaSnapshot);
-				await sections.restoreMany(sectionSnapshots);
-				await tasks.restoreMany(taskSnapshots);
+				if (sectionSnapshots.length) {
+					await sections.restoreMany(sectionSnapshots);
+				}
+				if (taskSnapshots.length) {
+					await tasks.restoreMany(taskSnapshots);
+				}
 			},
 		});
 	}
