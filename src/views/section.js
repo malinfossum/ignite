@@ -102,8 +102,20 @@ function renderRenameHeader(section, pendingRenameValue) {
 }
 
 function renderMenu({ isFirst, isLast, isUndeletable }) {
-	const upDisabled = isFirst ? "disabled" : "";
-	const downDisabled = isLast ? "disabled" : "";
+	// Boundary moves are OMITTED (not greyed) — mirrors the area menu in
+	// sidebar.js. isFirst ⇒ no Move up; isLast ⇒ no Move down.
+	const moveUpItem = isFirst
+		? ""
+		: `<li role="none">
+				<button role="menuitem" type="button" class="section-menu__item"
+					data-action="move-up">Move up</button>
+			</li>`;
+	const moveDownItem = isLast
+		? ""
+		: `<li role="none">
+				<button role="menuitem" type="button" class="section-menu__item"
+					data-action="move-down">Move down</button>
+			</li>`;
 	const deleteItem = isUndeletable
 		? ""
 		: `<li role="none">
@@ -116,14 +128,8 @@ function renderMenu({ isFirst, isLast, isUndeletable }) {
 				<button role="menuitem" type="button" class="section-menu__item"
 					data-action="rename-section">Rename</button>
 			</li>
-			<li role="none">
-				<button role="menuitem" type="button" class="section-menu__item"
-					data-action="move-up" ${upDisabled}>Move up</button>
-			</li>
-			<li role="none">
-				<button role="menuitem" type="button" class="section-menu__item"
-					data-action="move-down" ${downDisabled}>Move down</button>
-			</li>
+			${moveUpItem}
+			${moveDownItem}
 			${deleteItem}
 		</ul>
 	`;
@@ -151,15 +157,20 @@ function renderTaskRowWithMenu(task, { now, isFirst, isLast, openTaskMenuId }) {
 	const isOpen = openTaskMenuId === task.id;
 	const row = renderTaskRow(task, { now, isOpen });
 	if (!isOpen) return row;
-	const upDisabled = isFirst ? "disabled" : "";
-	const downDisabled = isLast ? "disabled" : "";
+	// Boundary moves are OMITTED (not greyed) — mirrors the section + area menus.
+	const moveUpItem = isFirst
+		? ""
+		: `<button class="task-menu__item" type="button" data-action="move-task-up"
+				role="menuitem">Move up</button>`;
+	const moveDownItem = isLast
+		? ""
+		: `<button class="task-menu__item" type="button" data-action="move-task-down"
+				role="menuitem">Move down</button>`;
 	return row.replace(
 		"</li>",
 		`<div class="task-menu" role="menu">
-			<button class="task-menu__item" type="button" data-action="move-task-up"
-				role="menuitem" ${upDisabled}>Move up</button>
-			<button class="task-menu__item" type="button" data-action="move-task-down"
-				role="menuitem" ${downDisabled}>Move down</button>
+			${moveUpItem}
+			${moveDownItem}
 			<button class="task-menu__item" type="button" data-action="delete-task"
 				role="menuitem">Delete</button>
 		</div></li>`,

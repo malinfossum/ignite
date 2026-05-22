@@ -264,6 +264,8 @@ body {
 	outline: 2px solid var(--color-accent);
 	outline-offset: 2px;
 }
+/* :disabled is unused today (boundary moves are omitted, not greyed) but kept so
+   all three menus stay identical — see .sidebar-menu__item. */
 .task-menu__item:disabled {
 	color: var(--color-text-muted);
 	cursor: not-allowed;
@@ -533,6 +535,8 @@ body {
 	outline: 2px solid var(--color-accent);
 	outline-offset: 2px;
 }
+/* :disabled is unused today (boundary moves are omitted, not greyed) but kept so
+   all three menus stay identical — see .sidebar-menu__item. */
 .section-menu__item:disabled {
 	color: var(--color-text-muted);
 	cursor: not-allowed;
@@ -656,7 +660,7 @@ body {
 }
 
 /* Menu item — mirrors .section-menu__item (separate class per the menu-parity
-   convention). :disabled is unused today but kept so both menus stay identical. */
+   convention). :disabled is unused today but kept so all three menus stay identical. */
 .sidebar-menu__item {
 	display: block;
 	width: 100%;

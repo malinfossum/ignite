@@ -21,7 +21,7 @@
 //   pendingFocusTaskId     - mirror of pendingFocusSectionId for task rows.
 //                            After the next render, look up the task's
 //                            ⋯ button by data-id and focus it. Used for
-//                            Move up / Move down focus return.
+//                            Move up / Move down AND menu-close focus return.
 //   pendingMenuFocusTaskId - after the next render, focus the first
 //                            [role="menuitem"] inside this task's menu.
 //                            Used when the task menu opens via keyboard.
@@ -67,15 +67,19 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	let pendingRenameValue = null;
 	let isRendering = false;
 
-	const closeMenu = () => {
+	// returnFocus=false on click-outside dismiss: focus follows the click
+	// (e.g. into the capture input), not back to the ⋯. Esc / menu-action /
+	// toggle close use the default (true) to restore focus to the ⋯ button.
+	const closeMenu = (returnFocus = true) => {
 		if (!openMenuId) return;
-		pendingFocusSectionId = openMenuId;
+		if (returnFocus) pendingFocusSectionId = openMenuId;
 		openMenuId = null;
 		doRender();
 	};
 
-	const closeTaskMenu = () => {
+	const closeTaskMenu = (returnFocus = true) => {
 		if (!openTaskMenuId) return;
+		if (returnFocus) pendingFocusTaskId = openTaskMenuId;
 		openTaskMenuId = null;
 		doRender();
 	};
@@ -90,8 +94,10 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 
 	const docClickHandler = (event) => {
 		if (rootEl.contains(event.target)) return;
-		if (openMenuId) closeMenu();
-		if (openTaskMenuId) closeTaskMenu();
+		// Outside click: close without focus return so focus stays where the
+		// user clicked (e.g. the capture input, a sibling outside #main-root).
+		if (openMenuId) closeMenu(false);
+		if (openTaskMenuId) closeTaskMenu(false);
 	};
 	document.addEventListener("click", docClickHandler);
 
@@ -217,13 +223,16 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			event.stopPropagation();
 			const t = taskFromEvent(actionEl);
 			if (!t) return;
+			if (openTaskMenuId === t.id) {
+				closeTaskMenu();
+				return;
+			}
 			// Mutual exclusion with section menu
 			openMenuId = null;
-			const willOpen = openTaskMenuId !== t.id;
-			openTaskMenuId = willOpen ? t.id : null;
+			openTaskMenuId = t.id;
 			// Keyboard activations report event.detail === 0; on keyboard-open
 			// move focus to the first menu item (mirrors open-section-menu).
-			if (willOpen && event.detail === 0) {
+			if (event.detail === 0) {
 				pendingMenuFocusTaskId = t.id;
 			}
 			doRender();
@@ -346,10 +355,11 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		}
 
 		// Post-render lookup: when a menu was opened via keyboard, move focus
-		// to its first ENABLED menu item. :not([disabled]) skips a greyed-out
-		// boundary item (e.g. the task menu's "Move up" on a first task) —
-		// .focus() on a disabled button is a silent no-op that drops focus to
-		// <body>. querySelector returns the first match in document order.
+		// to its first menu item. Menus now OMIT boundary moves rather than
+		// disabling them, so no item is disabled today; :not([disabled]) is
+		// kept as a defensive guard (.focus() on a disabled button is a silent
+		// no-op that drops focus to <body>). querySelector returns the first
+		// match in document order.
 		if (pendingMenuFocusSectionId) {
 			const firstItem = rootEl.querySelector(
 				`[data-section-id="${CSS.escape(pendingMenuFocusSectionId)}"] [role="menu"] [role="menuitem"]:not([disabled])`,
