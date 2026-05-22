@@ -12,6 +12,7 @@
 //   openMenuId       - section id whose menu is currently open, or null
 //   renamingId       - section id currently in rename mode, or null
 //   openTaskMenuId   - task id whose ⋯ menu is currently open, or null
+//   pendingRenameValue - in-progress rename text (survives re-renders), or null
 //   now              - Date used by renderTaskRow for time labels
 
 import { escapeHtml } from "../utils/dom.js";
@@ -26,6 +27,7 @@ export function renderSection({
 	openMenuId,
 	renamingId,
 	openTaskMenuId,
+	pendingRenameValue,
 	now,
 }) {
 	const isOpen = openMenuId === section.id;
@@ -33,7 +35,7 @@ export function renderSection({
 	const collapsed = !!section.collapsed;
 
 	const header = isRenaming
-		? renderRenameHeader(section)
+		? renderRenameHeader(section, pendingRenameValue)
 		: renderHeader(section, collapsed, isOpen);
 
 	const menu =
@@ -78,16 +80,22 @@ function renderHeader(section, collapsed, isOpen) {
 	`;
 }
 
-function renderRenameHeader(section) {
+function renderRenameHeader(section, pendingRenameValue) {
+	// pendingRenameValue ?? section.name: a `""` create value renders an empty
+	// box (`"" ?? x === ""`) with the placeholder hinting the default name;
+	// `null` (menu rename) prefills the committed name. Must be ??, not ||.
+	const renameValue = pendingRenameValue ?? section.name;
 	return `
 		<header class="section__header section__header--editing">
 			<span class="section__chevron" aria-hidden="true">▾</span>
 			<input
 				type="text"
 				class="section__rename-input"
-				value="${escapeHtml(section.name)}"
+				value="${escapeHtml(renameValue)}"
 				data-action="commit-rename"
 				data-section-id="${escapeHtml(section.id)}"
+				aria-label="Rename section: ${escapeHtml(section.name)}"
+				placeholder="${escapeHtml(section.name)}"
 				autofocus />
 		</header>
 	`;

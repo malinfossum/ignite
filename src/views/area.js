@@ -22,6 +22,16 @@
 //                            After the next render, look up the task's
 //                            ⋯ button by data-id and focus it. Used for
 //                            Move up / Move down focus return.
+//   pendingMenuFocusTaskId - after the next render, focus the first
+//                            [role="menuitem"] inside this task's menu.
+//                            Used when the task menu opens via keyboard.
+//   pendingRenameValue     - in-progress rename text, preserved across
+//                            re-renders (60s tick, unrelated notifies) so
+//                            typing isn't lost. "" on create (empty box),
+//                            null on menu rename (prefill committed name).
+//   isRendering            - true during the innerHTML rewrite; the blur
+//                            listener checks it to ignore the synthetic blur
+//                            fired when the focused input is detached.
 //
 // We do NOT capture element references for focus return. Across an
 // innerHTML rewrite, captured elements detach and .focus() on them is a
@@ -53,6 +63,9 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	let pendingMenuFocusSectionId = null;
 	let pendingRenameSelect = false;
 	let pendingFocusTaskId = null;
+	let pendingMenuFocusTaskId = null;
+	let pendingRenameValue = null;
+	let isRendering = false;
 
 	const closeMenu = () => {
 		if (!openMenuId) return;
@@ -71,6 +84,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		if (!renamingId) return;
 		pendingFocusSectionId = renamingId;
 		renamingId = null;
+		pendingRenameValue = null;
 		doRender();
 	};
 
@@ -152,14 +166,15 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			openMenuId = null;
 			renamingId = s.id;
 			pendingRenameSelect = true;
+			pendingRenameValue = null; // menu rename → prefill committed name
 			doRender();
 		},
 
-		"commit-rename": (_event, actionEl) => {
-			// click delegation also fires this on blur via the handler at
-			// the bottom of doRender (we listen to blur on the input).
-			commitRenameFromInput(actionEl);
-		},
+		// No "commit-rename" click action: the rename input carries
+		// data-action="commit-rename" only so the Enter key handler (bindKeys,
+		// which reads the attribute) can find it. Wiring it as a CLICK action
+		// too would commit + exit rename whenever the user clicks inside the
+		// field to position the cursor. Enter and blur are the only commit paths.
 
 		"move-up": (_event, actionEl) => {
 			const s = sectionFromEvent(actionEl);
@@ -204,7 +219,13 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			if (!t) return;
 			// Mutual exclusion with section menu
 			openMenuId = null;
-			openTaskMenuId = openTaskMenuId === t.id ? null : t.id;
+			const willOpen = openTaskMenuId !== t.id;
+			openTaskMenuId = willOpen ? t.id : null;
+			// Keyboard activations report event.detail === 0; on keyboard-open
+			// move focus to the first menu item (mirrors open-section-menu).
+			if (willOpen && event.detail === 0) {
+				pendingMenuFocusTaskId = t.id;
+			}
 			doRender();
 		},
 
@@ -248,6 +269,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		const value = (inputEl?.value ?? "").trim();
 		renamingId = null;
 		pendingFocusSectionId = id;
+		pendingRenameValue = null;
 		if (value) {
 			callbacks.onCommitRename({ sectionId: id, name: value });
 			// Model write is async; the model-notify-driven re-render will
@@ -257,33 +279,43 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		}
 	}
 
-	// Blur on the rename input also commits. We re-attach this in doRender
-	// because the input is removed/re-added across renders.
-	function attachBlurOnRenameInput() {
-		const input = rootEl.querySelector(".section__rename-input");
-		if (!input) return;
-		input.addEventListener(
-			"blur",
-			() => {
-				if (renamingId) commitRenameFromInput(input);
-			},
-			{ once: true },
-		);
-	}
-
 	function doRender() {
 		if (!lastState) return;
-		rootEl.innerHTML = template(lastState, areaId, {
-			openMenuId,
-			renamingId,
-			openTaskMenuId,
-		});
-		attachBlurOnRenameInput();
 
-		// Rename input focus handling — only select() on first render
-		// after entering rename mode. Subsequent re-renders preserve cursor.
+		isRendering = true;
+		try {
+			rootEl.innerHTML = template(lastState, areaId, {
+				openMenuId,
+				renamingId,
+				openTaskMenuId,
+				pendingRenameValue,
+			});
+		} finally {
+			// try/finally so a defensive template throw can't strand
+			// isRendering=true and silently swallow all future blur-commits.
+			isRendering = false;
+		}
+
+		// Re-attach input + blur listeners on the NEW input (recreated each
+		// render). The input listener mirrors typing into pendingRenameValue so
+		// it survives re-renders; the blur listener commits, but skips the
+		// synthetic blur fired when an innerHTML rewrite detaches the input.
 		const input = rootEl.querySelector(".section__rename-input");
 		if (input) {
+			input.addEventListener("input", (e) => {
+				pendingRenameValue = e.target.value;
+			});
+			input.addEventListener(
+				"blur",
+				() => {
+					if (isRendering) return;
+					if (renamingId) commitRenameFromInput(input);
+				},
+				{ once: true },
+			);
+
+			// Only select() on first render after entering rename mode.
+			// Subsequent re-renders preserve cursor.
 			if (pendingRenameSelect) {
 				input.focus();
 				input.select();
@@ -313,14 +345,25 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			pendingFocusTaskId = null;
 		}
 
-		// Post-render lookup: when the menu was opened via keyboard, move
-		// focus to the first menu item.
+		// Post-render lookup: when a menu was opened via keyboard, move focus
+		// to its first ENABLED menu item. :not([disabled]) skips a greyed-out
+		// boundary item (e.g. the task menu's "Move up" on a first task) —
+		// .focus() on a disabled button is a silent no-op that drops focus to
+		// <body>. querySelector returns the first match in document order.
 		if (pendingMenuFocusSectionId) {
 			const firstItem = rootEl.querySelector(
-				`[data-section-id="${CSS.escape(pendingMenuFocusSectionId)}"] [role="menu"] [role="menuitem"]:first-child`,
+				`[data-section-id="${CSS.escape(pendingMenuFocusSectionId)}"] [role="menu"] [role="menuitem"]:not([disabled])`,
 			);
 			firstItem?.focus();
 			pendingMenuFocusSectionId = null;
+		}
+
+		if (pendingMenuFocusTaskId) {
+			const firstItem = rootEl.querySelector(
+				`[data-id="${CSS.escape(pendingMenuFocusTaskId)}"] [role="menu"] [role="menuitem"]:not([disabled])`,
+			);
+			firstItem?.focus();
+			pendingMenuFocusTaskId = null;
 		}
 	}
 
@@ -334,6 +377,8 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		enterRename(sectionId) {
 			renamingId = sectionId;
 			pendingRenameSelect = true;
+			pendingRenameValue = ""; // start EMPTY — "New section" needn't be deleted
+			openMenuId = null;
 			doRender();
 		},
 		destroy() {
@@ -359,12 +404,19 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			pendingFocusSectionId = null;
 			pendingFocusTaskId = null;
 			pendingMenuFocusSectionId = null;
+			pendingMenuFocusTaskId = null;
 			pendingRenameSelect = false;
+			pendingRenameValue = null;
+			isRendering = false;
 		},
 	};
 }
 
-function template(state, areaId, { openMenuId, renamingId, openTaskMenuId }) {
+function template(
+	state,
+	areaId,
+	{ openMenuId, renamingId, openTaskMenuId, pendingRenameValue },
+) {
 	const area = state.areas.find((a) => a.id === areaId);
 	if (!area) {
 		return `
@@ -404,6 +456,7 @@ function template(state, areaId, { openMenuId, renamingId, openTaskMenuId }) {
 				openMenuId,
 				renamingId,
 				openTaskMenuId,
+				pendingRenameValue,
 				now: state.now,
 			}),
 		)

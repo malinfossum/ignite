@@ -148,11 +148,12 @@ export function createSidebarView(
 			doRender();
 		},
 
-		"commit-area-rename": (_event, actionEl) => {
-			// Click delegation also fires this; blur on the input also fires
-			// via the listener attached in doRender.
-			commitRenameFromInput(actionEl);
-		},
+		// No "commit-area-rename" click action: the rename input carries
+		// data-action="commit-area-rename" only so the Enter key handler
+		// (bindKeys, which reads the attribute) can find it. Wiring it as a
+		// CLICK action too would commit + exit rename whenever the user clicks
+		// inside the field to position the cursor. Enter and blur are the only
+		// commit paths.
 
 		"move-area-up": (_event, actionEl) => {
 			const a = areaFromEvent(actionEl);
