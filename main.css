@@ -94,10 +94,20 @@ body {
 	flex-direction: column;
 	gap: 0.25rem;
 }
+/* Truncate long names instead of wrapping / pushing ⋯ off-row (mirrors .task__title).
+   Lives here, before the collapsed-state override below, to keep specificity ascending. */
+.sidebar__name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
 .sidebar__count {
 	font-variant-numeric: tabular-nums;
 	color: var(--color-text-muted);
 	font-size: 0.85rem;
+	flex-shrink: 0;
 }
 
 /* Collapsed state — desktop only; hides labels and counts. */
@@ -591,5 +601,139 @@ body {
 @media (min-width: 1024px) {
 	.area__title {
 		font-size: 1.75rem;
+	}
+}
+
+/* ===== M5: Sidebar area CRUD ===== */
+
+/* Row is a flex container so .sidebar__menu-btn sits inline-right of .sidebar__area. */
+.sidebar__area-row {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+.sidebar__area-row .sidebar__area {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Menu trigger — mirrors .section__menu-btn */
+.sidebar__menu-btn {
+	background: transparent;
+	border: 0;
+	color: var(--color-text-muted);
+	font-size: 1.25rem;
+	cursor: pointer;
+	padding: 0;
+	min-block-size: 44px;
+	min-inline-size: 44px;
+	border-radius: 6px;
+}
+.sidebar__menu-btn:hover {
+	color: var(--color-text);
+	background: var(--color-bg-hover);
+}
+.sidebar__menu-btn:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+/* Dropdown — absolute (overlays instead of pushing rows down), anchored to the
+   relative row; sizes to content so it can't overflow the 240px sidebar. */
+.sidebar-menu {
+	position: absolute;
+	top: 100%;
+	right: 0.5rem;
+	z-index: 10;
+	list-style: none;
+	margin: 0;
+	padding: 0.25rem;
+	background: var(--color-bg-elevated);
+	border: 1px solid var(--color-border);
+	border-radius: 8px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+	display: flex;
+	flex-direction: column;
+}
+
+/* Menu item — mirrors .section-menu__item (separate class per the menu-parity
+   convention). :disabled is unused today but kept so both menus stay identical. */
+.sidebar-menu__item {
+	display: block;
+	width: 100%;
+	background: transparent;
+	border: 0;
+	color: var(--color-text);
+	font: inherit;
+	text-align: left;
+	padding: 0.5rem 0.75rem;
+	min-block-size: 44px;
+	cursor: pointer;
+	border-radius: 6px;
+}
+.sidebar-menu__item:hover:not(:disabled) {
+	background: var(--color-bg-hover);
+}
+.sidebar-menu__item:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+.sidebar-menu__item:disabled {
+	color: var(--color-text-muted);
+	cursor: not-allowed;
+}
+
+/* Inline rename — mirrors .section__rename-input */
+.sidebar__area-row--editing {
+	padding: 0.25rem 0.5rem;
+	gap: 0.5rem;
+}
+.sidebar__rename-input {
+	flex: 1;
+	min-width: 0;
+	background: var(--color-bg-elevated);
+	color: var(--color-text);
+	border: 1px solid var(--color-accent);
+	border-radius: 6px;
+	padding: 0.5rem 0.75rem;
+	font: inherit;
+	min-block-size: 44px;
+}
+.sidebar__rename-input:focus {
+	outline: none;
+}
+
+/* + New area — full-width dashed button; mirrors .area__add-section */
+.sidebar__add-area-row {
+	list-style: none;
+	margin-top: 0.5rem;
+}
+.sidebar__add-area {
+	background: transparent;
+	color: var(--color-text-muted);
+	border: 1px dashed var(--color-border);
+	border-radius: 8px;
+	padding: 0.5rem 0.75rem;
+	width: 100%;
+	min-block-size: 44px;
+	cursor: pointer;
+	font: inherit;
+	text-align: left;
+}
+.sidebar__add-area:hover {
+	color: var(--color-text);
+	border-color: var(--color-accent);
+}
+.sidebar__add-area:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+/* Collapsed state — desktop-only (matches the rail + label/count hides above). */
+@media (min-width: 768px) {
+	body.is-sidebar-collapsed .sidebar__menu-btn,
+	body.is-sidebar-collapsed .sidebar__add-area-row,
+	body.is-sidebar-collapsed .sidebar__rename-input {
+		display: none;
 	}
 }
