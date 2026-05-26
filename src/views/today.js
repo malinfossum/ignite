@@ -11,16 +11,22 @@ import { renderTaskRow } from "./task.js";
 export function createTodayView(rootEl, callbacks) {
 	let lastState = null;
 	let openMenuTaskId = null;
+	let pendingFocusTaskId = null;
 
-	const closeMenu = () => {
+	// returnFocus=false on click-outside dismiss: focus follows the click
+	// (e.g. into the capture input), not back to the ⋯. Esc / menu-action /
+	// toggle close use the default (true) to restore focus to the ⋯ button.
+	const closeMenu = (returnFocus = true) => {
+		if (!openMenuTaskId) return;
+		if (returnFocus) pendingFocusTaskId = openMenuTaskId;
 		openMenuTaskId = null;
-		if (lastState) doRender();
+		doRender();
 	};
 
 	const docClickHandler = (event) => {
 		if (!openMenuTaskId) return;
 		if (rootEl.contains(event.target)) return;
-		closeMenu();
+		closeMenu(false);
 	};
 	const docKeyHandler = (event) => {
 		if (event.key === "Escape") closeMenu();
@@ -47,7 +53,11 @@ export function createTodayView(rootEl, callbacks) {
 			event.stopPropagation();
 			const t = taskFromEvent(actionEl);
 			if (!t) return;
-			openMenuTaskId = openMenuTaskId === t.id ? null : t.id;
+			if (openMenuTaskId === t.id) {
+				closeMenu();
+				return;
+			}
+			openMenuTaskId = t.id;
 			doRender();
 		},
 		"delete-task": (_event, actionEl) => {
@@ -60,6 +70,17 @@ export function createTodayView(rootEl, callbacks) {
 	function doRender() {
 		if (!lastState) return;
 		rootEl.innerHTML = template(lastState, openMenuTaskId);
+
+		// Post-render lookup: focus the task's ⋯ button by data-attribute.
+		// Captured element refs go stale across innerHTML rewrites, so we
+		// query the freshly-rendered DOM. Mirrors area.js's pendingFocusTaskId.
+		if (pendingFocusTaskId) {
+			const trigger = rootEl.querySelector(
+				`[data-id="${CSS.escape(pendingFocusTaskId)}"] .task__menu-btn`,
+			);
+			trigger?.focus();
+			pendingFocusTaskId = null;
+		}
 	}
 
 	return {
@@ -74,6 +95,7 @@ export function createTodayView(rootEl, callbacks) {
 			rootEl.innerHTML = "";
 			lastState = null;
 			openMenuTaskId = null;
+			pendingFocusTaskId = null;
 		},
 	};
 }
