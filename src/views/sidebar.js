@@ -25,6 +25,11 @@
 
 import { FOCUS_ID } from "../model/areas.js";
 import { bindActions, bindKeys, escapeHtml } from "../utils/dom.js";
+import {
+	firstEnabledIndex,
+	lastEnabledIndex,
+	nextEnabledIndex,
+} from "../utils/menu-keyboard.js";
 
 export function createSidebarView(
 	rootEl,
@@ -97,15 +102,57 @@ export function createSidebarView(
 	// the previously-focused element is detached and focus drops to <body>,
 	// outside rootEl. A keydown on body bubbles to document only — never
 	// to rootEl. Matches the area.js pattern.
+	function findOpenMenuInSidebar(target) {
+		if (!openAreaMenuId) return null;
+		const menu = rootEl.querySelector(
+			`[data-area-id="${CSS.escape(openAreaMenuId)}"] [role="menu"]`,
+		);
+		return menu?.contains(target) ? menu : null;
+	}
+
 	const docKeyHandler = (event) => {
-		if (event.key !== "Escape") return;
-		if (renamingAreaId) {
-			cancelRename();
+		if (event.key === "Escape") {
+			if (renamingAreaId) {
+				cancelRename();
+				return;
+			}
+			if (openAreaMenuId) {
+				closeMenu();
+			}
 			return;
 		}
-		if (openAreaMenuId) {
-			closeMenu();
+
+		const menuEl = findOpenMenuInSidebar(event.target);
+		if (!menuEl) return;
+
+		const menuItems = Array.from(menuEl.querySelectorAll('[role="menuitem"]'));
+		const currentIndex = menuItems.indexOf(event.target);
+		const items = menuItems.map((el) => ({ disabled: el.disabled }));
+
+		let nextIdx = -1;
+		switch (event.key) {
+			case "ArrowDown":
+				nextIdx = nextEnabledIndex(items, currentIndex, 1);
+				break;
+			case "ArrowUp":
+				nextIdx = nextEnabledIndex(items, currentIndex, -1);
+				break;
+			case "Home":
+				nextIdx = firstEnabledIndex(items);
+				break;
+			case "End":
+				nextIdx = lastEnabledIndex(items);
+				break;
+			case "Tab":
+				event.preventDefault();
+				closeMenu();
+				return;
+			default:
+				return;
 		}
+
+		event.preventDefault();
+		if (nextIdx >= 0) menuItems[nextIdx].focus();
 	};
 	document.addEventListener("keydown", docKeyHandler);
 
@@ -453,26 +500,26 @@ function renderAreaRow(area, state, route, opts) {
 function renderAreaMenu({ canMoveUp, canMoveDown, isUndeletable }) {
 	const moveUpItem = canMoveUp
 		? `<li role="none">
-				<button role="menuitem" type="button" class="sidebar-menu__item"
+				<button role="menuitem" tabindex="-1" type="button" class="sidebar-menu__item"
 					data-action="move-area-up">Move up</button>
 			</li>`
 		: "";
 	const moveDownItem = canMoveDown
 		? `<li role="none">
-				<button role="menuitem" type="button" class="sidebar-menu__item"
+				<button role="menuitem" tabindex="-1" type="button" class="sidebar-menu__item"
 					data-action="move-area-down">Move down</button>
 			</li>`
 		: "";
 	const deleteItem = isUndeletable
 		? ""
 		: `<li role="none">
-				<button role="menuitem" type="button" class="sidebar-menu__item"
+				<button role="menuitem" tabindex="-1" type="button" class="sidebar-menu__item"
 					data-action="delete-area">Delete</button>
 			</li>`;
 	return `
 		<ul class="sidebar-menu" role="menu">
 			<li role="none">
-				<button role="menuitem" type="button" class="sidebar-menu__item"
+				<button role="menuitem" tabindex="-1" type="button" class="sidebar-menu__item"
 					data-action="rename-area">Rename</button>
 			</li>
 			${moveUpItem}

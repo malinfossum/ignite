@@ -5,6 +5,11 @@
 // onDelete receives the full task object so the controller can restore it.
 
 import { bindActions } from "../utils/dom.js";
+import {
+	firstEnabledIndex,
+	lastEnabledIndex,
+	nextEnabledIndex,
+} from "../utils/menu-keyboard.js";
 import { groupTasksForToday, pickNextTask } from "../utils/time.js";
 import { renderTaskRow } from "./task.js";
 
@@ -28,8 +33,52 @@ export function createTodayView(rootEl, callbacks) {
 		if (rootEl.contains(event.target)) return;
 		closeMenu(false);
 	};
+
+	function findOpenMenuInToday(target) {
+		if (!openMenuTaskId) return null;
+		const menu = rootEl.querySelector(
+			`[data-id="${CSS.escape(openMenuTaskId)}"] [role="menu"]`,
+		);
+		return menu?.contains(target) ? menu : null;
+	}
+
 	const docKeyHandler = (event) => {
-		if (event.key === "Escape") closeMenu();
+		if (event.key === "Escape") {
+			closeMenu();
+			return;
+		}
+
+		const menuEl = findOpenMenuInToday(event.target);
+		if (!menuEl) return;
+
+		const menuItems = Array.from(menuEl.querySelectorAll('[role="menuitem"]'));
+		const currentIndex = menuItems.indexOf(event.target);
+		const items = menuItems.map((el) => ({ disabled: el.disabled }));
+
+		let nextIdx = -1;
+		switch (event.key) {
+			case "ArrowDown":
+				nextIdx = nextEnabledIndex(items, currentIndex, 1);
+				break;
+			case "ArrowUp":
+				nextIdx = nextEnabledIndex(items, currentIndex, -1);
+				break;
+			case "Home":
+				nextIdx = firstEnabledIndex(items);
+				break;
+			case "End":
+				nextIdx = lastEnabledIndex(items);
+				break;
+			case "Tab":
+				event.preventDefault();
+				closeMenu(true);
+				return;
+			default:
+				return;
+		}
+
+		event.preventDefault();
+		if (nextIdx >= 0) menuItems[nextIdx].focus();
 	};
 	document.addEventListener("click", docClickHandler);
 	document.addEventListener("keydown", docKeyHandler);
@@ -167,7 +216,7 @@ function renderTaskRowWithMenu(task, now, openMenuTaskId) {
 	return row.replace(
 		"</li>",
 		`<div class="task-menu" role="menu">
-			<button class="task-menu__item" type="button" data-action="delete-task" role="menuitem">Delete</button>
+			<button class="task-menu__item" type="button" data-action="delete-task" role="menuitem" tabindex="-1">Delete</button>
 		</div></li>`,
 	);
 }

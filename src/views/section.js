@@ -107,25 +107,25 @@ function renderMenu({ isFirst, isLast, isUndeletable }) {
 	const moveUpItem = isFirst
 		? ""
 		: `<li role="none">
-				<button role="menuitem" type="button" class="section-menu__item"
+				<button role="menuitem" tabindex="-1" type="button" class="section-menu__item"
 					data-action="move-up">Move up</button>
 			</li>`;
 	const moveDownItem = isLast
 		? ""
 		: `<li role="none">
-				<button role="menuitem" type="button" class="section-menu__item"
+				<button role="menuitem" tabindex="-1" type="button" class="section-menu__item"
 					data-action="move-down">Move down</button>
 			</li>`;
 	const deleteItem = isUndeletable
 		? ""
 		: `<li role="none">
-				<button role="menuitem" type="button" class="section-menu__item"
+				<button role="menuitem" tabindex="-1" type="button" class="section-menu__item"
 					data-action="delete-section">Delete</button>
 			</li>`;
 	return `
 		<ul class="section-menu" role="menu">
 			<li role="none">
-				<button role="menuitem" type="button" class="section-menu__item"
+				<button role="menuitem" tabindex="-1" type="button" class="section-menu__item"
 					data-action="rename-section">Rename</button>
 			</li>
 			${moveUpItem}
@@ -161,18 +161,18 @@ function renderTaskRowWithMenu(task, { now, isFirst, isLast, openTaskMenuId }) {
 	const moveUpItem = isFirst
 		? ""
 		: `<button class="task-menu__item" type="button" data-action="move-task-up"
-				role="menuitem">Move up</button>`;
+				role="menuitem" tabindex="-1">Move up</button>`;
 	const moveDownItem = isLast
 		? ""
 		: `<button class="task-menu__item" type="button" data-action="move-task-down"
-				role="menuitem">Move down</button>`;
+				role="menuitem" tabindex="-1">Move down</button>`;
 	return row.replace(
 		"</li>",
 		`<div class="task-menu" role="menu">
 			${moveUpItem}
 			${moveDownItem}
 			<button class="task-menu__item" type="button" data-action="delete-task"
-				role="menuitem">Delete</button>
+				role="menuitem" tabindex="-1">Delete</button>
 		</div></li>`,
 	);
 }

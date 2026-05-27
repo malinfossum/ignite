@@ -52,6 +52,11 @@
 //   onToggleStar(taskId, currentStarred)
 
 import { bindActions, bindKeys, escapeHtml } from "../utils/dom.js";
+import {
+	firstEnabledIndex,
+	lastEnabledIndex,
+	nextEnabledIndex,
+} from "../utils/menu-keyboard.js";
 import { renderSection } from "./section.js";
 
 export function createAreaView(rootEl, { areaId, callbacks }) {
@@ -105,19 +110,70 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	// the previously-focused element is detached and focus drops to <body>,
 	// which is outside rootEl. A keydown on body bubbles up to document only —
 	// it never visits rootEl. Matches the today.js pattern.
-	const docKeyHandler = (event) => {
-		if (event.key !== "Escape") return;
-		if (renamingId) {
-			cancelRename();
-			return;
-		}
+	function findOpenMenuInArea(target) {
 		if (openMenuId) {
-			closeMenu();
-			return;
+			const menu = rootEl.querySelector(
+				`[data-section-id="${CSS.escape(openMenuId)}"] [role="menu"]`,
+			);
+			if (menu?.contains(target)) return menu;
 		}
 		if (openTaskMenuId) {
-			closeTaskMenu();
+			const menu = rootEl.querySelector(
+				`[data-id="${CSS.escape(openTaskMenuId)}"] [role="menu"]`,
+			);
+			if (menu?.contains(target)) return menu;
 		}
+		return null;
+	}
+
+	const docKeyHandler = (event) => {
+		if (event.key === "Escape") {
+			if (renamingId) {
+				cancelRename();
+				return;
+			}
+			if (openMenuId) {
+				closeMenu();
+				return;
+			}
+			if (openTaskMenuId) {
+				closeTaskMenu();
+			}
+			return;
+		}
+
+		const menuEl = findOpenMenuInArea(event.target);
+		if (!menuEl) return;
+
+		const menuItems = Array.from(menuEl.querySelectorAll('[role="menuitem"]'));
+		const currentIndex = menuItems.indexOf(event.target);
+		const items = menuItems.map((el) => ({ disabled: el.disabled }));
+
+		let nextIdx = -1;
+		switch (event.key) {
+			case "ArrowDown":
+				nextIdx = nextEnabledIndex(items, currentIndex, 1);
+				break;
+			case "ArrowUp":
+				nextIdx = nextEnabledIndex(items, currentIndex, -1);
+				break;
+			case "Home":
+				nextIdx = firstEnabledIndex(items);
+				break;
+			case "End":
+				nextIdx = lastEnabledIndex(items);
+				break;
+			case "Tab":
+				event.preventDefault();
+				if (openMenuId) closeMenu(true);
+				else if (openTaskMenuId) closeTaskMenu(true);
+				return;
+			default:
+				return;
+		}
+
+		event.preventDefault();
+		if (nextIdx >= 0) menuItems[nextIdx].focus();
 	};
 	document.addEventListener("keydown", docKeyHandler);
 
