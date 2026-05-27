@@ -6,10 +6,11 @@
 // Owns the 60s clock tick that calls currentMainView.render(state) only.
 
 import { FOCUS_DEFAULT_SECTION_ID, FOCUS_ID } from "./model/areas.js";
+import { formatTaskDeleteMessage } from "./utils/text.js";
 import { createAreaView } from "./views/area.js";
 import { createCaptureView } from "./views/capture.js";
 import { createSidebarView } from "./views/sidebar.js";
-import { createToastView } from "./views/toast.js";
+import { createToastView, TASK_DELETE_BATCH_KEY } from "./views/toast.js";
 import { createTodayView } from "./views/today.js";
 
 const TICK_MS = 60_000;
@@ -34,6 +35,7 @@ export function createController({ models, els }) {
 	let currentRoute = { name: "today" };
 	let tickHandle = null;
 	let unsubs = [];
+	let taskDeleteBatch = null; // null | { tasks: Array<TaskSnapshot> }
 
 	async function buildState() {
 		const [areaList, sectionList, taskList, settingsRecord] = await Promise.all(
@@ -63,6 +65,35 @@ export function createController({ models, els }) {
 		currentMainView?.render(state);
 	}
 
+	function handleTaskDelete(task) {
+		tasks.remove(task.id);
+
+		if (toast.isActive(TASK_DELETE_BATCH_KEY)) {
+			taskDeleteBatch.tasks.push(task);
+			toast.update({
+				message: formatTaskDeleteMessage(taskDeleteBatch.tasks.length),
+				durationMs: 5000,
+			});
+		} else {
+			taskDeleteBatch = { tasks: [task] };
+			toast.show({
+				message: formatTaskDeleteMessage(1),
+				key: TASK_DELETE_BATCH_KEY,
+				durationMs: 5000,
+				onUndo: () => {
+					const batch = taskDeleteBatch;
+					taskDeleteBatch = null;
+					for (const t of [...batch.tasks].reverse()) {
+						tasks.restore(t);
+					}
+				},
+				onDismiss: () => {
+					taskDeleteBatch = null;
+				},
+			});
+		}
+	}
+
 	function mountMainView(route) {
 		currentMainView?.destroy();
 		currentMainView = null;
@@ -72,13 +103,7 @@ export function createController({ models, els }) {
 				onToggleComplete: (id) => tasks.toggleCompleted(id),
 				onToggleStar: (id, currentStarred) =>
 					tasks.update(id, { starred: !currentStarred }),
-				onDelete: (taskData) => {
-					tasks.remove(taskData.id);
-					toast.show({
-						message: "Task deleted",
-						onUndo: () => tasks.restore(taskData),
-					});
-				},
+				onDelete: (task) => handleTaskDelete(task),
 			});
 			return;
 		}
@@ -152,13 +177,7 @@ export function createController({ models, els }) {
 				});
 			},
 
-			onDeleteTask: (task) => {
-				tasks.remove(task.id);
-				toast.show({
-					message: "Task deleted",
-					onUndo: () => tasks.restore(task),
-				});
-			},
+			onDeleteTask: (task) => handleTaskDelete(task),
 
 			onToggleComplete: (id) => tasks.toggleCompleted(id),
 
