@@ -4,7 +4,7 @@
 // state expected: { tasks, sections, areas, settings, now }
 // onDelete receives the full task object so the controller can restore it.
 
-import { bindActions } from "../utils/dom.js";
+import { bindActions, bindKeys } from "../utils/dom.js";
 import {
 	firstEnabledIndex,
 	lastEnabledIndex,
@@ -21,6 +21,17 @@ export function createTodayView(rootEl, callbacks) {
 	// the next render, focus the first [role="menuitem"] inside this task's
 	// menu. Mirrors pendingMenuFocusTaskId in area.js / sidebar.js.
 	let pendingMenuFocusTaskId = null;
+	// Inline task rename — mirrors area.js / sidebar.js patterns:
+	//   renamingTaskId          - task id in rename mode, or null
+	//   pendingRenameTaskValue  - in-progress text; survives 60s ticks. ?? not ||.
+	//   pendingRenameTaskSelect - true on first render after enter → focus+select
+	//   isRendering             - true during innerHTML rewrite; blur-listener
+	//                             early-returns to ignore the synthetic blur
+	//                             fired when the focused input is detached.
+	let renamingTaskId = null;
+	let pendingRenameTaskValue = null;
+	let pendingRenameTaskSelect = false;
+	let isRendering = false;
 
 	// returnFocus=false on click-outside dismiss: focus follows the click
 	// (e.g. into the capture input), not back to the ⋯. Esc / menu-action /
@@ -29,6 +40,14 @@ export function createTodayView(rootEl, callbacks) {
 		if (!openMenuTaskId) return;
 		if (returnFocus) pendingFocusTaskId = openMenuTaskId;
 		openMenuTaskId = null;
+		doRender();
+	};
+
+	const cancelTaskRename = () => {
+		if (!renamingTaskId) return;
+		pendingFocusTaskId = renamingTaskId;
+		renamingTaskId = null;
+		pendingRenameTaskValue = null;
 		doRender();
 	};
 
@@ -48,6 +67,10 @@ export function createTodayView(rootEl, callbacks) {
 
 	const docKeyHandler = (event) => {
 		if (event.key === "Escape") {
+			if (renamingTaskId) {
+				cancelTaskRename();
+				return;
+			}
 			closeMenu();
 			return;
 		}
@@ -119,6 +142,15 @@ export function createTodayView(rootEl, callbacks) {
 			}
 			doRender();
 		},
+		"rename-task": (_event, actionEl) => {
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			openMenuTaskId = null;
+			renamingTaskId = t.id;
+			pendingRenameTaskSelect = true;
+			pendingRenameTaskValue = null; // menu rename → prefill committed title
+			doRender();
+		},
 		"delete-task": (_event, actionEl) => {
 			const t = taskFromEvent(actionEl);
 			openMenuTaskId = null;
@@ -126,9 +158,79 @@ export function createTodayView(rootEl, callbacks) {
 		},
 	});
 
+	const unbindKeys = bindKeys(rootEl, {
+		Enter: (event, actionEl) => {
+			if (
+				renamingTaskId &&
+				actionEl?.dataset?.action === "commit-task-rename"
+			) {
+				event.preventDefault();
+				commitTaskRenameFromInput(actionEl);
+			}
+		},
+	});
+
+	function commitTaskRenameFromInput(inputEl) {
+		const id = inputEl?.dataset?.taskId ?? renamingTaskId;
+		if (!id) return;
+		const value = (inputEl?.value ?? "").trim();
+		renamingTaskId = null;
+		pendingFocusTaskId = id;
+		pendingRenameTaskValue = null;
+		if (value) {
+			callbacks.onCommitTaskRename({ taskId: id, name: value });
+			// Model write is async; the model-notify-driven re-render picks up
+			// pendingFocusTaskId and focuses the renamed task's ⋯ button.
+		} else {
+			doRender(); // empty/cancel — re-render now to consume the flag
+		}
+	}
+
 	function doRender() {
 		if (!lastState) return;
-		rootEl.innerHTML = template(lastState, openMenuTaskId);
+
+		isRendering = true;
+		try {
+			rootEl.innerHTML = template(
+				lastState,
+				openMenuTaskId,
+				renamingTaskId,
+				pendingRenameTaskValue,
+			);
+		} finally {
+			// try/finally so a defensive template throw can't strand
+			// isRendering=true and silently swallow all future blur-commits.
+			isRendering = false;
+		}
+
+		// Re-attach task-rename input listeners on the NEW input (recreated
+		// each render). pendingRenameTaskValue mirrors typing so it survives
+		// re-renders; blur commits but skips the synthetic blur fired when
+		// an innerHTML rewrite detaches the input.
+		const taskRenameInput = rootEl.querySelector(".task__rename-input");
+		if (taskRenameInput) {
+			taskRenameInput.addEventListener("input", (e) => {
+				pendingRenameTaskValue = e.target.value;
+			});
+			taskRenameInput.addEventListener(
+				"blur",
+				() => {
+					if (isRendering) return;
+					if (renamingTaskId) commitTaskRenameFromInput(taskRenameInput);
+				},
+				{ once: true },
+			);
+
+			// Only select() on first render after entering rename mode.
+			// Subsequent re-renders (60s tick, unrelated notifies) preserve cursor.
+			if (pendingRenameTaskSelect) {
+				taskRenameInput.focus();
+				taskRenameInput.select();
+				pendingRenameTaskSelect = false;
+			} else if (document.activeElement !== taskRenameInput) {
+				taskRenameInput.focus();
+			}
+		}
 
 		// Post-render lookup: focus the task's ⋯ button by data-attribute.
 		// Captured element refs go stale across innerHTML rewrites, so we
@@ -160,7 +262,19 @@ export function createTodayView(rootEl, callbacks) {
 			doRender();
 		},
 		destroy() {
+			// Destroy-commit: if a task rename is in flight and the input has
+			// a non-empty trimmed value, commit it BEFORE listener unbinding so
+			// the typed value isn't silently lost on route change.
+			if (renamingTaskId) {
+				const input = rootEl.querySelector(".task__rename-input");
+				const value = (input?.value ?? "").trim();
+				if (value) {
+					callbacks.onCommitTaskRename({ taskId: renamingTaskId, name: value });
+				}
+				renamingTaskId = null;
+			}
 			unbind();
+			unbindKeys();
 			document.removeEventListener("click", docClickHandler);
 			document.removeEventListener("keydown", docKeyHandler);
 			rootEl.innerHTML = "";
@@ -168,11 +282,19 @@ export function createTodayView(rootEl, callbacks) {
 			openMenuTaskId = null;
 			pendingFocusTaskId = null;
 			pendingMenuFocusTaskId = null;
+			pendingRenameTaskValue = null;
+			pendingRenameTaskSelect = false;
+			isRendering = false;
 		},
 	};
 }
 
-function template(state, openMenuTaskId) {
+function template(
+	state,
+	openMenuTaskId,
+	renamingTaskId,
+	pendingRenameTaskValue,
+) {
 	const next = pickNextTask(state.tasks, state.now);
 	const groups = groupTasksForToday(state.tasks, state.now);
 	const visible = (list) => list.filter((t) => t.id !== next?.id);
@@ -189,19 +311,25 @@ function template(state, openMenuTaskId) {
 	}
 
 	return `
-		${next ? renderNextCard(next, state.now, openMenuTaskId) : ""}
-		${renderGroup("Overdue", "group--overdue", overdue, state.now, openMenuTaskId, true)}
-		${renderGroup("Today", "group--today", today, state.now, openMenuTaskId, true)}
-		${renderGroup("Starred", "group--starred", starred, state.now, openMenuTaskId, false)}
+		${next ? renderNextCard(next, state.now, openMenuTaskId, renamingTaskId, pendingRenameTaskValue) : ""}
+		${renderGroup("Overdue", "group--overdue", overdue, state.now, openMenuTaskId, true, renamingTaskId, pendingRenameTaskValue)}
+		${renderGroup("Today", "group--today", today, state.now, openMenuTaskId, true, renamingTaskId, pendingRenameTaskValue)}
+		${renderGroup("Starred", "group--starred", starred, state.now, openMenuTaskId, false, renamingTaskId, pendingRenameTaskValue)}
 	`;
 }
 
-function renderNextCard(task, now, openMenuTaskId) {
+function renderNextCard(
+	task,
+	now,
+	openMenuTaskId,
+	renamingTaskId,
+	pendingRenameTaskValue,
+) {
 	return `
 		<article class="next-card">
 			<h2 class="next-card__label">NEXT</h2>
 			<ul class="next-card__list">
-				${renderTaskRowWithMenu(task, now, openMenuTaskId)}
+				${renderTaskRowWithMenu(task, now, openMenuTaskId, renamingTaskId, pendingRenameTaskValue)}
 			</ul>
 		</article>
 	`;
@@ -214,11 +342,21 @@ function renderGroup(
 	now,
 	openMenuTaskId,
 	showCount,
+	renamingTaskId,
+	pendingRenameTaskValue,
 ) {
 	if (tasks.length === 0) return "";
 	const headingText = showCount ? `${heading} (${tasks.length})` : heading;
 	const rows = tasks
-		.map((t) => renderTaskRowWithMenu(t, now, openMenuTaskId))
+		.map((t) =>
+			renderTaskRowWithMenu(
+				t,
+				now,
+				openMenuTaskId,
+				renamingTaskId,
+				pendingRenameTaskValue,
+			),
+		)
 		.join("");
 	return `
 		<section class="group ${modifierClass}">
@@ -228,7 +366,24 @@ function renderGroup(
 	`;
 }
 
-function renderTaskRowWithMenu(task, now, openMenuTaskId) {
+function renderTaskRowWithMenu(
+	task,
+	now,
+	openMenuTaskId,
+	renamingTaskId,
+	pendingRenameTaskValue,
+) {
+	const isRenaming = renamingTaskId === task.id;
+	if (isRenaming) {
+		// Rename input replaces the row's children — no menu injection,
+		// no checkbox / star / ⋯. Mutually exclusive with menu state.
+		return renderTaskRow(task, {
+			now,
+			renaming: true,
+			pendingRenameValue: pendingRenameTaskValue,
+		});
+	}
+
 	const isOpen = openMenuTaskId === task.id;
 	const row = renderTaskRow(task, { now, isOpen });
 	if (!isOpen) return row;
@@ -236,9 +391,12 @@ function renderTaskRowWithMenu(task, now, openMenuTaskId) {
 	// position: relative in CSS, so the menu's absolute positioning anchors
 	// against the row. (Putting it after </li> would make it a direct child
 	// of <ul>, which is invalid HTML.)
+	// Today menu: [Rename, Delete]. No Move up/down — today is a sorted view,
+	// not a manual order.
 	return row.replace(
 		"</li>",
 		`<div class="task-menu" role="menu">
+			<button class="task-menu__item" type="button" data-action="rename-task" role="menuitem" tabindex="-1">Rename</button>
 			<button class="task-menu__item" type="button" data-action="delete-task" role="menuitem" tabindex="-1">Delete</button>
 		</div></li>`,
 	);
