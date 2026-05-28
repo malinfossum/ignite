@@ -740,3 +740,30 @@ body {
 		display: none;
 	}
 }
+
+/* --- Inline task rename --- */
+/* When a task row is in rename mode, the <li> renders an input-only child.
+   Override the grid layout so the input takes the full row width
+   (checkbox / star / ⋯ are not rendered during rename — mutually exclusive
+   with menu state). Row height is preserved by min-block-size on the input
+   matching .task baseline padding so neighbours don't shift. */
+.task--editing {
+	display: block;
+	padding: 0.5rem 0.6rem;
+}
+.task--editing:hover {
+	background: transparent; /* no hover bg during rename — focus border is the affordance */
+}
+.task__rename-input {
+	width: 100%;
+	background: var(--color-bg-elevated);
+	color: var(--color-text);
+	border: 1px solid var(--color-accent);
+	border-radius: var(--radius);
+	padding: 0.5rem 0.75rem;
+	font: inherit;
+	min-block-size: 44px;
+}
+.task__rename-input:focus {
+	outline: none;
+}
