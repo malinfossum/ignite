@@ -29,9 +29,22 @@
 //                            re-renders (60s tick, unrelated notifies) so
 //                            typing isn't lost. "" on create (empty box),
 //                            null on menu rename (prefill committed name).
+//   renamingTaskId         - task id currently in rename mode, or null.
+//                            Parallel to renamingId (sections), with full
+//                            cross-type mutual exclusion in rename-task /
+//                            rename-section action handlers.
+//   pendingRenameTaskValue - in-progress task-rename text, preserved across
+//                            re-renders. null on menu rename (prefill
+//                            committed title). Must read with ??, not ||.
+//   pendingRenameTaskSelect - true when entering task rename; on the next
+//                            render the input is .focus()'d AND .select()'d.
+//                            Cleared after one render so subsequent re-renders
+//                            (60s tick) preserve cursor position.
 //   isRendering            - true during the innerHTML rewrite; the blur
 //                            listener checks it to ignore the synthetic blur
 //                            fired when the focused input is detached.
+//                            (Shared between section-rename and task-rename;
+//                            one rewrite guards both.)
 //
 // We do NOT capture element references for focus return. Across an
 // innerHTML rewrite, captured elements detach and .focus() on them is a
@@ -70,6 +83,9 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	let pendingFocusTaskId = null;
 	let pendingMenuFocusTaskId = null;
 	let pendingRenameValue = null;
+	let renamingTaskId = null;
+	let pendingRenameTaskValue = null;
+	let pendingRenameTaskSelect = false;
 	let isRendering = false;
 
 	// returnFocus=false on click-outside dismiss: focus follows the click
@@ -94,6 +110,14 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		pendingFocusSectionId = renamingId;
 		renamingId = null;
 		pendingRenameValue = null;
+		doRender();
+	};
+
+	const cancelTaskRename = () => {
+		if (!renamingTaskId) return;
+		pendingFocusTaskId = renamingTaskId;
+		renamingTaskId = null;
+		pendingRenameTaskValue = null;
 		doRender();
 	};
 
@@ -130,6 +154,10 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		if (event.key === "Escape") {
 			if (renamingId) {
 				cancelRename();
+				return;
+			}
+			if (renamingTaskId) {
+				cancelTaskRename();
 				return;
 			}
 			if (openMenuId) {
@@ -229,6 +257,12 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			renamingId = s.id;
 			pendingRenameSelect = true;
 			pendingRenameValue = null; // menu rename → prefill committed name
+			// Cross-type mutual exclusion — null task-rename state too.
+			// If the user picks Rename on section X while task Y is renaming,
+			// Y's typed value is silently discarded and X enters rename.
+			renamingTaskId = null;
+			pendingRenameTaskValue = null;
+			pendingRenameTaskSelect = false;
 			doRender();
 		},
 
@@ -294,6 +328,20 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			doRender();
 		},
 
+		"rename-task": (_event, actionEl) => {
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			openTaskMenuId = null;
+			renamingTaskId = t.id;
+			pendingRenameTaskSelect = true;
+			pendingRenameTaskValue = null; // menu rename → prefill committed title
+			// Cross-type mutual exclusion — null section-rename state.
+			renamingId = null;
+			pendingRenameValue = null;
+			pendingRenameSelect = false;
+			doRender();
+		},
+
 		"move-task-up": (_event, actionEl) => {
 			const t = taskFromEvent(actionEl);
 			openTaskMenuId = null;
@@ -324,6 +372,14 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			if (renamingId && actionEl?.dataset?.action === "commit-rename") {
 				event.preventDefault(); // prevent form-like default
 				commitRenameFromInput(actionEl);
+				return;
+			}
+			if (
+				renamingTaskId &&
+				actionEl?.dataset?.action === "commit-task-rename"
+			) {
+				event.preventDefault();
+				commitTaskRenameFromInput(actionEl);
 			}
 		},
 	});
@@ -344,6 +400,22 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		}
 	}
 
+	function commitTaskRenameFromInput(inputEl) {
+		const id = inputEl?.dataset?.taskId ?? renamingTaskId;
+		if (!id) return;
+		const value = (inputEl?.value ?? "").trim();
+		renamingTaskId = null;
+		pendingFocusTaskId = id;
+		pendingRenameTaskValue = null;
+		if (value) {
+			callbacks.onCommitTaskRename({ taskId: id, name: value });
+			// Model write is async; the model-notify-driven re-render picks up
+			// pendingFocusTaskId and focuses the renamed task's ⋯ button.
+		} else {
+			doRender(); // empty/cancel — re-render now to consume the flag
+		}
+	}
+
 	function doRender() {
 		if (!lastState) return;
 
@@ -354,6 +426,8 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 				renamingId,
 				openTaskMenuId,
 				pendingRenameValue,
+				renamingTaskId,
+				pendingRenameTaskValue,
 			});
 		} finally {
 			// try/finally so a defensive template throw can't strand
@@ -387,6 +461,32 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 				pendingRenameSelect = false;
 			} else if (document.activeElement !== input) {
 				input.focus();
+			}
+		}
+
+		// Re-attach task-rename input listeners. Same pattern as section-rename:
+		// pendingRenameTaskValue mirrors typing; blur commits but only for
+		// user-initiated blur (isRendering guards the synthetic blur on detach).
+		const taskRenameInput = rootEl.querySelector(".task__rename-input");
+		if (taskRenameInput) {
+			taskRenameInput.addEventListener("input", (e) => {
+				pendingRenameTaskValue = e.target.value;
+			});
+			taskRenameInput.addEventListener(
+				"blur",
+				() => {
+					if (isRendering) return;
+					if (renamingTaskId) commitTaskRenameFromInput(taskRenameInput);
+				},
+				{ once: true },
+			);
+
+			if (pendingRenameTaskSelect) {
+				taskRenameInput.focus();
+				taskRenameInput.select();
+				pendingRenameTaskSelect = false;
+			} else if (document.activeElement !== taskRenameInput) {
+				taskRenameInput.focus();
 			}
 		}
 
@@ -448,9 +548,8 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			doRender();
 		},
 		destroy() {
-			// Destroy-commit: if a rename is in flight and the input has a
-			// non-empty trimmed value, commit it before tearing down so
-			// typed work isn't silently lost.
+			// Destroy-commit: if a section rename is in flight and the input has
+			// a non-empty trimmed value, commit it before tearing down.
 			if (renamingId) {
 				const input = rootEl.querySelector(".section__rename-input");
 				const value = (input?.value ?? "").trim();
@@ -458,6 +557,17 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 					callbacks.onCommitRename({ sectionId: renamingId, name: value });
 				}
 				renamingId = null;
+			}
+			// Destroy-commit: same for an in-flight task rename. Order doesn't
+			// matter (different inputs, different IDs); both fire BEFORE
+			// listener unbinding so the typed value isn't lost.
+			if (renamingTaskId) {
+				const input = rootEl.querySelector(".task__rename-input");
+				const value = (input?.value ?? "").trim();
+				if (value) {
+					callbacks.onCommitTaskRename({ taskId: renamingTaskId, name: value });
+				}
+				renamingTaskId = null;
 			}
 			unbindClick();
 			unbindKeys();
@@ -473,6 +583,8 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			pendingMenuFocusTaskId = null;
 			pendingRenameSelect = false;
 			pendingRenameValue = null;
+			pendingRenameTaskValue = null;
+			pendingRenameTaskSelect = false;
 			isRendering = false;
 		},
 	};
@@ -481,7 +593,14 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 function template(
 	state,
 	areaId,
-	{ openMenuId, renamingId, openTaskMenuId, pendingRenameValue },
+	{
+		openMenuId,
+		renamingId,
+		openTaskMenuId,
+		pendingRenameValue,
+		renamingTaskId,
+		pendingRenameTaskValue,
+	},
 ) {
 	const area = state.areas.find((a) => a.id === areaId);
 	if (!area) {
@@ -523,6 +642,8 @@ function template(
 				renamingId,
 				openTaskMenuId,
 				pendingRenameValue,
+				renamingTaskId,
+				pendingRenameTaskValue,
 				now: state.now,
 			}),
 		)
