@@ -5,15 +5,17 @@
 // produces markup.
 //
 // opts:
-//   section          - the section record
-//   tasks            - tasks in this section (already filtered + sorted)
-//   isUndeletable    - true for focus-default; suppresses Delete in menu
-//   isFirst, isLast  - edge flags for Move up/down disabled state
-//   openMenuId       - section id whose menu is currently open, or null
-//   renamingId       - section id currently in rename mode, or null
-//   openTaskMenuId   - task id whose ⋯ menu is currently open, or null
-//   pendingRenameValue - in-progress rename text (survives re-renders), or null
-//   now              - Date used by renderTaskRow for time labels
+//   section                - the section record
+//   tasks                  - tasks in this section (already filtered + sorted)
+//   isUndeletable          - true for focus-default; suppresses Delete in menu
+//   isFirst, isLast        - edge flags for Move up/down disabled state
+//   openMenuId             - section id whose menu is currently open, or null
+//   renamingId             - section id currently in rename mode, or null
+//   openTaskMenuId         - task id whose ⋯ menu is currently open, or null
+//   pendingRenameValue     - in-progress section-rename text (survives re-renders), or null
+//   renamingTaskId         - task id currently in rename mode, or null
+//   pendingRenameTaskValue - in-progress task-rename text (survives re-renders), or null
+//   now                    - Date used by renderTaskRow for time labels
 
 import { escapeHtml } from "../utils/dom.js";
 import { renderTaskRow } from "./task.js";
@@ -28,6 +30,8 @@ export function renderSection({
 	renamingId,
 	openTaskMenuId,
 	pendingRenameValue,
+	renamingTaskId,
+	pendingRenameTaskValue,
 	now,
 }) {
 	const isOpen = openMenuId === section.id;
@@ -41,7 +45,13 @@ export function renderSection({
 	const menu =
 		isOpen && !isRenaming ? renderMenu({ isFirst, isLast, isUndeletable }) : "";
 
-	const body = renderBody(tasks, now, openTaskMenuId);
+	const body = renderBody(
+		tasks,
+		now,
+		openTaskMenuId,
+		renamingTaskId,
+		pendingRenameTaskValue,
+	);
 
 	return `
 		<section
@@ -135,7 +145,13 @@ function renderMenu({ isFirst, isLast, isUndeletable }) {
 	`;
 }
 
-function renderBody(tasks, now, openTaskMenuId) {
+function renderBody(
+	tasks,
+	now,
+	openTaskMenuId,
+	renamingTaskId,
+	pendingRenameTaskValue,
+) {
 	const rows = tasks
 		.map((t, i) =>
 			renderTaskRowWithMenu(t, {
@@ -143,6 +159,8 @@ function renderBody(tasks, now, openTaskMenuId) {
 				isFirst: i === 0,
 				isLast: i === tasks.length - 1,
 				openTaskMenuId,
+				renamingTaskId,
+				pendingRenameTaskValue,
 			}),
 		)
 		.join("");
@@ -153,7 +171,28 @@ function renderBody(tasks, now, openTaskMenuId) {
 	`;
 }
 
-function renderTaskRowWithMenu(task, { now, isFirst, isLast, openTaskMenuId }) {
+function renderTaskRowWithMenu(
+	task,
+	{
+		now,
+		isFirst,
+		isLast,
+		openTaskMenuId,
+		renamingTaskId,
+		pendingRenameTaskValue,
+	},
+) {
+	const isRenaming = renamingTaskId === task.id;
+	if (isRenaming) {
+		// Rename input replaces the row's children — no menu injection,
+		// no checkbox / star / ⋯ . Mutually exclusive with menu state.
+		return renderTaskRow(task, {
+			now,
+			renaming: true,
+			pendingRenameValue: pendingRenameTaskValue,
+		});
+	}
+
 	const isOpen = openTaskMenuId === task.id;
 	const row = renderTaskRow(task, { now, isOpen });
 	if (!isOpen) return row;
@@ -169,6 +208,8 @@ function renderTaskRowWithMenu(task, { now, isFirst, isLast, openTaskMenuId }) {
 	return row.replace(
 		"</li>",
 		`<div class="task-menu" role="menu">
+			<button class="task-menu__item" type="button" data-action="rename-task"
+				role="menuitem" tabindex="-1">Rename</button>
 			${moveUpItem}
 			${moveDownItem}
 			<button class="task-menu__item" type="button" data-action="delete-task"
