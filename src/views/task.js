@@ -1,14 +1,31 @@
 // Renders one task row. Returned as a string so the parent template can
 // concatenate. Always escape user-provided fields before interpolating —
 // titles can contain `<` and would otherwise execute as HTML.
+//
+// Options:
+//   now                - Date used by formatTimeLabel for the time label.
+//   isOpen             - true when this task's ⋯ menu is open (controls
+//                        aria-expanded on the menu button).
+//   renaming           - true to render input-only rename mode (replaces
+//                        checkbox / title / star / ⋯ with a single input).
+//                        The <li> still carries data-id so taskFromEvent
+//                        lookups resolve.
+//   pendingRenameValue - in-progress rename text preserved across re-renders,
+//                        or null. Falls back to task.title when null.
+//                        MUST be ??, not || — a typed "" renders empty +
+//                        placeholder.
 
 import { escapeHtml } from "../utils/dom.js";
 import { formatTimeLabel } from "../utils/time.js";
 
 export function renderTaskRow(
 	task,
-	{ now, isOpen = false } = { now: new Date() },
+	{ now, isOpen = false, renaming = false, pendingRenameValue = null } = {
+		now: new Date(),
+	},
 ) {
+	if (renaming) return renderRenameRow(task, pendingRenameValue);
+
 	const checked = task.completed ? "checked" : "";
 	const starredAttr = task.starred
 		? 'aria-pressed="true"'
@@ -32,6 +49,25 @@ export function renderTaskRow(
 				aria-haspopup="menu"
 				aria-expanded="${isOpen}"
 				aria-label="Task options: ${escapeHtml(task.title)}">⋯</button>
+		</li>
+	`;
+}
+
+function renderRenameRow(task, pendingRenameValue) {
+	// pendingRenameValue ?? task.title: a `""` value renders an empty box
+	// (`"" ?? x === ""`) with the placeholder hinting the committed title;
+	// `null` (menu rename) prefills the committed title. Must be ??, not ||.
+	const renameValue = pendingRenameValue ?? task.title;
+	return `
+		<li class="task task--editing" data-id="${escapeHtml(task.id)}">
+			<input type="text"
+				class="task__rename-input"
+				value="${escapeHtml(renameValue)}"
+				data-action="commit-task-rename"
+				data-task-id="${escapeHtml(task.id)}"
+				aria-label="Rename task: ${escapeHtml(task.title)}"
+				placeholder="${escapeHtml(task.title)}"
+				autofocus />
 		</li>
 	`;
 }
