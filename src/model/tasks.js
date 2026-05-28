@@ -10,6 +10,7 @@ import { capitalizeFirst } from "../utils/text.js";
 //   listByArea(areaId) → Promise<Task[]>,  // all tasks whose section is in this area
 //   create({ sectionId, title, ...metadata }) → Promise<Task>,
 //   update(id, patch) → Promise<Task>,
+//   rename(id, title) → Promise<void>,
 //   toggleCompleted(id) → Promise<Task>,
 //   remove(id) → Promise<void>,
 //   removeMany(ids) → Promise<void>,
