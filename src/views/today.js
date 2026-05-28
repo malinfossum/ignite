@@ -17,6 +17,10 @@ export function createTodayView(rootEl, callbacks) {
 	let lastState = null;
 	let openMenuTaskId = null;
 	let pendingFocusTaskId = null;
+	// Set in open-menu when event.detail === 0 (keyboard activation): after
+	// the next render, focus the first [role="menuitem"] inside this task's
+	// menu. Mirrors pendingMenuFocusTaskId in area.js / sidebar.js.
+	let pendingMenuFocusTaskId = null;
 
 	// returnFocus=false on click-outside dismiss: focus follows the click
 	// (e.g. into the capture input), not back to the ⋯. Esc / menu-action /
@@ -107,6 +111,12 @@ export function createTodayView(rootEl, callbacks) {
 				return;
 			}
 			openMenuTaskId = t.id;
+			// Keyboard activations (Enter/Space) report event.detail === 0;
+			// on keyboard-open move focus to the first menu item. Mouse users
+			// (detail >= 1) keep focus on ⋯. Mirrors area.js / sidebar.js.
+			if (event.detail === 0) {
+				pendingMenuFocusTaskId = t.id;
+			}
 			doRender();
 		},
 		"delete-task": (_event, actionEl) => {
@@ -130,6 +140,18 @@ export function createTodayView(rootEl, callbacks) {
 			trigger?.focus();
 			pendingFocusTaskId = null;
 		}
+
+		// Post-render lookup: when the task menu was opened via keyboard,
+		// move focus to its first menu item. :not([disabled]) is a defensive
+		// guard — .focus() on a disabled button is a silent no-op that drops
+		// focus to <body>. Mirrors area.js / sidebar.js.
+		if (pendingMenuFocusTaskId) {
+			const firstItem = rootEl.querySelector(
+				`[data-id="${CSS.escape(pendingMenuFocusTaskId)}"] [role="menu"] [role="menuitem"]:not([disabled])`,
+			);
+			firstItem?.focus();
+			pendingMenuFocusTaskId = null;
+		}
 	}
 
 	return {
@@ -145,6 +167,7 @@ export function createTodayView(rootEl, callbacks) {
 			lastState = null;
 			openMenuTaskId = null;
 			pendingFocusTaskId = null;
+			pendingMenuFocusTaskId = null;
 		},
 	};
 }
