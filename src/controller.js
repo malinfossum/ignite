@@ -104,6 +104,18 @@ export function createController({ models, els }) {
 				onToggleStar: (id, currentStarred) =>
 					tasks.update(id, { starred: !currentStarred }),
 				onDelete: (task) => handleTaskDelete(task),
+				onCommitTaskRename: async ({ taskId, name }) => {
+					try {
+						await tasks.rename(taskId, name);
+					} catch (err) {
+						// Race: task was cascade-deleted (e.g., section/area cascade fired
+						// while mid-rename, or destroy-commit raced cascade). Drop silently —
+						// toast undo restores the task with its pre-rename title; typed text
+						// is lost. Mirrors onCommitRename for sections.
+						if (/Task not found/.test(err.message)) return;
+						throw err;
+					}
+				},
 			});
 			return;
 		}
@@ -138,6 +150,18 @@ export function createController({ models, els }) {
 					// raced cascade). Drop silently — toast undo will restore the
 					// section with its pre-rename name; the typed text is lost.
 					if (/Section not found/.test(err.message)) return;
+					throw err;
+				}
+			},
+
+			onCommitTaskRename: async ({ taskId, name }) => {
+				try {
+					await tasks.rename(taskId, name);
+				} catch (err) {
+					// Race: task cascade-deleted mid-rename. Drop silently — toast
+					// undo restores the task with its pre-rename title; typed text is
+					// lost. Mirrors onCommitRename above.
+					if (/Task not found/.test(err.message)) return;
 					throw err;
 				}
 			},
