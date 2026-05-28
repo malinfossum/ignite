@@ -100,6 +100,17 @@ export async function createTaskModel(db) {
 			return merged;
 		},
 
+		async rename(id, title) {
+			const cleaned = capitalizeFirst(title);
+			if (!cleaned) throw new Error("rename(task): title cannot be empty");
+			const stored = await db.get("tasks", id);
+			if (!stored) throw new Error(`Task not found: ${id}`);
+			const current = fromStorage(stored);
+			const updated = { ...current, title: cleaned };
+			await db.put("tasks", toStorage(updated));
+			notify();
+		},
+
 		async toggleCompleted(id) {
 			const stored = await db.get("tasks", id);
 			if (!stored) throw new Error(`Task not found: ${id}`);

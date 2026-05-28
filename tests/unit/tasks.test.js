@@ -259,3 +259,77 @@ describe("createTaskModel — listByArea", () => {
 		expect(focusTasks.map((t) => t.id).sort()).toEqual([t1.id, t2.id].sort());
 	});
 });
+
+describe("createTaskModel — rename", () => {
+	it("trims and capitalizes the new title, persists, returns nothing", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({ sectionId: "s1", title: "Old" });
+		const result = await model.rename(t.id, "  buy bread  ");
+		expect(result).toBeUndefined();
+		const [stored] = await model.listBySection("s1");
+		expect(stored.title).toBe("Buy bread");
+	});
+
+	it("rejects empty / whitespace-only titles", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({ sectionId: "s1", title: "Old" });
+		await expect(model.rename(t.id, "")).rejects.toThrow(/empty/i);
+		await expect(model.rename(t.id, "   ")).rejects.toThrow(/empty/i);
+		const [stored] = await model.listBySection("s1");
+		expect(stored.title).toBe("Old");
+	});
+
+	it("throws Task not found for a missing id", async () => {
+		const { model } = await freshModel();
+		await expect(model.rename("nope-id", "New")).rejects.toThrow(
+			/Task not found/,
+		);
+	});
+
+	it("preserves all other fields (order, sectionId, starred, completed, dueAt, recurrence)", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({
+			sectionId: "s1",
+			title: "Meeting",
+			starred: true,
+			dueAt: "2026-06-01T10:00:00.000Z",
+			recurrence: "weekly",
+			leadTime: 15,
+		});
+		await model.toggleCompleted(t.id);
+		await model.rename(t.id, "renamed");
+		const list = await model.list();
+		const updated = list.find((x) => x.id === t.id);
+		expect(updated.title).toBe("Renamed");
+		expect(updated.sectionId).toBe("s1");
+		expect(updated.starred).toBe(true);
+		expect(updated.completed).toBe(true);
+		expect(updated.dueAt).toBe("2026-06-01T10:00:00.000Z");
+		expect(updated.recurrence).toBe("weekly");
+		expect(updated.leadTime).toBe(15);
+		expect(updated.order).toBe(t.order);
+	});
+
+	it("notifies subscribers exactly once per rename", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({ sectionId: "s1", title: "Old" });
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		await model.rename(t.id, "New");
+		expect(calls).toEqual(["notified"]);
+	});
+
+	it("does NOT notify on failure (empty title or missing id)", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({ sectionId: "s1", title: "Old" });
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		await expect(model.rename(t.id, "")).rejects.toThrow();
+		await expect(model.rename("nope-id", "Whatever")).rejects.toThrow();
+		expect(calls).toEqual([]);
+	});
+});
