@@ -4,7 +4,16 @@
 
 An ADHD-friendly, installable task app — open source, local-first, zero bloat.
 
-**Status:** M1-M3 complete — 93 tests passing. Capture tasks, view Today, manage areas and sections inline. M4 (task reorder) in progress. PWA install + reminders engine still to come.
+**Status:** M1-M5 complete + inline task rename — 127 tests passing. Next: M6 (move task between sections), then v0.1.0.
+
+---
+
+## About the name
+
+*Ignite* — to set something alight; to spark.
+In Norwegian: **tenne** (to light, to spark). The tagline reads *"en liten flamme, holdt i live"* — a small flame, kept going.
+
+The name is about starting — and staying with it. Consistency is how anything actually grows: in skills, in habits, in life. For an ADHD brain, the spark is easy — keeping the flame alive is the work. Start small, stay consistent, get where you want to go.
 
 ---
 
@@ -51,9 +60,15 @@ npm run build      # production build
 
 **M3 — Area view + section CRUD (complete):** dedicated `#area/:id` page with sections, inline section rename, add / move / delete sections, cascade undo for deletes, full keyboard + screen-reader paths, `focus-default` seed section, auto-capitalization of first character on create/rename. 91 tests.
 
-**M4 — Task reorder (in progress):** Move up / Move down in the task ⋯ menu, mirroring the section pattern. Model + controller layers shipped; view wiring in flight.
+**M4 — Task reorder (complete):** Move up / Move down in the task ⋯ menu, mirroring the section pattern. Completed-task peer filter prevents invisible-swap bugs. 93 tests.
 
-Future milestones cover drag-to-reorder, full task metadata editing, reminders engine, and PWA install flow. Design specs and implementation plans live in `docs/superpowers/`.
+**M5 — Area CRUD (complete):** `+ New area` and area ⋯ menu (Rename / Move up / Move down / Delete), inline sidebar rename, cascade-delete with 8-second undo (area → sections → tasks). Focus area pinned and undeletable. 104 tests.
+
+**Polish bundle (complete):** ARIA APG arrow-key navigation across all menus, batch task delete with 5-second aggregation window, toast pause-on-hover-or-focus with resume-from-remaining. 121 tests.
+
+**Phase 2 — Inline task rename (complete):** Rename tasks in place from the today view and area view. Mirrors the section rename pattern with cross-type mutual exclusion and cascade-race handling. 127 tests.
+
+Next: M6 (move task between sections), then v0.1.0. After that: drag-to-reorder, full task metadata editing, reminders engine, and PWA install flow. Design specs and implementation plans live in `docs/superpowers/`.
 
 ---
 
