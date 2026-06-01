@@ -15,6 +15,9 @@ import { createTodayView } from "./views/today.js";
 
 const TICK_MS = 60_000;
 const CASCADE_TOAST_MS = 8_000;
+// A move is non-destructive — same urgency as a single-task delete-undo
+// (5s), not the 8s cascade window reserved for destructive multi-item ops.
+const MOVE_TOAST_MS = 5_000;
 
 export function parseHash(hash) {
 	const raw = (hash || "").replace(/^#/, "");
@@ -94,6 +97,56 @@ export function createController({ models, els }) {
 		}
 	}
 
+	async function handleMoveTaskToSection({ taskId, targetSectionId }) {
+		// Snapshot BEFORE the move (for undo).
+		const snapshot = (await tasks.list()).find((t) => t.id === taskId);
+		if (!snapshot) return; // task already gone (race)
+		const fromSectionId = snapshot.sectionId;
+		const fromOrder = snapshot.order;
+		if (fromSectionId === targetSectionId) return; // no-op (also omitted in picker)
+
+		try {
+			await tasks.moveToSection(taskId, targetSectionId);
+		} catch (err) {
+			// Cascade race: task OR target section deleted mid-flow. The
+			// triggering deletion fires its own notify → re-render closes the
+			// (already-null) menu. Mirrors onCommitRename's swallow.
+			if (/not found/i.test(err.message)) return;
+			throw err;
+		}
+
+		// Friendly "Area › Section" label for the toast.
+		const targetSection = (await sections.list()).find(
+			(s) => s.id === targetSectionId,
+		);
+		const targetArea = targetSection
+			? (await areas.list()).find((a) => a.id === targetSection.areaId)
+			: null;
+		const label = !targetSection
+			? "section"
+			: targetArea
+				? `${targetArea.name} › ${targetSection.name}`
+				: targetSection.name;
+
+		toast.show({
+			message: `Moved to ${label}`,
+			durationMs: MOVE_TOAST_MS,
+			onUndo: async () => {
+				// Exact restore — the move touched only this task (append left
+				// peers untouched; the source kept the gap this task vacated).
+				try {
+					await tasks.update(taskId, {
+						sectionId: fromSectionId,
+						order: fromOrder,
+					});
+				} catch (err) {
+					if (/not found/i.test(err.message)) return; // task deleted since the move
+					throw err;
+				}
+			},
+		});
+	}
+
 	function mountMainView(route) {
 		currentMainView?.destroy();
 		currentMainView = null;
@@ -116,6 +169,7 @@ export function createController({ models, els }) {
 						throw err;
 					}
 				},
+				onMoveTaskToSection: handleMoveTaskToSection,
 			});
 			return;
 		}
@@ -165,6 +219,7 @@ export function createController({ models, els }) {
 					throw err;
 				}
 			},
+			onMoveTaskToSection: handleMoveTaskToSection,
 
 			onMoveUp: async ({ sectionId }) => {
 				await moveSection(sectionId, "up");
