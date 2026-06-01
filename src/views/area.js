@@ -470,6 +470,23 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	function doRender() {
 		if (!lastState) return;
 
+		// Preserve the caret across the re-render. The rename inputs are recreated
+		// every render, so the .focus() calls below would otherwise drop the caret
+		// to position 0 on each re-render (e.g. the 60s tick) while the user is
+		// mid-rename. Capture the OLD inputs' selection before the rewrite detaches
+		// them; restore it after .focus().
+		const prevSectionInput = rootEl.querySelector(".section__rename-input");
+		const sectionCaret = prevSectionInput
+			? {
+					start: prevSectionInput.selectionStart,
+					end: prevSectionInput.selectionEnd,
+				}
+			: null;
+		const prevTaskInput = rootEl.querySelector(".task__rename-input");
+		const taskCaret = prevTaskInput
+			? { start: prevTaskInput.selectionStart, end: prevTaskInput.selectionEnd }
+			: null;
+
 		isRendering = true;
 		try {
 			rootEl.innerHTML = template(lastState, areaId, {
@@ -513,6 +530,9 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 				pendingRenameSelect = false;
 			} else if (document.activeElement !== input) {
 				input.focus();
+				if (sectionCaret) {
+					input.setSelectionRange(sectionCaret.start, sectionCaret.end);
+				}
 			}
 		}
 
@@ -539,6 +559,9 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 				pendingRenameTaskSelect = false;
 			} else if (document.activeElement !== taskRenameInput) {
 				taskRenameInput.focus();
+				if (taskCaret) {
+					taskRenameInput.setSelectionRange(taskCaret.start, taskCaret.end);
+				}
 			}
 		}
 

@@ -245,6 +245,19 @@ export function createSidebarView(
 	function doRender() {
 		if (!lastState) return;
 
+		// Preserve the caret across the re-render. The rename input is recreated
+		// every render, so the .focus() call below would otherwise drop the caret
+		// to position 0 on each re-render (e.g. the 60s tick) while the user is
+		// mid-rename. Capture the OLD input's selection before the rewrite detaches
+		// it; restore it after .focus().
+		const prevRenameInput = rootEl.querySelector(".sidebar__rename-input");
+		const renameCaret = prevRenameInput
+			? {
+					start: prevRenameInput.selectionStart,
+					end: prevRenameInput.selectionEnd,
+				}
+			: null;
+
 		isRendering = true;
 		try {
 			rootEl.innerHTML = template(lastState, {
@@ -286,6 +299,9 @@ export function createSidebarView(
 				pendingRenameSelect = false;
 			} else if (document.activeElement !== input) {
 				input.focus();
+				if (renameCaret) {
+					input.setSelectionRange(renameCaret.start, renameCaret.end);
+				}
 			}
 		}
 

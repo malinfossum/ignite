@@ -232,6 +232,16 @@ export function createTodayView(rootEl, callbacks) {
 	function doRender() {
 		if (!lastState) return;
 
+		// Preserve the caret across the re-render. The rename input is recreated
+		// every render, so the .focus() call below would otherwise drop the caret
+		// to position 0 on each re-render (e.g. the 60s tick) while the user is
+		// mid-rename. Capture the OLD input's selection before the rewrite detaches
+		// it; restore it after .focus().
+		const prevTaskInput = rootEl.querySelector(".task__rename-input");
+		const taskCaret = prevTaskInput
+			? { start: prevTaskInput.selectionStart, end: prevTaskInput.selectionEnd }
+			: null;
+
 		isRendering = true;
 		try {
 			rootEl.innerHTML = template(
@@ -273,6 +283,9 @@ export function createTodayView(rootEl, callbacks) {
 				pendingRenameTaskSelect = false;
 			} else if (document.activeElement !== taskRenameInput) {
 				taskRenameInput.focus();
+				if (taskCaret) {
+					taskRenameInput.setSelectionRange(taskCaret.start, taskCaret.end);
+				}
 			}
 		}
 
