@@ -6,6 +6,8 @@ An ADHD-friendly task app — open source, local-first, zero bloat.
 
 **Status:** v0.1.0 — 134 tests passing.
 
+![Ignite — the Focus area: a capture bar, a "This week" and "Tasks" section, and the area sidebar on the left](docs/desktop_preview.png)
+
 ---
 
 ## About the name
