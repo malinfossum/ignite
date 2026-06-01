@@ -265,10 +265,34 @@ body {
 	outline-offset: 2px;
 }
 /* :disabled is unused today (boundary moves are omitted, not greyed) but kept so
-   all three menus stay identical — see .sidebar-menu__item. */
+   all three menus stay identical — see .sidebar-menu__item. The move picker's
+   "No other sections" empty-race hint reuses this style. */
 .task-menu__item:disabled {
 	color: var(--color-text-muted);
 	cursor: not-allowed;
+}
+
+/* --- Move-to picker (a sub-face of the task `…` menu) --- */
+/* Scrolls so a long target list never overflows the viewport or hides behind
+   the fixed bottom capture bar. 50vh keeps it clear on small screens. */
+.task-menu--picker {
+	max-height: 50vh;
+	overflow-y: auto;
+}
+.task-menu__group {
+	padding-block: 0.15rem;
+}
+/* Decorative area label (the role="group" aria-label names the area for SRs).
+   --color-text-muted on --color-bg-elevated ≈ 6.3:1 — passes WCAG AA. */
+.task-menu__group-label {
+	margin: 0;
+	padding: 0.25rem 0.6rem 0.1rem;
+	font-size: 0.75rem;
+	color: var(--color-text-muted);
+}
+.task-menu__item--back {
+	margin-top: 0.15rem;
+	border-top: 1px solid var(--color-border);
 }
 
 /* --- Toast --- */
