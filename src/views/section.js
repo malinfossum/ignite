@@ -15,6 +15,9 @@
 //   pendingRenameValue     - in-progress section-rename text (survives re-renders), or null
 //   renamingTaskId         - task id currently in rename mode, or null
 //   pendingRenameTaskValue - in-progress task-rename text (survives re-renders), or null
+//   taskMenuMode           - 'actions' | 'picker'; sub-face of the open task menu
+//   movePickerHtml         - pre-rendered picker string for the open task, or null
+//   hasMoveTargets         - true when ≥1 other section exists (gates "Move to…")
 //   now                    - Date used by renderTaskRow for time labels
 
 import { escapeHtml } from "../utils/dom.js";
@@ -32,6 +35,9 @@ export function renderSection({
 	pendingRenameValue,
 	renamingTaskId,
 	pendingRenameTaskValue,
+	taskMenuMode,
+	movePickerHtml,
+	hasMoveTargets,
 	now,
 }) {
 	const isOpen = openMenuId === section.id;
@@ -51,6 +57,9 @@ export function renderSection({
 		openTaskMenuId,
 		renamingTaskId,
 		pendingRenameTaskValue,
+		taskMenuMode,
+		movePickerHtml,
+		hasMoveTargets,
 	);
 
 	return `
@@ -151,6 +160,9 @@ function renderBody(
 	openTaskMenuId,
 	renamingTaskId,
 	pendingRenameTaskValue,
+	taskMenuMode,
+	movePickerHtml,
+	hasMoveTargets,
 ) {
 	const rows = tasks
 		.map((t, i) =>
@@ -161,6 +173,9 @@ function renderBody(
 				openTaskMenuId,
 				renamingTaskId,
 				pendingRenameTaskValue,
+				taskMenuMode,
+				movePickerHtml,
+				hasMoveTargets,
 			}),
 		)
 		.join("");
@@ -180,6 +195,9 @@ function renderTaskRowWithMenu(
 		openTaskMenuId,
 		renamingTaskId,
 		pendingRenameTaskValue,
+		taskMenuMode,
+		movePickerHtml,
+		hasMoveTargets,
 	},
 ) {
 	const isRenaming = renamingTaskId === task.id;
@@ -196,7 +214,15 @@ function renderTaskRowWithMenu(
 	const isOpen = openTaskMenuId === task.id;
 	const row = renderTaskRow(task, { now, isOpen });
 	if (!isOpen) return row;
-	// Boundary moves are OMITTED (not greyed) — mirrors the section + area menus.
+
+	// Picker face: replace the action menu with the pre-rendered picker.
+	if (taskMenuMode === "picker" && movePickerHtml) {
+		return row.replace("</li>", `${movePickerHtml}</li>`);
+	}
+
+	// Actions face. Boundary moves are OMITTED (not greyed) — mirrors the
+	// section + area menus. "Move to…" sits after Move up/down and before
+	// Delete (Delete stays last — destructive, hardest to mis-click).
 	const moveUpItem = isFirst
 		? ""
 		: `<button class="task-menu__item" type="button" data-action="move-task-up"
@@ -205,6 +231,10 @@ function renderTaskRowWithMenu(
 		? ""
 		: `<button class="task-menu__item" type="button" data-action="move-task-down"
 				role="menuitem" tabindex="-1">Move down</button>`;
+	const moveToItem = hasMoveTargets
+		? `<button class="task-menu__item" type="button" data-action="move-task-to"
+				role="menuitem" tabindex="-1" aria-haspopup="menu">Move to…</button>`
+		: "";
 	return row.replace(
 		"</li>",
 		`<div class="task-menu" role="menu">
@@ -212,6 +242,7 @@ function renderTaskRowWithMenu(
 				role="menuitem" tabindex="-1">Rename</button>
 			${moveUpItem}
 			${moveDownItem}
+			${moveToItem}
 			<button class="task-menu__item" type="button" data-action="delete-task"
 				role="menuitem" tabindex="-1">Delete</button>
 		</div></li>`,
