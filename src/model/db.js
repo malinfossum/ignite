@@ -42,8 +42,19 @@ function wrap(db) {
 			const tx = db.transaction(storeName, mode);
 			const store = tx.objectStore(storeName);
 			const req = fn(store);
-			req.onsuccess = () => resolve(req.result);
+			let result;
+			req.onsuccess = () => {
+				result = req.result;
+			};
 			req.onerror = () => reject(req.error);
+			// Resolve on transaction COMMIT, not request success: a write isn't
+			// durable until the tx commits, so resolving on req.onsuccess can report
+			// success for data that never lands. tx.onerror/onabort surface commit-time
+			// failures (e.g. quota exceeded) that would otherwise be swallowed silently.
+			tx.oncomplete = () => resolve(result);
+			tx.onerror = () => reject(tx.error);
+			tx.onabort = () =>
+				reject(tx.error ?? new Error(`Transaction aborted on "${storeName}"`));
 		});
 
 	return {
