@@ -333,3 +333,120 @@ describe("createTaskModel — rename", () => {
 		expect(calls).toEqual([]);
 	});
 });
+
+describe("createTaskModel — moveToSection", () => {
+	async function seedSection(db, id, areaId = "a1", order = 0) {
+		await db.put("sections", { id, areaId, name: id, order, collapsed: false });
+	}
+
+	it("re-points sectionId and appends to the target end, notifying once", async () => {
+		const { db, model } = await freshModel();
+		await seedSection(db, "s1");
+		await seedSection(db, "s2");
+		const t = await model.create({ sectionId: "s1", title: "Move me" });
+		await model.create({ sectionId: "s2", title: "Existing" }); // order 0 in s2
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		const result = await model.moveToSection(t.id, "s2");
+		expect(result).toBeUndefined();
+
+		const inS2 = await model.listBySection("s2");
+		const moved = inS2.find((x) => x.id === t.id);
+		expect(moved.sectionId).toBe("s2");
+		expect(moved.order).toBe(1); // appended after the existing order-0 task
+		expect(calls).toEqual(["notified"]); // single notify
+	});
+
+	it("is gap-robust: appends max(order)+1, not a colliding value", async () => {
+		const { db, model } = await freshModel();
+		await seedSection(db, "s1");
+		await seedSection(db, "s2");
+		// Two tasks in s2, then delete the first → leaves orders [_, 1] (gap at 0).
+		const keep0 = await model.create({ sectionId: "s2", title: "Zero" }); // order 0
+		const keep1 = await model.create({ sectionId: "s2", title: "One" }); // order 1
+		await model.remove(keep0.id); // s2 now has only order 1
+		const t = await model.create({ sectionId: "s1", title: "Move me" });
+
+		await model.moveToSection(t.id, "s2");
+
+		const inS2 = await model.listBySection("s2");
+		const moved = inS2.find((x) => x.id === t.id);
+		expect(moved.order).toBe(2); // max(1)+1, not 1 (no collision with keep1)
+		expect(keep1.order).toBe(1);
+	});
+
+	it("appends order 0 into an empty target section", async () => {
+		const { db, model } = await freshModel();
+		await seedSection(db, "s1");
+		await seedSection(db, "s2");
+		const t = await model.create({ sectionId: "s1", title: "Move me" });
+
+		await model.moveToSection(t.id, "s2");
+
+		const [moved] = await model.listBySection("s2");
+		expect(moved.id).toBe(t.id);
+		expect(moved.order).toBe(0);
+	});
+
+	it("no-ops without notifying when already in the target section", async () => {
+		const { db, model } = await freshModel();
+		await seedSection(db, "s1");
+		const t = await model.create({ sectionId: "s1", title: "Stay" });
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		await model.moveToSection(t.id, "s1");
+		expect(calls).toEqual([]); // no notify, no write
+		const [reread] = await model.listBySection("s1");
+		expect(reread.order).toBe(t.order); // unchanged
+	});
+
+	it("throws Task not found for a missing task id", async () => {
+		const { db, model } = await freshModel();
+		await seedSection(db, "s2");
+		await expect(model.moveToSection("nope-id", "s2")).rejects.toThrow(
+			/Task not found/,
+		);
+	});
+
+	it("throws Section not found for a missing target section", async () => {
+		const { db, model } = await freshModel();
+		await seedSection(db, "s1");
+		const t = await model.create({ sectionId: "s1", title: "Move me" });
+		await expect(model.moveToSection(t.id, "ghost-section")).rejects.toThrow(
+			/Section not found/,
+		);
+	});
+
+	it("preserves every other field on the moved task", async () => {
+		const { db, model } = await freshModel();
+		await seedSection(db, "s1");
+		await seedSection(db, "s2");
+		const t = await model.create({
+			sectionId: "s1",
+			title: "Meeting",
+			starred: true,
+			critical: true,
+			dueAt: "2026-06-01T10:00:00.000Z",
+			recurrence: "weekly",
+			leadTime: 15,
+			notes: "bring laptop",
+		});
+
+		await model.moveToSection(t.id, "s2");
+
+		const [moved] = await model.listBySection("s2");
+		expect(moved.title).toBe("Meeting");
+		expect(moved.starred).toBe(true);
+		expect(moved.critical).toBe(true);
+		expect(moved.completed).toBe(false);
+		expect(moved.dueAt).toBe("2026-06-01T10:00:00.000Z");
+		expect(moved.recurrence).toBe("weekly");
+		expect(moved.leadTime).toBe(15);
+		expect(moved.notes).toBe("bring laptop");
+		expect(moved.createdAt).toBe(t.createdAt);
+	});
+});

@@ -15,6 +15,7 @@ import { capitalizeFirst } from "../utils/text.js";
 //   remove(id) → Promise<void>,
 //   removeMany(ids) → Promise<void>,
 //   swapOrder(idA, idB) → Promise<void>,
+//   moveToSection(id, targetSectionId) → Promise<void>,  // re-points sectionId, appends to target end
 //   restore(snapshot) → Promise<Task>,
 //   restoreMany(snapshots) → Promise<void>,
 // }
@@ -150,6 +151,33 @@ export async function createTaskModel(db) {
 				db.put("tasks", { ...b, order: a.order }),
 			]);
 			notify(); // single notify after both writes
+		},
+
+		async moveToSection(id, targetSectionId) {
+			const stored = await db.get("tasks", id);
+			if (!stored) throw new Error(`Task not found: ${id}`);
+			const targetSection = await db.get("sections", targetSectionId);
+			if (!targetSection)
+				throw new Error(`Section not found: ${targetSectionId}`);
+			const current = fromStorage(stored);
+			// Already there → no-op, no notify (avoids a spurious re-render).
+			if (current.sectionId === targetSectionId) return;
+			// Append to the target END. max(order)+1 is gap-robust: delete/move
+			// can leave holes, so we never reuse a count. This APPENDS and never
+			// reorders peers, keeping clear of the M4 !completed reorder invariant.
+			const siblings = await db.getByIndex(
+				"tasks",
+				"sectionId",
+				targetSectionId,
+			);
+			const maxOrder = siblings.reduce((max, t) => Math.max(max, t.order), -1);
+			const moved = {
+				...current,
+				sectionId: targetSectionId,
+				order: maxOrder + 1,
+			};
+			await db.put("tasks", toStorage(moved));
+			notify();
 		},
 
 		async restoreMany(snapshots) {
