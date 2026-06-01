@@ -70,6 +70,7 @@ import {
 	lastEnabledIndex,
 	nextEnabledIndex,
 } from "../utils/menu-keyboard.js";
+import { renderMovePicker } from "./move-picker.js";
 import { renderSection } from "./section.js";
 
 export function createAreaView(rootEl, { areaId, callbacks }) {
@@ -87,6 +88,14 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	let pendingRenameTaskValue = null;
 	let pendingRenameTaskSelect = false;
 	let isRendering = false;
+	// Sub-face of the open task menu: 'actions' (default) | 'picker'.
+	// RESET to 'actions' on every open-menu; destroy resets it too.
+	let taskMenuMode = "actions";
+	// area.js-only cross-area focus fallback: source sectionId of a moved task.
+	// In doRender, if the moved task's ⋯ lookup MISSES (cross-area move → the
+	// task left this page), focus the source section's ⋯ instead of dropping
+	// focus to <body>.
+	let pendingFocusMoveSourceSectionId = null;
 
 	// returnFocus=false on click-outside dismiss: focus follows the click
 	// (e.g. into the capture input), not back to the ⋯. Esc / menu-action /
@@ -102,6 +111,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		if (!openTaskMenuId) return;
 		if (returnFocus) pendingFocusTaskId = openTaskMenuId;
 		openTaskMenuId = null;
+		taskMenuMode = "actions"; // hygiene — next open resets it anyway
 		doRender();
 	};
 
@@ -320,6 +330,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			// Mutual exclusion with section menu
 			openMenuId = null;
 			openTaskMenuId = t.id;
+			taskMenuMode = "actions"; // always open in the actions face
 			// Keyboard activations report event.detail === 0; on keyboard-open
 			// move focus to the first menu item (mirrors open-section-menu).
 			if (event.detail === 0) {
@@ -364,6 +375,46 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			const t = taskFromEvent(actionEl);
 			openTaskMenuId = null;
 			if (t) callbacks.onDeleteTask(t);
+		},
+
+		"move-task-to": (event, actionEl) => {
+			event.stopPropagation();
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			// Menu already open on this task — just flip its face to the picker.
+			// stopPropagation: doRender() below rewrites innerHTML synchronously,
+			// detaching event.target; without it the click bubbles on to the
+			// document click-outside handler, which sees the detached target as
+			// "outside" and closes the still-open menu. Mirrors open-menu.
+			taskMenuMode = "picker";
+			pendingMenuFocusTaskId = t.id; // focus first target after render
+			doRender();
+		},
+
+		"pick-move-target": (_event, actionEl) => {
+			const t = taskFromEvent(actionEl);
+			const targetSectionId = actionEl?.dataset?.targetSectionId;
+			if (!t || !targetSectionId) return;
+			openTaskMenuId = null;
+			taskMenuMode = "actions"; // reset for next open
+			pendingFocusTaskId = t.id; // focus follows the task if still visible
+			pendingFocusMoveSourceSectionId = t.sectionId; // cross-area fallback
+			callbacks.onMoveTaskToSection({ taskId: t.id, targetSectionId });
+			// No doRender() — the model-notify re-render consumes the focus flags
+			// (same as move-task-up/down). Self-heal on the swallowed-error path:
+			// every moveToSection throw cause is a deletion that fires its own
+			// notify → re-render → the (already-null) menu closes.
+		},
+
+		"move-picker-back": (event, actionEl) => {
+			event.stopPropagation();
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			// stopPropagation: same reason as move-task-to — doRender() detaches
+			// event.target, so the click must not reach the click-outside handler.
+			taskMenuMode = "actions";
+			pendingMenuFocusTaskId = t.id; // focus first action item (Rename)
+			doRender();
 		},
 	});
 
@@ -428,6 +479,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 				pendingRenameValue,
 				renamingTaskId,
 				pendingRenameTaskValue,
+				taskMenuMode,
 			});
 		} finally {
 			// try/finally so a defensive template throw can't strand
@@ -506,8 +558,19 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			const trigger = rootEl.querySelector(
 				`[data-id="${CSS.escape(pendingFocusTaskId)}"] .task__menu-btn`,
 			);
-			trigger?.focus();
+			if (trigger) {
+				trigger.focus();
+			} else if (pendingFocusMoveSourceSectionId) {
+				// Cross-area move: the task left this page. Fall back to the
+				// source section's ⋯ so focus doesn't drop to <body>.
+				rootEl
+					.querySelector(
+						`[data-section-id="${CSS.escape(pendingFocusMoveSourceSectionId)}"] .section__menu-btn`,
+					)
+					?.focus();
+			}
 			pendingFocusTaskId = null;
+			pendingFocusMoveSourceSectionId = null;
 		}
 
 		// Post-render lookup: when a menu was opened via keyboard, move focus
@@ -586,6 +649,8 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			pendingRenameTaskValue = null;
 			pendingRenameTaskSelect = false;
 			isRendering = false;
+			taskMenuMode = "actions";
+			pendingFocusMoveSourceSectionId = null;
 		},
 	};
 }
@@ -600,6 +665,7 @@ function template(
 		pendingRenameValue,
 		renamingTaskId,
 		pendingRenameTaskValue,
+		taskMenuMode,
 	},
 ) {
 	const area = state.areas.find((a) => a.id === areaId);
@@ -630,6 +696,23 @@ function template(
 		list.sort((a, b) => a.order - b.order);
 	}
 
+	// ≥1 section other than any task's own ⇒ a valid move target exists.
+	const hasMoveTargets = state.sections.length > 1;
+
+	// Compute the picker only for the open task in picker mode — guarded so
+	// it's skipped on every normal render.
+	let movePickerHtml = null;
+	if (openTaskMenuId && taskMenuMode === "picker") {
+		const openTask = state.tasks.find((t) => t.id === openTaskMenuId);
+		if (openTask) {
+			movePickerHtml = renderMovePicker({
+				task: openTask,
+				areas: state.areas,
+				sections: state.sections,
+			});
+		}
+	}
+
 	const sectionHtml = sections
 		.map((s, i) =>
 			renderSection({
@@ -644,6 +727,9 @@ function template(
 				pendingRenameValue,
 				renamingTaskId,
 				pendingRenameTaskValue,
+				taskMenuMode,
+				movePickerHtml,
+				hasMoveTargets,
 				now: state.now,
 			}),
 		)
