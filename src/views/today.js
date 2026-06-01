@@ -11,6 +11,7 @@ import {
 	nextEnabledIndex,
 } from "../utils/menu-keyboard.js";
 import { groupTasksForToday, pickNextTask } from "../utils/time.js";
+import { renderMovePicker } from "./move-picker.js";
 import { renderTaskRow } from "./task.js";
 
 export function createTodayView(rootEl, callbacks) {
@@ -32,6 +33,9 @@ export function createTodayView(rootEl, callbacks) {
 	let pendingRenameTaskValue = null;
 	let pendingRenameTaskSelect = false;
 	let isRendering = false;
+	// Sub-face of the open task menu: 'actions' (default) | 'picker'.
+	// RESET to 'actions' on every open-menu; destroy resets it too.
+	let taskMenuMode = "actions";
 
 	// returnFocus=false on click-outside dismiss: focus follows the click
 	// (e.g. into the capture input), not back to the ⋯. Esc / menu-action /
@@ -40,6 +44,7 @@ export function createTodayView(rootEl, callbacks) {
 		if (!openMenuTaskId) return;
 		if (returnFocus) pendingFocusTaskId = openMenuTaskId;
 		openMenuTaskId = null;
+		taskMenuMode = "actions"; // hygiene — next open resets it anyway
 		doRender();
 	};
 
@@ -134,6 +139,7 @@ export function createTodayView(rootEl, callbacks) {
 				return;
 			}
 			openMenuTaskId = t.id;
+			taskMenuMode = "actions"; // always open in the actions face
 			// Keyboard activations (Enter/Space) report event.detail === 0;
 			// on keyboard-open move focus to the first menu item. Mouse users
 			// (detail >= 1) keep focus on ⋯. Mirrors area.js / sidebar.js.
@@ -155,6 +161,43 @@ export function createTodayView(rootEl, callbacks) {
 			const t = taskFromEvent(actionEl);
 			openMenuTaskId = null;
 			if (t) callbacks.onDelete(t);
+		},
+
+		"move-task-to": (event, actionEl) => {
+			event.stopPropagation();
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			// Menu already open on this task — just flip its face to the picker.
+			// stopPropagation: doRender() below rewrites innerHTML synchronously,
+			// detaching event.target; without it the click bubbles on to the
+			// document click-outside handler, which sees the detached target as
+			// "outside" and closes the still-open menu. Mirrors open-menu.
+			taskMenuMode = "picker";
+			pendingMenuFocusTaskId = t.id; // focus first target after render
+			doRender();
+		},
+
+		"pick-move-target": (_event, actionEl) => {
+			const t = taskFromEvent(actionEl);
+			const targetSectionId = actionEl?.dataset?.targetSectionId;
+			if (!t || !targetSectionId) return;
+			openMenuTaskId = null;
+			taskMenuMode = "actions"; // reset for next open
+			pendingFocusTaskId = t.id; // the task stays in Today; refocus its ⋯
+			callbacks.onMoveTaskToSection({ taskId: t.id, targetSectionId });
+			// No doRender() — the model-notify re-render consumes the focus flag
+			// (same as the area view). Toast is the only visible feedback here.
+		},
+
+		"move-picker-back": (event, actionEl) => {
+			event.stopPropagation();
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			// stopPropagation: same reason as move-task-to — doRender() detaches
+			// event.target, so the click must not reach the click-outside handler.
+			taskMenuMode = "actions";
+			pendingMenuFocusTaskId = t.id; // focus first action item (Rename)
+			doRender();
 		},
 	});
 
@@ -196,6 +239,7 @@ export function createTodayView(rootEl, callbacks) {
 				openMenuTaskId,
 				renamingTaskId,
 				pendingRenameTaskValue,
+				taskMenuMode,
 			);
 		} finally {
 			// try/finally so a defensive template throw can't strand
@@ -285,6 +329,7 @@ export function createTodayView(rootEl, callbacks) {
 			pendingRenameTaskValue = null;
 			pendingRenameTaskSelect = false;
 			isRendering = false;
+			taskMenuMode = "actions";
 		},
 	};
 }
@@ -294,6 +339,7 @@ function template(
 	openMenuTaskId,
 	renamingTaskId,
 	pendingRenameTaskValue,
+	taskMenuMode,
 ) {
 	const next = pickNextTask(state.tasks, state.now);
 	const groups = groupTasksForToday(state.tasks, state.now);
@@ -310,11 +356,27 @@ function template(
 		return `<p class="empty">You're clear. Nice.</p>`;
 	}
 
+	// ≥1 section other than any task's own ⇒ a valid move target exists.
+	const hasMoveTargets = state.sections.length > 1;
+
+	// Compute the picker only for the open task in picker mode.
+	let movePickerHtml = null;
+	if (openMenuTaskId && taskMenuMode === "picker") {
+		const openTask = state.tasks.find((t) => t.id === openMenuTaskId);
+		if (openTask) {
+			movePickerHtml = renderMovePicker({
+				task: openTask,
+				areas: state.areas,
+				sections: state.sections,
+			});
+		}
+	}
+
 	return `
-		${next ? renderNextCard(next, state.now, openMenuTaskId, renamingTaskId, pendingRenameTaskValue) : ""}
-		${renderGroup("Overdue", "group--overdue", overdue, state.now, openMenuTaskId, true, renamingTaskId, pendingRenameTaskValue)}
-		${renderGroup("Today", "group--today", today, state.now, openMenuTaskId, true, renamingTaskId, pendingRenameTaskValue)}
-		${renderGroup("Starred", "group--starred", starred, state.now, openMenuTaskId, false, renamingTaskId, pendingRenameTaskValue)}
+		${next ? renderNextCard(next, state.now, openMenuTaskId, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets) : ""}
+		${renderGroup("Overdue", "group--overdue", overdue, state.now, openMenuTaskId, true, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets)}
+		${renderGroup("Today", "group--today", today, state.now, openMenuTaskId, true, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets)}
+		${renderGroup("Starred", "group--starred", starred, state.now, openMenuTaskId, false, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets)}
 	`;
 }
 
@@ -324,12 +386,15 @@ function renderNextCard(
 	openMenuTaskId,
 	renamingTaskId,
 	pendingRenameTaskValue,
+	taskMenuMode,
+	movePickerHtml,
+	hasMoveTargets,
 ) {
 	return `
 		<article class="next-card">
 			<h2 class="next-card__label">NEXT</h2>
 			<ul class="next-card__list">
-				${renderTaskRowWithMenu(task, now, openMenuTaskId, renamingTaskId, pendingRenameTaskValue)}
+				${renderTaskRowWithMenu(task, now, openMenuTaskId, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets)}
 			</ul>
 		</article>
 	`;
@@ -344,6 +409,9 @@ function renderGroup(
 	showCount,
 	renamingTaskId,
 	pendingRenameTaskValue,
+	taskMenuMode,
+	movePickerHtml,
+	hasMoveTargets,
 ) {
 	if (tasks.length === 0) return "";
 	const headingText = showCount ? `${heading} (${tasks.length})` : heading;
@@ -355,6 +423,9 @@ function renderGroup(
 				openMenuTaskId,
 				renamingTaskId,
 				pendingRenameTaskValue,
+				taskMenuMode,
+				movePickerHtml,
+				hasMoveTargets,
 			),
 		)
 		.join("");
@@ -372,6 +443,9 @@ function renderTaskRowWithMenu(
 	openMenuTaskId,
 	renamingTaskId,
 	pendingRenameTaskValue,
+	taskMenuMode,
+	movePickerHtml,
+	hasMoveTargets,
 ) {
 	const isRenaming = renamingTaskId === task.id;
 	if (isRenaming) {
@@ -387,16 +461,24 @@ function renderTaskRowWithMenu(
 	const isOpen = openMenuTaskId === task.id;
 	const row = renderTaskRow(task, { now, isOpen });
 	if (!isOpen) return row;
-	// Inject the menu inside the <li> as its last child. The <li> is set to
-	// position: relative in CSS, so the menu's absolute positioning anchors
-	// against the row. (Putting it after </li> would make it a direct child
-	// of <ul>, which is invalid HTML.)
-	// Today menu: [Rename, Delete]. No Move up/down — today is a sorted view,
-	// not a manual order.
+
+	// Picker face: replace the action menu with the pre-rendered picker.
+	// The menu injects inside the <li> as its last child (the <li> is
+	// position: relative so the absolute menu anchors to the row).
+	if (taskMenuMode === "picker" && movePickerHtml) {
+		return row.replace("</li>", `${movePickerHtml}</li>`);
+	}
+
+	// Actions face. Today menu: [Rename, Move to…, Delete]. No Move up/down —
+	// today is a sorted view, not a manual order.
+	const moveToItem = hasMoveTargets
+		? `<button class="task-menu__item" type="button" data-action="move-task-to" role="menuitem" tabindex="-1" aria-haspopup="menu">Move to…</button>`
+		: "";
 	return row.replace(
 		"</li>",
 		`<div class="task-menu" role="menu">
 			<button class="task-menu__item" type="button" data-action="rename-task" role="menuitem" tabindex="-1">Rename</button>
+			${moveToItem}
 			<button class="task-menu__item" type="button" data-action="delete-task" role="menuitem" tabindex="-1">Delete</button>
 		</div></li>`,
 	);
