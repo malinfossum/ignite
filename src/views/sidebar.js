@@ -1,6 +1,7 @@
 // createSidebarView(rootEl, {
 //   onToggleCollapse, onGoToday, onOpenArea,
 //   onAddArea, onCommitAreaRename, onMoveAreaUp, onMoveAreaDown, onDeleteArea,
+//   onCloseDrawer,
 // }) → { render(state), enterRename(areaId), destroy() }
 //
 // state expected: { areas, sections, tasks, settings, route, now }
@@ -42,6 +43,7 @@ export function createSidebarView(
 		onMoveAreaUp,
 		onMoveAreaDown,
 		onDeleteArea,
+		onCloseDrawer,
 	},
 ) {
 	let lastState = null;
@@ -118,7 +120,9 @@ export function createSidebarView(
 			}
 			if (openAreaMenuId) {
 				closeMenu();
+				return;
 			}
+			onCloseDrawer?.(); // nothing internal consumed Esc → ask controller to close the drawer
 			return;
 		}
 

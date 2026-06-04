@@ -12,6 +12,7 @@ import { createCaptureView } from "./views/capture.js";
 import { createSidebarView } from "./views/sidebar.js";
 import { createToastView, TASK_DELETE_BATCH_KEY } from "./views/toast.js";
 import { createTodayView } from "./views/today.js";
+import { createTopbarView } from "./views/topbar.js";
 
 const TICK_MS = 60_000;
 const CASCADE_TOAST_MS = 8_000;
@@ -29,9 +30,18 @@ export function parseHash(hash) {
 
 export function createController({ models, els }) {
 	const { areas, sections, tasks, settings } = models;
-	const { sidebarRoot, captureRoot, mainRoot, toastRoot } = els;
+	const {
+		sidebarRoot,
+		topbarRoot,
+		scrimEl,
+		mainEl,
+		captureRoot,
+		mainRoot,
+		toastRoot,
+	} = els;
 
 	let sidebar = null;
+	let topbar = null;
 	let capture = null;
 	let toast = null;
 	let currentMainView = null;
@@ -39,6 +49,9 @@ export function createController({ models, els }) {
 	let tickHandle = null;
 	let unsubs = [];
 	let taskDeleteBatch = null; // null | { tasks: Array<TaskSnapshot> }
+	let drawerOpen = false; // transient UI state — NOT a model field (mirrors is-area-route)
+	let drawerMq = null; // matchMedia("(min-width: 768px)") — stored for teardown
+	let drawerMqHandler = null;
 
 	async function buildState() {
 		const [areaList, sectionList, taskList, settingsRecord] = await Promise.all(
@@ -408,7 +421,39 @@ export function createController({ models, els }) {
 		return `"${name}" and ${count} tasks deleted`;
 	}
 
+	function openDrawer() {
+		if (drawerOpen) return;
+		drawerOpen = true;
+		document.body.classList.add("is-drawer-open"); // CSS: slide in + scrim + scroll-lock
+		topbar.setExpanded(true); // menu button aria-expanded="true"
+		// Modal dialog semantics — controller-set so sidebar.js stays unchanged.
+		// openDrawer only ever runs on mobile, so these never exist on desktop.
+		sidebarRoot.setAttribute("role", "dialog");
+		sidebarRoot.setAttribute("aria-modal", "true");
+		sidebarRoot.setAttribute("aria-label", "Navigation");
+		// Background becomes inert → focus is contained in the drawer, AT ignores it.
+		// The scrim is NOT inert — it must stay tappable to close.
+		for (const el of [topbarRoot, mainEl, toastRoot]) el.inert = true;
+		// Move focus into the drawer (first focusable: the "Ignite" home button).
+		sidebarRoot.querySelector(".sidebar__home")?.focus();
+	}
+
+	function closeDrawer() {
+		if (!drawerOpen) return;
+		drawerOpen = false;
+		document.body.classList.remove("is-drawer-open");
+		for (const el of [topbarRoot, mainEl, toastRoot]) el.inert = false;
+		for (const attr of ["role", "aria-modal", "aria-label"]) {
+			sidebarRoot.removeAttribute(attr);
+		}
+		topbar.setExpanded(false);
+		// Return focus to the menu trigger via DOM lookup, never a stored ref
+		// (the topbar is render-once, so the lookup is stable).
+		topbarRoot.querySelector(".topbar__menu")?.focus();
+	}
+
 	function onHashChange() {
+		closeDrawer(); // close on ALL route changes incl. browser back/forward
 		currentRoute = parseHash(window.location.hash);
 		mountMainView(currentRoute);
 		applyState();
@@ -416,6 +461,14 @@ export function createController({ models, els }) {
 
 	function start() {
 		toast = createToastView(toastRoot);
+
+		topbar = createTopbarView(topbarRoot, {
+			onToggleDrawer: () => (drawerOpen ? closeDrawer() : openDrawer()),
+			onGoToday: () => {
+				window.location.hash = "#today";
+				closeDrawer(); // same-hash tap of "Ignite" on #today fires no hashchange
+			},
+		});
 
 		sidebar = createSidebarView(sidebarRoot, {
 			onToggleCollapse: async () => {
@@ -426,10 +479,13 @@ export function createController({ models, els }) {
 			},
 			onGoToday: () => {
 				window.location.hash = "#today";
+				closeDrawer();
 			},
 			onOpenArea: (id) => {
 				window.location.hash = `#area/${id}`;
+				closeDrawer();
 			},
+			onCloseDrawer: () => closeDrawer(),
 			...sidebarCallbacks(),
 		});
 
@@ -455,23 +511,42 @@ export function createController({ models, els }) {
 
 		window.addEventListener("hashchange", onHashChange);
 
+		scrimEl.addEventListener("click", closeDrawer);
+
+		// Crossing to the desktop layout must clear is-drawer-open, the inert
+		// flags, and the scroll-lock — otherwise an open-drawer resize strands
+		// them on the desktop grid.
+		drawerMq = matchMedia("(min-width: 768px)");
+		drawerMqHandler = (event) => {
+			if (event.matches) closeDrawer();
+		};
+		drawerMq.addEventListener("change", drawerMqHandler);
+
 		tickHandle = setInterval(applyState, TICK_MS);
 	}
 
 	function stop() {
+		closeDrawer(); // clears is-drawer-open, inert, scroll-lock, dialog ARIA in one place
 		clearInterval(tickHandle);
 		tickHandle = null;
 		window.removeEventListener("hashchange", onHashChange);
+		scrimEl.removeEventListener("click", closeDrawer);
+		drawerMq?.removeEventListener("change", drawerMqHandler);
+		drawerMq = null;
+		drawerMqHandler = null;
 		for (const unsub of unsubs) unsub();
 		unsubs = [];
 		currentMainView?.destroy();
 		capture?.destroy();
 		sidebar?.destroy();
+		topbar?.destroy();
 		toast?.destroy();
 		currentMainView = null;
 		capture = null;
 		sidebar = null;
+		topbar = null;
 		toast = null;
+		drawerOpen = false;
 	}
 
 	return { start, stop };

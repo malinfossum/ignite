@@ -17,6 +17,8 @@ async function boot() {
 
 	const sidebarRoot = document.getElementById("sidebar");
 	const mainEl = document.getElementById("main");
+	const topbarRoot = document.getElementById("topbar");
+	const scrimEl = document.getElementById("scrim");
 
 	mainEl.innerHTML = `
 		<section class="capture" id="capture-root"></section>
@@ -31,6 +33,9 @@ async function boot() {
 		models: { areas, sections, tasks, settings },
 		els: {
 			sidebarRoot,
+			topbarRoot,
+			scrimEl,
+			mainEl,
 			captureRoot: document.getElementById("capture-root"),
 			mainRoot: document.getElementById("main-root"),
 			toastRoot,

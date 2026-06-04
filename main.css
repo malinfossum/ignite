@@ -23,15 +23,35 @@
 body {
 	display: grid;
 	grid-template-columns: 1fr;
+	/* Mobile: a slim auto top-bar row + a 1fr content row that fills the viewport.
+	   Without explicit rows the grid stretches BOTH rows to fill min-height:100vh,
+	   ballooning the top bar. Reset to `none` at >=768px so the desktop sidebar
+	   column still fills full height. */
+	grid-template-rows: auto 1fr;
 	min-height: 100vh;
 }
 
+/* Mobile baseline: the sidebar is an off-canvas drawer that slides in from the left.
+   visibility:hidden (not just the off-screen transform) removes the closed drawer from
+   the tab order + AT tree; it's restored to visible by body.is-drawer-open and at >=768px. */
 #sidebar {
-	border-bottom: 1px solid var(--color-border);
+	position: fixed;
+	inset-block: 0;
+	inset-inline-start: 0;
+	z-index: 90;
+	width: min(80vw, 300px);
 	padding: 1rem;
 	display: flex;
 	flex-direction: column;
 	gap: 0.75rem;
+	overflow-y: auto;
+	background: var(--color-bg);
+	border-right: 1px solid var(--color-border);
+	transform: translateX(-100%);
+	visibility: hidden;
+	transition:
+		transform 200ms ease,
+		visibility 200ms;
 }
 
 #main {
@@ -51,6 +71,7 @@ body {
 	}
 	body {
 		grid-template-columns: var(--sidebar-width) 1fr;
+		grid-template-rows: none;
 		transition: grid-template-columns 200ms ease;
 	}
 	body.is-sidebar-collapsed {
@@ -58,6 +79,12 @@ body {
 	}
 
 	#sidebar {
+		position: static;
+		z-index: auto;
+		width: auto;
+		overflow-y: visible;
+		transform: none;
+		visibility: visible;
 		border-right: 1px solid var(--color-border);
 		border-bottom: none;
 	}
@@ -300,7 +327,7 @@ body {
 	position: fixed;
 	left: 0;
 	right: 0;
-	bottom: 1rem;
+	bottom: calc(var(--capture-h) + 0.5rem);
 	display: flex;
 	justify-content: center;
 	pointer-events: none;
@@ -790,4 +817,140 @@ body {
 }
 .task__rename-input:focus {
 	outline: none;
+}
+
+/* ================================================================= */
+/* v0.2 — Mobile shell: top bar + off-canvas drawer + pinned capture  */
+/* Mobile-first: the rules below are the BASELINE (phones). The        */
+/* @media (min-width: 768px) block restores the desktop layout, and    */
+/* the body.is-drawer-open state overrides come LAST so specificity     */
+/* stays ascending (Biome noDescendingSpecificity).                    */
+/* ================================================================= */
+
+:root {
+	/* Height reserved for the pinned mobile capture bar (input + padding + the
+	   home-indicator safe area). Single source of truth: #main's bottom padding
+	   and the toast lift both derive from it so they can't drift. */
+	--capture-h: calc(3.4rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Top bar — mobile only (hidden at >=768px). Both buttons are >=44px touch targets. */
+#topbar {
+	position: sticky;
+	top: 0;
+	z-index: 50;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.25rem 0.5rem;
+	background: var(--color-bg);
+	border-bottom: 1px solid var(--color-border);
+}
+.topbar__menu,
+.topbar__wordmark {
+	background: transparent;
+	border: 0;
+	color: var(--color-text);
+	font: inherit;
+	min-block-size: 44px;
+	min-inline-size: 44px;
+	border-radius: var(--radius);
+	cursor: pointer;
+}
+.topbar__menu {
+	font-size: 1.25rem;
+}
+.topbar__wordmark {
+	padding-inline: 0.5rem;
+	font-size: 1.1rem;
+	font-weight: 700;
+}
+.topbar__menu:hover,
+.topbar__wordmark:hover {
+	color: var(--color-accent);
+}
+.topbar__menu:focus-visible,
+.topbar__wordmark:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+/* Scrim behind the open drawer. Body-level sibling of #main (so it stays tappable
+   while #main is inert). Class-driven (not the hidden attribute) so it can fade. */
+#scrim {
+	position: fixed;
+	inset: 0;
+	z-index: 80;
+	background: rgba(0, 0, 0, 0.5);
+	opacity: 0;
+	visibility: hidden;
+	transition:
+		opacity 200ms ease,
+		visibility 200ms;
+}
+
+/* Capture pinned to the bottom of the viewport. */
+#capture-root {
+	position: fixed;
+	inset-inline: 0;
+	bottom: 0;
+	z-index: 60;
+	padding: 0.5rem var(--main-padding);
+	padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+	background: var(--color-bg);
+	border-top: 1px solid var(--color-border);
+}
+
+/* Reserve space so the last task clears the pinned capture bar. */
+#main {
+	padding-block-end: calc(var(--main-padding) + var(--capture-h));
+}
+
+/* Lock background scroll while the drawer is open. */
+body.is-drawer-open {
+	overflow: hidden;
+}
+
+/* Reduced motion: drawer + scrim appear without the slide/fade.
+   Placed before the state overrides so #sidebar / #scrim specificity stays ascending. */
+@media (prefers-reduced-motion: reduce) {
+	#sidebar,
+	#scrim {
+		transition: none;
+	}
+}
+
+/* Desktop / tablet: restore the v0.1 layout exactly. */
+@media (min-width: 768px) {
+	#topbar {
+		display: none;
+	}
+	#scrim {
+		display: none;
+	}
+	#capture-root {
+		position: static;
+		z-index: auto;
+		padding: 0;
+		background: transparent;
+		border-top: 0;
+	}
+	#main {
+		padding-block-end: var(--main-padding);
+	}
+	#toast-root {
+		bottom: 1rem;
+	}
+}
+
+/* Open-state overrides — LAST so their higher specificity stays in ascending
+   source order. Only meaningful on mobile; harmless at >=768px (matchMedia clears
+   is-drawer-open on crossover, and these props are no-ops against the static layout). */
+body.is-drawer-open #sidebar {
+	transform: none;
+	visibility: visible;
+}
+body.is-drawer-open #scrim {
+	opacity: 1;
+	visibility: visible;
 }
