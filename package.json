@@ -11,6 +11,7 @@
 		"format": "biome format --write .",
 		"lint": "biome lint .",
 		"check": "biome check .",
+		"gen:icons": "node scripts/gen-icons.mjs",
 		"test": "vitest",
 		"test:run": "vitest run"
 	},
@@ -27,7 +28,11 @@
 	"devDependencies": {
 		"@biomejs/biome": "2.4.12",
 		"fake-indexeddb": "^6.2.5",
+		"sharp": "^0.34.5",
 		"vite": "^8.0.9",
 		"vitest": "^4.1.4"
+	},
+	"allowScripts": {
+		"sharp@0.34.5": true
 	}
 }

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Ignite flame">
+	<rect width="512" height="512" fill="#0f0f10" />
+	<path d="M256 96 C 322 188 382 246 382 332 C 382 404 326 440 256 440 C 186 440 130 404 130 332 C 130 246 190 188 256 96 Z" fill="#ff7a18" />
+	<path d="M256 224 C 298 280 326 308 326 350 C 326 398 294 426 256 426 C 218 426 186 398 186 350 C 186 308 214 280 256 224 Z" fill="#ffd166" />
+</svg>
