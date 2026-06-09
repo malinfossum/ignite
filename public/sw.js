@@ -17,7 +17,21 @@ self.addEventListener("install", (event) => {
 	event.waitUntil(
 		self.caches
 			.open(VERSION)
-			.then((cache) => cache.addAll(SHELL))
+			.then(async (cache) => {
+				await cache.addAll(SHELL);
+				// Also precache the hashed build assets, discovered by parsing the shell HTML.
+				// Runtime caching alone is unreliable — the browser serves these from its memory
+				// cache on reload, bypassing the worker — so they may never land in the cache.
+				try {
+					const html = await (await fetch(new URL("./", SCOPE))).text();
+					const assets = [
+						...html.matchAll(/(?:src|href)="([^"]*\/assets\/[^"]+)"/g),
+					].map((m) => new URL(m[1], SCOPE).toString());
+					if (assets.length) await cache.addAll(assets);
+				} catch {
+					// best-effort: anything not precached falls back to runtime cache-first
+				}
+			})
 			.then(() => self.skipWaiting()),
 	);
 });

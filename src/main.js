@@ -1,6 +1,6 @@
 // main.js — app entry point.
 
-import("./app.js");
+import "./app.js";
 
 // Production builds only — `vite preview` + Pages register the worker; `vite dev` does not,
 // so editing source during development never serves a stale cached module.
