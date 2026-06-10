@@ -10,6 +10,7 @@ import {
 	lastEnabledIndex,
 	nextEnabledIndex,
 } from "../utils/menu-keyboard.js";
+import { attachRenameInput, readRenameCaret } from "../utils/rename-input.js";
 import { groupTasksForToday, pickNextTask } from "../utils/time.js";
 import { renderMovePicker } from "./move-picker.js";
 import { renderTaskRow } from "./task.js";
@@ -232,15 +233,9 @@ export function createTodayView(rootEl, callbacks) {
 	function doRender() {
 		if (!lastState) return;
 
-		// Preserve the caret across the re-render. The rename input is recreated
-		// every render, so the .focus() call below would otherwise drop the caret
-		// to position 0 on each re-render (e.g. the 60s tick) while the user is
-		// mid-rename. Capture the OLD input's selection before the rewrite detaches
-		// it; restore it after .focus().
-		const prevTaskInput = rootEl.querySelector(".task__rename-input");
-		const taskCaret = prevTaskInput
-			? { start: prevTaskInput.selectionStart, end: prevTaskInput.selectionEnd }
-			: null;
+		// Caret is read BEFORE the rewrite detaches the live input; the shared
+		// helper re-focuses and restores it after re-render. See utils/rename-input.js.
+		const taskCaret = readRenameCaret(rootEl, ".task__rename-input");
 
 		isRendering = true;
 		try {
@@ -257,37 +252,20 @@ export function createTodayView(rootEl, callbacks) {
 			isRendering = false;
 		}
 
-		// Re-attach task-rename input listeners on the NEW input (recreated
-		// each render). pendingRenameTaskValue mirrors typing so it survives
-		// re-renders; blur commits but skips the synthetic blur fired when
-		// an innerHTML rewrite detaches the input.
-		const taskRenameInput = rootEl.querySelector(".task__rename-input");
-		if (taskRenameInput) {
-			taskRenameInput.addEventListener("input", (e) => {
-				pendingRenameTaskValue = e.target.value;
-			});
-			taskRenameInput.addEventListener(
-				"blur",
-				() => {
-					if (isRendering) return;
-					if (renamingTaskId) commitTaskRenameFromInput(taskRenameInput);
-				},
-				{ once: true },
-			);
-
-			// Only select() on first render after entering rename mode.
-			// Subsequent re-renders (60s tick, unrelated notifies) preserve cursor.
-			if (pendingRenameTaskSelect) {
-				taskRenameInput.focus();
-				taskRenameInput.select();
-				pendingRenameTaskSelect = false;
-			} else if (document.activeElement !== taskRenameInput) {
-				taskRenameInput.focus();
-				if (taskCaret) {
-					taskRenameInput.setSelectionRange(taskCaret.start, taskCaret.end);
-				}
-			}
-		}
+		// Re-wire the inline-rename input (recreated on every render). The shared
+		// helper mirrors typing, commits on user blur (not the synthetic detach
+		// blur), and focuses+selects or restores the caret. See utils/rename-input.js.
+		const attached = attachRenameInput(rootEl, ".task__rename-input", {
+			onInput: (value) => {
+				pendingRenameTaskValue = value;
+			},
+			onCommit: commitTaskRenameFromInput,
+			isRendering: () => isRendering,
+			isEditing: () => !!renamingTaskId,
+			selectOnFocus: pendingRenameTaskSelect,
+			caret: taskCaret,
+		});
+		if (attached) pendingRenameTaskSelect = false;
 
 		// Post-render lookup: focus the task's ⋯ button by data-attribute.
 		// Captured element refs go stale across innerHTML rewrites, so we

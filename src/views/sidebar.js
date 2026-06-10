@@ -31,6 +31,7 @@ import {
 	lastEnabledIndex,
 	nextEnabledIndex,
 } from "../utils/menu-keyboard.js";
+import { attachRenameInput, readRenameCaret } from "../utils/rename-input.js";
 
 export function createSidebarView(
 	rootEl,
@@ -249,18 +250,9 @@ export function createSidebarView(
 	function doRender() {
 		if (!lastState) return;
 
-		// Preserve the caret across the re-render. The rename input is recreated
-		// every render, so the .focus() call below would otherwise drop the caret
-		// to position 0 on each re-render (e.g. the 60s tick) while the user is
-		// mid-rename. Capture the OLD input's selection before the rewrite detaches
-		// it; restore it after .focus().
-		const prevRenameInput = rootEl.querySelector(".sidebar__rename-input");
-		const renameCaret = prevRenameInput
-			? {
-					start: prevRenameInput.selectionStart,
-					end: prevRenameInput.selectionEnd,
-				}
-			: null;
+		// Caret is read BEFORE the rewrite detaches the live input; the shared
+		// helper re-focuses and restores it after re-render. See utils/rename-input.js.
+		const renameCaret = readRenameCaret(rootEl, ".sidebar__rename-input");
 
 		isRendering = true;
 		try {
@@ -275,39 +267,20 @@ export function createSidebarView(
 			isRendering = false;
 		}
 
-		// Re-attach input + blur listeners on the NEW input. Both must be
-		// re-attached on every render because the element is recreated.
-		const input = rootEl.querySelector(".sidebar__rename-input");
-		if (input) {
-			input.addEventListener("input", (e) => {
-				pendingRenameValue = e.target.value;
-			});
-			// Blur commits, but ONLY for user-initiated blur. When innerHTML
-			// rewrites during tick re-render, the focused input is detached
-			// and a synthetic blur fires; we must NOT commit in that case
-			// (rename mode should persist across re-renders).
-			input.addEventListener(
-				"blur",
-				() => {
-					if (isRendering) return;
-					if (renamingAreaId) commitRenameFromInput(input);
-				},
-				{ once: true },
-			);
-
-			// Rename input focus handling — only select() on first render
-			// after entering rename mode. Subsequent re-renders preserve cursor.
-			if (pendingRenameSelect) {
-				input.focus();
-				input.select();
-				pendingRenameSelect = false;
-			} else if (document.activeElement !== input) {
-				input.focus();
-				if (renameCaret) {
-					input.setSelectionRange(renameCaret.start, renameCaret.end);
-				}
-			}
-		}
+		// Re-wire the inline-rename input (recreated on every render). The shared
+		// helper mirrors typing, commits on user blur (not the synthetic detach
+		// blur), and focuses+selects or restores the caret. See utils/rename-input.js.
+		const attached = attachRenameInput(rootEl, ".sidebar__rename-input", {
+			onInput: (value) => {
+				pendingRenameValue = value;
+			},
+			onCommit: commitRenameFromInput,
+			isRendering: () => isRendering,
+			isEditing: () => !!renamingAreaId,
+			selectOnFocus: pendingRenameSelect,
+			caret: renameCaret,
+		});
+		if (attached) pendingRenameSelect = false;
 
 		// Post-render lookup: focus the area's ⋯ button by data-attribute.
 		// This is how we restore focus after innerHTML rewrites — element
