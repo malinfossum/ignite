@@ -4,7 +4,7 @@
 
 An ADHD-friendly task app — open source, local-first, zero bloat.
 
-**Status:** v0.1.0 — 134 tests passing.
+**Status:** v0.2.0 — 143 tests passing. **Live:** [malinfossum.github.io/ignite](https://malinfossum.github.io/ignite/)
 
 ![Ignite — the Focus area: a capture bar, a "This week" and "Tasks" section, and the area sidebar on the left](docs/desktop_preview.png)
 
@@ -31,14 +31,14 @@ Built to replace a cluttered subscription task app with something minimal, free,
 
 ## Features
 
-Everything in v0.1:
-
 - **Quick capture** — type and go; new tasks land in your **Focus** area
 - **Today view** — what's next, with relative time labels that tick live
 - **Areas & sections** — organize with a two-level hierarchy; create, rename, reorder, and delete
 - **Tasks** — complete, star, reorder, rename in place, and move between sections
 - **Undo everything** — deletes (including a whole area and its contents) are undoable from the toast
 - **Keyboard & screen reader** — ARIA menu navigation and full keyboard paths throughout
+- **Install & offline** — installable PWA; works fully offline once loaded, including airplane mode
+- **Mobile** — responsive shell with an off-canvas navigation drawer and a pinned capture bar
 
 ---
 
@@ -48,8 +48,10 @@ Vanilla HTML, CSS, and JavaScript — no frameworks. Strict MVC with a `subscrib
 
 - **Build:** Vite
 - **Persistence:** IndexedDB (hand-rolled wrapper)
-- **Test:** Vitest + fake-indexeddb (134 tests)
+- **Offline:** hand-rolled service worker + web app manifest
+- **Test:** Vitest + fake-indexeddb (143 tests)
 - **Format / lint:** Biome
+- **Deploy:** GitHub Pages via GitHub Actions
 
 ---
 
@@ -65,14 +67,26 @@ npm run check      # Biome lint + format check
 
 ---
 
+## Install
+
+Open the [live app](https://malinfossum.github.io/ignite/) and add it to your device:
+
+- **Android (Chrome):** menu (⋮) → **Add to Home screen**
+- **Desktop (Chrome / Edge):** the install icon in the address bar
+- **iOS (Safari):** Share → **Add to Home Screen**
+
+Once installed it runs offline, and your data stays on the device.
+
+---
+
 ## Roadmap
 
 Planned, not yet shipped:
 
-- PWA install + offline support (service worker)
 - Reminders and scheduled notifications
 - Recurring tasks — the recurrence engine exists; the UI is pending
 - Drag-to-reorder, due dates, and richer task metadata
+- A custom install prompt and a refreshed visual design
 
 Design specs and implementation plans live in `docs/superpowers/`.
 
