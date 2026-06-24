@@ -16,7 +16,8 @@
 //                        placeholder.
 
 import { escapeHtml } from "../utils/dom.js";
-import { formatTimeLabel } from "../utils/time.js";
+import { describeRecurrence } from "../utils/text.js";
+import { formatOccurrenceLabel, formatTimeLabel } from "../utils/time.js";
 
 export function renderTaskRow(
 	task,
@@ -32,7 +33,7 @@ export function renderTaskRow(
 		: 'aria-pressed="false"';
 	const starGlyph = task.starred ? "★" : "☆";
 	const recurring = task.recurrence
-		? '<span class="task__recurring" aria-hidden="true">⟲</span>'
+		? `<span class="task__recurring" role="img" aria-label="${escapeHtml(recurrenceBadgeLabel(task, now))}">⟲</span>`
 		: "";
 	const timeLabel = task.dueAt
 		? `<span class="task__time-label">${escapeHtml(formatTimeLabel(task.dueAt, now))}</span>`
@@ -70,4 +71,14 @@ function renderRenameRow(task, pendingRenameValue) {
 				autofocus />
 		</li>
 	`;
+}
+
+// "Repeats every 2 weeks; next Jul 6" — the badge's accessible name. Omits the
+// "next" clause when the task has no dueAt (defensive; a saved rule always has one).
+function recurrenceBadgeLabel(task, now) {
+	const cadence = describeRecurrence(task.recurrence);
+	const base = `Repeats ${cadence}`;
+	return task.dueAt
+		? `${base}; next ${formatOccurrenceLabel(task.dueAt, now)}`
+		: base;
 }
