@@ -19,3 +19,28 @@ export function formatTaskDeleteMessage(count) {
 	if (count === 1) return "Task deleted";
 	return `${count} tasks deleted`;
 }
+
+// Human-readable cadence text for a recurrence rule. "daily" / "every 2 weeks".
+// Returns "" for a null / unknown rule so callers can interpolate safely.
+const RECURRENCE_ADVERB = {
+	daily: "daily",
+	weekly: "weekly",
+	monthly: "monthly",
+	yearly: "yearly",
+};
+const RECURRENCE_UNIT = {
+	daily: "day",
+	weekly: "week",
+	monthly: "month",
+	yearly: "year",
+};
+
+export function describeRecurrence(rule) {
+	if (!rule || typeof rule !== "object") return "";
+	const unit = RECURRENCE_UNIT[rule.type];
+	if (!unit) return "";
+	const interval =
+		Number.isInteger(rule.interval) && rule.interval >= 1 ? rule.interval : 1;
+	if (interval === 1) return RECURRENCE_ADVERB[rule.type];
+	return `every ${interval} ${unit}s`;
+}
