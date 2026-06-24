@@ -954,3 +954,187 @@ body.is-drawer-open #scrim {
 	opacity: 1;
 	visibility: visible;
 }
+
+/* ================================================================= */
+/* Recurrence dialog — controller-owned modal repeat editor.          */
+/* Mobile-first: bottom sheet. >=768px: centered dialog. Background    */
+/* `inert` is set by the controller; this is pure presentation.        */
+/* ================================================================= */
+.repeat-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 200; /* above toast (100), scrim (80) */
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: flex-end; /* bottom sheet on mobile */
+	justify-content: center;
+}
+.repeat-panel {
+	width: 100%;
+	max-height: 90vh;
+	overflow-y: auto;
+	background: var(--color-bg-elevated);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius) var(--radius) 0 0;
+	padding: 1rem;
+	padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5);
+	animation: repeat-sheet-in 200ms ease;
+}
+@keyframes repeat-sheet-in {
+	from {
+		transform: translateY(100%);
+	}
+	to {
+		transform: translateY(0);
+	}
+}
+.repeat-panel__heading {
+	margin: 0;
+	font-size: 1.1rem;
+}
+.repeat-fieldset {
+	border: 0;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+.repeat-fieldset__legend {
+	padding: 0;
+	font-size: 0.85rem;
+	color: var(--color-text-muted);
+}
+.repeat-cadence {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+.repeat-cadence__option {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	min-block-size: 44px;
+	padding-inline: 0.4rem;
+	cursor: pointer;
+}
+.repeat-cadence__input {
+	inline-size: 1.1rem;
+	block-size: 1.1rem;
+	accent-color: var(--color-accent);
+}
+.repeat-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+.repeat-field--interval {
+	flex-flow: row wrap;
+	align-items: center;
+	gap: 0.5rem;
+}
+.repeat-field label {
+	font-size: 0.85rem;
+	color: var(--color-text-muted);
+}
+.repeat-field__unit {
+	color: var(--color-text-muted);
+}
+.repeat-input {
+	min-block-size: 44px;
+	padding: 0.5rem;
+	background: var(--color-bg);
+	color: var(--color-text);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius);
+	font: inherit;
+}
+.repeat-input--interval {
+	inline-size: 5rem;
+}
+.repeat-input:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+.repeat-weekdays {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+}
+.repeat-weekday {
+	min-inline-size: 44px;
+	min-block-size: 44px;
+	border: 1px solid var(--color-border);
+	background: var(--color-bg);
+	color: var(--color-text);
+	border-radius: var(--radius);
+	cursor: pointer;
+	font: inherit;
+}
+.repeat-weekday[aria-pressed="true"] {
+	background: var(--color-accent);
+	color: var(--color-bg); /* dark text on orange ≈ AA */
+	border-color: var(--color-accent);
+}
+.repeat-weekday:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+.repeat-footer {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	justify-content: flex-end;
+	align-items: center;
+}
+.repeat-btn {
+	min-block-size: 44px;
+	padding: 0.5rem 1rem;
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius);
+	background: var(--color-bg);
+	color: var(--color-text);
+	font: inherit;
+	cursor: pointer;
+}
+.repeat-btn--primary {
+	background: var(--color-accent);
+	color: var(--color-bg);
+	border-color: var(--color-accent);
+}
+.repeat-btn--remove {
+	margin-inline-end: auto; /* push Remove to the left of Cancel/Save */
+	color: var(--color-overdue);
+}
+.repeat-btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+.repeat-btn:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+/* Reduced motion: no slide-in. */
+@media (prefers-reduced-motion: reduce) {
+	.repeat-panel {
+		animation: none;
+	}
+}
+
+/* Desktop / tablet: centered dialog instead of a bottom sheet. */
+@media (min-width: 768px) {
+	.repeat-backdrop {
+		align-items: center;
+	}
+	.repeat-panel {
+		inline-size: 420px;
+		max-inline-size: 92vw;
+		border-radius: var(--radius);
+		animation: none;
+	}
+}
