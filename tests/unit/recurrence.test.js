@@ -147,6 +147,25 @@ describe("nextOccurrence — interval", () => {
 		);
 	});
 
+	it("self-corrects when `from` is not itself on a selected weekday", () => {
+		// Tue 2026-04-21, [Mon,Wed] → next selected day this week is Wed (+1).
+		const fromTue = new Date("2026-04-21T09:00:00");
+		expect(
+			nextOccurrence(
+				{ type: "weekly", interval: 1, weekdays: [1, 3] },
+				fromTue,
+			).toISOString(),
+		).toBe(new Date("2026-04-22T09:00:00").toISOString());
+		// Sat 2026-04-25, [Mon,Wed] → no later day this week, jump to Mon (+2).
+		const fromSat = new Date("2026-04-25T09:00:00");
+		expect(
+			nextOccurrence(
+				{ type: "weekly", interval: 1, weekdays: [1, 3] },
+				fromSat,
+			).toISOString(),
+		).toBe(new Date("2026-04-27T09:00:00").toISOString());
+	});
+
 	it("monthly every 2 months, clamping short target months", () => {
 		// Dec 31 2026, interval 2 → Feb 2027 → clamp to 28
 		const from = new Date("2026-12-31T10:00:00");
@@ -184,6 +203,9 @@ describe("nextOccurrence — interval", () => {
 		).toBe(expected);
 		expect(
 			nextOccurrence({ type: "daily", interval: 1.9 }, from).toISOString(),
+		).toBe(expected);
+		expect(
+			nextOccurrence({ type: "daily", interval: "banana" }, from).toISOString(),
 		).toBe(expected);
 	});
 });
