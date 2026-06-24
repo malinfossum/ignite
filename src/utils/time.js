@@ -70,6 +70,24 @@ export function formatTimeLabel(dueAtIso, now, format = "24h") {
 	return `${SHORT_MONTH[due.getMonth()]} ${due.getDate()} · ${formatHM(due, format)}`;
 }
 
+// Date-only label for a recurrence's next occurrence — no time-of-day, since
+// recurring dueAts are stored at local midnight. Used by the completion toast
+// ("Done · next Jul 6") and the ⟲ badge aria-label.
+export function formatOccurrenceLabel(dueAtIso, now) {
+	const due = new Date(dueAtIso);
+	if (isSameDay(due, now)) return "Today";
+
+	const tomorrow = new Date(startOfDay(now).getTime() + ONE_DAY_MS);
+	if (isSameDay(due, tomorrow)) return "Tomorrow";
+
+	const dayDelta = Math.floor(
+		(startOfDay(due).getTime() - startOfDay(now).getTime()) / ONE_DAY_MS,
+	);
+	if (dayDelta > 0 && dayDelta < 7) return SHORT_WEEKDAY[due.getDay()];
+
+	return `${SHORT_MONTH[due.getMonth()]} ${due.getDate()}`;
+}
+
 export function groupTasksForToday(tasks, now) {
 	const startToday = startOfDay(now).getTime();
 	const startTomorrow = startToday + ONE_DAY_MS;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	formatOccurrenceLabel,
 	formatTimeLabel,
 	groupTasksForToday,
 	pickNextTask,
@@ -147,5 +148,26 @@ describe("pickNextTask", () => {
 			task({ id: "b", starred: true, order: 0 }),
 		];
 		expect(pickNextTask(tasks, NOW)?.id).toBe("b");
+	});
+});
+
+describe("formatOccurrenceLabel", () => {
+	const NOW = new Date("2026-04-28T14:00:00"); // Tue
+
+	it("returns 'Today' for a dueAt on the same day", () => {
+		expect(formatOccurrenceLabel("2026-04-28T00:00:00", NOW)).toBe("Today");
+	});
+
+	it("returns 'Tomorrow' for the next day", () => {
+		expect(formatOccurrenceLabel("2026-04-29T00:00:00", NOW)).toBe("Tomorrow");
+	});
+
+	it("returns the short weekday for 2–6 days out", () => {
+		// 2026-05-01 is a Friday, 3 days after Tue 2026-04-28
+		expect(formatOccurrenceLabel("2026-05-01T00:00:00", NOW)).toBe("Fri");
+	});
+
+	it("returns 'Mon D' for a week or more out", () => {
+		expect(formatOccurrenceLabel("2026-07-06T00:00:00", NOW)).toBe("Jul 6");
 	});
 });
