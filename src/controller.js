@@ -499,7 +499,12 @@ export function createController({ models, els }) {
 		drawerOpen = false;
 		document.body.classList.remove("is-drawer-open");
 		for (const el of [topbarRoot, mainEl, toastRoot]) el.inert = false;
-		for (const attr of ["role", "aria-modal", "aria-label"]) {
+		// Restore the permanent navigation landmark (index.html sets role="navigation");
+		// openDrawer overrode it with role="dialog" while open. Restore rather than
+		// remove so the sidebar never reverts to a bare, non-landmark <div> (which would
+		// drop it out of any landmark on a drawer-open → desktop resize).
+		sidebarRoot.setAttribute("role", "navigation");
+		for (const attr of ["aria-modal", "aria-label"]) {
 			sidebarRoot.removeAttribute(attr);
 		}
 		topbar.setExpanded(false);
