@@ -424,6 +424,20 @@ describe("createTaskModel — completeOccurrence", () => {
 			model.completeOccurrence("nope-id", new Date()),
 		).rejects.toThrow(/Task not found/);
 	});
+
+	it("accumulates completedCount across multiple completions", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({
+			sectionId: "s1",
+			title: "Daily",
+			recurrence: dailyRule,
+			dueAt: "2026-05-01T09:00:00.000Z",
+		});
+		await model.completeOccurrence(t.id, new Date("2026-05-01T12:00:00.000Z"));
+		await model.completeOccurrence(t.id, new Date("2026-05-02T12:00:00.000Z"));
+		const [got] = await model.listBySection("s1");
+		expect(got.completedCount).toBe(2);
+	});
 });
 
 describe("createTaskModel — moveToSection", () => {
