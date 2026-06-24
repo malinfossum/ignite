@@ -378,6 +378,16 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			if (t) callbacks.onDeleteTask(t);
 		},
 
+		"open-repeat": (event, actionEl) => {
+			event.stopPropagation();
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			openTaskMenuId = null;
+			taskMenuMode = "actions"; // reset (move-picker invariant)
+			doRender(); // close the menu visually BEFORE the controller sets inert
+			callbacks.onOpenRepeatEditor?.(t.id);
+		},
+
 		"move-task-to": (event, actionEl) => {
 			event.stopPropagation();
 			const t = taskFromEvent(actionEl);
@@ -593,6 +603,13 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			pendingRenameValue = ""; // start EMPTY — "New section" needn't be deleted
 			openMenuId = null;
 			doRender();
+		},
+		// Controller hook: after a Save/Remove re-render, restore focus to this
+		// task's ⋯. Sets the pending flag only — the model-notify re-render (or the
+		// controller's applyState on Cancel/Esc) consumes it via doRender's
+		// pendingFocusTaskId lookup. Mirrors the move-handler focus pattern.
+		focusTaskMenu(taskId) {
+			pendingFocusTaskId = taskId;
 		},
 		destroy() {
 			// Destroy-commit: if a section rename is in flight and the input has

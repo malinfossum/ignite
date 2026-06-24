@@ -164,6 +164,16 @@ export function createTodayView(rootEl, callbacks) {
 			if (t) callbacks.onDelete(t);
 		},
 
+		"open-repeat": (event, actionEl) => {
+			event.stopPropagation();
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			openMenuTaskId = null; // today.js names it openMenuTaskId
+			taskMenuMode = "actions";
+			doRender();
+			callbacks.onOpenRepeatEditor?.(t.id);
+		},
+
 		"move-task-to": (event, actionEl) => {
 			event.stopPropagation();
 			const t = taskFromEvent(actionEl);
@@ -295,6 +305,9 @@ export function createTodayView(rootEl, callbacks) {
 		render(state) {
 			lastState = state;
 			doRender();
+		},
+		focusTaskMenu(taskId) {
+			pendingFocusTaskId = taskId;
 		},
 		destroy() {
 			// Destroy-commit: if a task rename is in flight and the input has
@@ -470,6 +483,7 @@ function renderTaskRowWithMenu(
 		`<div class="task-menu" role="menu">
 			<button class="task-menu__item" type="button" data-action="rename-task" role="menuitem" tabindex="-1">Rename</button>
 			${moveToItem}
+			<button class="task-menu__item" type="button" data-action="open-repeat" role="menuitem" tabindex="-1" aria-haspopup="dialog">Repeat…</button>
 			<button class="task-menu__item" type="button" data-action="delete-task" role="menuitem" tabindex="-1">Delete</button>
 		</div></li>`,
 	);
