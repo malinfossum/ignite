@@ -334,6 +334,98 @@ describe("createTaskModel — rename", () => {
 	});
 });
 
+describe("createTaskModel — recurrence fields", () => {
+	it("defaults lastCompletedAt:null and completedCount:0 on create", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({ sectionId: "s1", title: "T" });
+		expect(t.lastCompletedAt).toBeNull();
+		expect(t.completedCount).toBe(0);
+	});
+
+	it("round-trips the two fields through storage uncoerced", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({ sectionId: "s1", title: "T" });
+		await model.update(t.id, {
+			lastCompletedAt: "2026-05-01T10:00:00.000Z",
+			completedCount: 4,
+		});
+		const [reread] = await model.listBySection("s1");
+		expect(reread.lastCompletedAt).toBe("2026-05-01T10:00:00.000Z");
+		expect(reread.completedCount).toBe(4);
+	});
+});
+
+describe("createTaskModel — completeOccurrence", () => {
+	const dailyRule = { type: "daily", interval: 1 };
+
+	it("advances dueAt via the engine, stamps last-done, bumps count, stays unchecked, notifies once", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({
+			sectionId: "s1",
+			title: "Water plants",
+			recurrence: dailyRule,
+			dueAt: "2026-05-01T09:00:00.000Z",
+		});
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		const now = new Date("2026-05-01T12:00:00.000Z");
+		await model.completeOccurrence(t.id, now);
+
+		const [got] = await model.listBySection("s1");
+		expect(got.dueAt).toBe(new Date("2026-05-02T09:00:00.000Z").toISOString());
+		expect(got.lastCompletedAt).toBe(now.toISOString());
+		expect(got.completedCount).toBe(1);
+		expect(got.completed).toBe(false);
+		expect(calls).toEqual(["notified"]); // single notify
+	});
+
+	it("no-backlog: a badly stale dueAt advances to the first future occurrence", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({
+			sectionId: "s1",
+			title: "Stale daily",
+			recurrence: dailyRule,
+			dueAt: "2026-01-01T09:00:00.000Z",
+		});
+		const now = new Date("2026-01-05T12:00:00.000Z");
+		await model.completeOccurrence(t.id, now);
+		const [got] = await model.listBySection("s1");
+		expect(new Date(got.dueAt).getTime()).toBeGreaterThan(now.getTime());
+		expect(got.dueAt).toBe(new Date("2026-01-06T09:00:00.000Z").toISOString());
+	});
+
+	it("anchors on `now` when dueAt is null", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({
+			sectionId: "s1",
+			title: "No date",
+			recurrence: dailyRule,
+			dueAt: null,
+		});
+		const now = new Date("2026-05-10T08:00:00.000Z");
+		await model.completeOccurrence(t.id, now);
+		const [got] = await model.listBySection("s1");
+		expect(new Date(got.dueAt).getTime()).toBeGreaterThan(now.getTime());
+	});
+
+	it("throws 'is not recurring' for a non-recurring task", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({ sectionId: "s1", title: "Plain" });
+		await expect(model.completeOccurrence(t.id, new Date())).rejects.toThrow(
+			/is not recurring/i,
+		);
+	});
+
+	it("throws 'Task not found' for a missing id", async () => {
+		const { model } = await freshModel();
+		await expect(
+			model.completeOccurrence("nope-id", new Date()),
+		).rejects.toThrow(/Task not found/);
+	});
+});
+
 describe("createTaskModel — moveToSection", () => {
 	async function seedSection(db, id, areaId = "a1", order = 0) {
 		await db.put("sections", { id, areaId, name: id, order, collapsed: false });

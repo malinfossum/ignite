@@ -1,5 +1,6 @@
 import { uuid } from "../utils/id.js";
 import { capitalizeFirst } from "../utils/text.js";
+import { nextOccurrence } from "./recurrence.js";
 
 // createTaskModel(db) → Promise<TaskModel>
 //
@@ -12,6 +13,7 @@ import { capitalizeFirst } from "../utils/text.js";
 //   update(id, patch) → Promise<Task>,
 //   rename(id, title) → Promise<void>,
 //   toggleCompleted(id) → Promise<Task>,
+//   completeOccurrence(id, now?) → Promise<void>,  // recurring: advance + stamp, never persists completed
 //   remove(id) → Promise<void>,
 //   removeMany(ids) → Promise<void>,
 //   swapOrder(idA, idB) → Promise<void>,
@@ -83,6 +85,8 @@ export async function createTaskModel(db) {
 				critical,
 				dueAt,
 				recurrence,
+				lastCompletedAt: null,
+				completedCount: 0,
 				leadTime,
 				scheduledTags: [],
 				createdAt: new Date().toISOString(),
@@ -121,6 +125,35 @@ export async function createTaskModel(db) {
 			await db.put("tasks", toStorage(updated));
 			notify();
 			return updated;
+		},
+
+		async completeOccurrence(id, now = new Date()) {
+			const stored = await db.get("tasks", id);
+			if (!stored) throw new Error(`Task not found: ${id}`);
+			const task = fromStorage(stored);
+			if (!task.recurrence) throw new Error(`Task is not recurring: ${id}`);
+
+			// No-backlog: advance from the schedule, but never land on/before `now`.
+			// Bounded — the engine coerces interval >= 1 so each step strictly
+			// advances; the break is a belt-and-braces guard against a non-advancing
+			// rule (imported / dev-tools data) so the loop can never hang.
+			const anchor = task.dueAt ? new Date(task.dueAt) : now;
+			let next = nextOccurrence(task.recurrence, anchor);
+			while (next <= now) {
+				const advanced = nextOccurrence(task.recurrence, next);
+				if (advanced <= next) break;
+				next = advanced;
+			}
+
+			const updated = {
+				...task,
+				dueAt: next.toISOString(),
+				lastCompletedAt: now.toISOString(),
+				completedCount: (task.completedCount ?? 0) + 1,
+				completed: false, // a recurring task NEVER persists completed — it advances
+			};
+			await db.put("tasks", toStorage(updated)); // one put
+			notify(); // one notify
 		},
 
 		async remove(id) {
