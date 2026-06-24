@@ -4,7 +4,7 @@
 
 An ADHD-friendly task app — open source, local-first, zero bloat.
 
-**Status:** v0.2.0 — 143 tests passing. **Live:** [malinfossum.github.io/ignite](https://malinfossum.github.io/ignite/)
+**Status:** v0.3.0 — 166 tests passing. **Live:** [malinfossum.github.io/ignite](https://malinfossum.github.io/ignite/)
 
 ![Ignite — the Focus area: a capture bar, a "This week" and "Tasks" section, and the area sidebar on the left](docs/desktop_preview.png)
 
@@ -35,6 +35,7 @@ Built to replace a cluttered subscription task app with something minimal, free,
 - **Today view** — what's next, with relative time labels that tick live
 - **Areas & sections** — organize with a two-level hierarchy; create, rename, reorder, and delete
 - **Tasks** — complete, star, reorder, rename in place, and move between sections
+- **Recurring tasks** — repeat daily, weekly, monthly, or yearly (every N); completing one advances it to the next date and records when you last did it
 - **Undo everything** — deletes (including a whole area and its contents) are undoable from the toast
 - **Keyboard & screen reader** — ARIA menu navigation and full keyboard paths throughout
 - **Install & offline** — installable PWA; works fully offline once loaded, including airplane mode
@@ -49,7 +50,7 @@ Vanilla HTML, CSS, and JavaScript — no frameworks. Strict MVC with a `subscrib
 - **Build:** Vite
 - **Persistence:** IndexedDB (hand-rolled wrapper)
 - **Offline:** hand-rolled service worker + web app manifest
-- **Test:** Vitest + fake-indexeddb (143 tests)
+- **Test:** Vitest + fake-indexeddb (166 tests)
 - **Format / lint:** Biome
 - **Deploy:** GitHub Pages via GitHub Actions
 
@@ -83,10 +84,10 @@ Once installed it runs offline, and your data stays on the device.
 
 Planned, not yet shipped:
 
+- A refreshed visual design (the next milestone, toward v1.0.0)
 - Reminders and scheduled notifications
-- Recurring tasks — the recurrence engine exists; the UI is pending
-- Drag-to-reorder, due dates, and richer task metadata
-- A custom install prompt and a refreshed visual design
+- Drag-to-reorder, editable due dates, and richer task metadata
+- A custom install prompt
 
 Design specs and implementation plans live in `docs/superpowers/`.
 
