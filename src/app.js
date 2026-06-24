@@ -29,6 +29,10 @@ async function boot() {
 	toastRoot.id = "toast-root";
 	document.body.appendChild(toastRoot);
 
+	const repeatDialogRoot = document.createElement("div");
+	repeatDialogRoot.id = "repeat-dialog-root";
+	document.body.appendChild(repeatDialogRoot);
+
 	const controller = createController({
 		models: { areas, sections, tasks, settings },
 		els: {
@@ -39,6 +43,7 @@ async function boot() {
 			captureRoot: document.getElementById("capture-root"),
 			mainRoot: document.getElementById("main-root"),
 			toastRoot,
+			repeatDialogRoot,
 		},
 	});
 	controller.start();
