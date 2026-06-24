@@ -6,9 +6,11 @@
 // Owns the 60s clock tick that calls currentMainView.render(state) only.
 
 import { FOCUS_DEFAULT_SECTION_ID, FOCUS_ID } from "./model/areas.js";
-import { formatTaskDeleteMessage } from "./utils/text.js";
+import { describeRecurrence, formatTaskDeleteMessage } from "./utils/text.js";
+import { formatOccurrenceLabel } from "./utils/time.js";
 import { createAreaView } from "./views/area.js";
 import { createCaptureView } from "./views/capture.js";
+import { createRecurrenceDialog } from "./views/recurrence-dialog.js";
 import { createSidebarView } from "./views/sidebar.js";
 import { createToastView, TASK_DELETE_BATCH_KEY } from "./views/toast.js";
 import { createTodayView } from "./views/today.js";
@@ -19,6 +21,9 @@ const CASCADE_TOAST_MS = 8_000;
 // A move is non-destructive — same urgency as a single-task delete-undo
 // (5s), not the 8s cascade window reserved for destructive multi-item ops.
 const MOVE_TOAST_MS = 5_000;
+// Completing a recurring task is reversible (Undo restores the prior schedule)
+// — same 5s urgency as a move/single-delete.
+const COMPLETE_TOAST_MS = 5_000;
 
 export function parseHash(hash) {
 	const raw = (hash || "").replace(/^#/, "");
@@ -38,6 +43,7 @@ export function createController({ models, els }) {
 		captureRoot,
 		mainRoot,
 		toastRoot,
+		repeatDialogRoot,
 	} = els;
 
 	let sidebar = null;
@@ -52,6 +58,9 @@ export function createController({ models, els }) {
 	let drawerOpen = false; // transient UI state — NOT a model field (mirrors is-area-route)
 	let drawerMq = null; // matchMedia("(min-width: 768px)") — stored for teardown
 	let drawerMqHandler = null;
+	let recurrenceDialog = null;
+	let repeatEditorTaskId = null; // transient UI state — NOT a model field
+	const completing = new Set(); // task ids mid-completion (re-entry guard)
 
 	async function buildState() {
 		const [areaList, sectionList, taskList, settingsRecord] = await Promise.all(
@@ -79,6 +88,50 @@ export function createController({ models, els }) {
 		);
 		sidebar?.render(state);
 		currentMainView?.render(state);
+	}
+
+	async function handleToggleComplete(id) {
+		// Re-entry guard: a fast double-click/tap must advance a recurring task
+		// exactly once. Added synchronously at the top so two queued activations
+		// can't both pass before either marks the id. Coalescing a genuine
+		// double-fire to one toggle is also right for plain tasks.
+		if (completing.has(id)) return;
+		completing.add(id);
+		try {
+			const task = (await tasks.list()).find((t) => t.id === id);
+			if (!task) return; // race: already gone
+			// Non-recurring, or un-checking a (defensively) completed one → unchanged.
+			if (!task.recurrence || task.completed) {
+				await tasks.toggleCompleted(id);
+				return;
+			}
+			const snapshot = {
+				dueAt: task.dueAt,
+				lastCompletedAt: task.lastCompletedAt,
+				completedCount: task.completedCount,
+			};
+			try {
+				await tasks.completeOccurrence(id);
+			} catch (err) {
+				if (/not found/i.test(err.message)) return; // cascade race
+				throw err;
+			}
+			const updated = (await tasks.list()).find((t) => t.id === id);
+			toast.show({
+				message: `Done · next ${formatOccurrenceLabel(updated.dueAt, new Date())}`,
+				durationMs: COMPLETE_TOAST_MS,
+				onUndo: async () => {
+					try {
+						await tasks.update(id, snapshot); // restore date, stamp, count
+					} catch (err) {
+						if (/not found/i.test(err.message)) return;
+						throw err;
+					}
+				},
+			});
+		} finally {
+			completing.delete(id);
+		}
 	}
 
 	function handleTaskDelete(task) {
@@ -166,7 +219,7 @@ export function createController({ models, els }) {
 
 		if (route.name === "today") {
 			currentMainView = createTodayView(mainRoot, {
-				onToggleComplete: (id) => tasks.toggleCompleted(id),
+				onToggleComplete: handleToggleComplete,
 				onToggleStar: (id, currentStarred) =>
 					tasks.update(id, { starred: !currentStarred }),
 				onDelete: (task) => handleTaskDelete(task),
@@ -183,6 +236,7 @@ export function createController({ models, els }) {
 					}
 				},
 				onMoveTaskToSection: handleMoveTaskToSection,
+				onOpenRepeatEditor: openRecurrenceEditor,
 			});
 			return;
 		}
@@ -271,7 +325,9 @@ export function createController({ models, els }) {
 
 			onDeleteTask: (task) => handleTaskDelete(task),
 
-			onToggleComplete: (id) => tasks.toggleCompleted(id),
+			onToggleComplete: handleToggleComplete,
+
+			onOpenRepeatEditor: openRecurrenceEditor,
 
 			onToggleStar: (id, currentStarred) =>
 				tasks.update(id, { starred: !currentStarred }),
@@ -452,8 +508,64 @@ export function createController({ models, els }) {
 		topbarRoot.querySelector(".topbar__menu")?.focus();
 	}
 
+	async function openRecurrenceEditor(taskId) {
+		const task = (await tasks.list()).find((t) => t.id === taskId);
+		if (!task) return; // deleted between menu render and click
+		repeatEditorTaskId = taskId;
+		document.body.classList.add("is-repeat-open"); // scroll-lock (CSS)
+		// Background inert → focus contained in the dialog, AT ignores it. The
+		// dialog root + backdrop are body children, outside every inert subtree.
+		for (const el of [topbarRoot, sidebarRoot, mainEl, toastRoot]) {
+			el.inert = true;
+		}
+		recurrenceDialog.open(task);
+	}
+
+	// rerender=true forces a consuming render for no-model-change closes
+	// (Cancel / Esc / backdrop). Save/Remove pass false, then their tasks.update
+	// notify provides the consuming render. Either way the pending-focus flag set
+	// here is consumed by the view's doRender.
+	function closeRecurrenceEditor({ rerender = true } = {}) {
+		if (!repeatEditorTaskId) return;
+		const taskId = repeatEditorTaskId;
+		repeatEditorTaskId = null;
+		recurrenceDialog.close();
+		document.body.classList.remove("is-repeat-open");
+		for (const el of [topbarRoot, sidebarRoot, mainEl, toastRoot]) {
+			el.inert = false;
+		}
+		currentMainView?.focusTaskMenu?.(taskId); // best-effort on route change
+		if (rerender) applyState();
+	}
+
+	async function onSaveRecurrence({ taskId, recurrence, dueAt }) {
+		closeRecurrenceEditor({ rerender: false }); // clears inert + sets focus flag
+		try {
+			await tasks.update(taskId, { recurrence, dueAt }); // notify → render consumes flag
+		} catch (err) {
+			if (/not found/i.test(err.message)) return; // cascade race
+			throw err;
+		}
+		toast.show({
+			message: `Repeats ${describeRecurrence(recurrence)}`,
+			durationMs: COMPLETE_TOAST_MS,
+		});
+	}
+
+	async function onRemoveRecurrence({ taskId }) {
+		closeRecurrenceEditor({ rerender: false });
+		try {
+			await tasks.update(taskId, { recurrence: null }); // dueAt kept
+		} catch (err) {
+			if (/not found/i.test(err.message)) return;
+			throw err;
+		}
+		toast.show({ message: "Repeat removed", durationMs: COMPLETE_TOAST_MS });
+	}
+
 	function onHashChange() {
 		closeDrawer(); // close on ALL route changes incl. browser back/forward
+		closeRecurrenceEditor({ rerender: false }); // route change closes the dialog
 		currentRoute = parseHash(window.location.hash);
 		mountMainView(currentRoute);
 		applyState();
@@ -461,6 +573,12 @@ export function createController({ models, els }) {
 
 	function start() {
 		toast = createToastView(toastRoot);
+
+		recurrenceDialog = createRecurrenceDialog(repeatDialogRoot, {
+			onSave: onSaveRecurrence,
+			onRemove: onRemoveRecurrence,
+			onClose: () => closeRecurrenceEditor({ rerender: true }),
+		});
 
 		topbar = createTopbarView(topbarRoot, {
 			onToggleDrawer: () => (drawerOpen ? closeDrawer() : openDrawer()),
@@ -526,6 +644,7 @@ export function createController({ models, els }) {
 	}
 
 	function stop() {
+		closeRecurrenceEditor({ rerender: false }); // clears inert + is-repeat-open first
 		closeDrawer(); // clears is-drawer-open, inert, scroll-lock, dialog ARIA in one place
 		clearInterval(tickHandle);
 		tickHandle = null;
@@ -541,11 +660,13 @@ export function createController({ models, els }) {
 		sidebar?.destroy();
 		topbar?.destroy();
 		toast?.destroy();
+		recurrenceDialog?.destroy();
 		currentMainView = null;
 		capture = null;
 		sidebar = null;
 		topbar = null;
 		toast = null;
+		recurrenceDialog = null;
 		drawerOpen = false;
 	}
 
