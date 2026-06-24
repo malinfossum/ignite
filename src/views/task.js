@@ -41,7 +41,8 @@ export function renderTaskRow(
 
 	return `
 		<li class="task" data-id="${escapeHtml(task.id)}">
-			<input type="checkbox" class="task__check" data-action="toggle-complete" ${checked} />
+			<input type="checkbox" class="task__check" data-action="toggle-complete" ${checked}
+				aria-label="Mark complete: ${escapeHtml(task.title)}" />
 			<span class="task__title">${escapeHtml(task.title)}</span>
 			<button class="task__star" type="button" data-action="toggle-star" ${starredAttr}>${starGlyph}</button>
 			${recurring}
