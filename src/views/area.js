@@ -132,6 +132,34 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		doRender();
 	};
 
+	// Single entry points into rename — shared by the ⋯-menu actions, the F2
+	// shortcut, and (tasks only) the title double-click. Idempotent. Each
+	// preserves the bidirectional cross-type mutual exclusion: entering one
+	// rename clears the other's state so they can never be live at once.
+	const enterSectionRename = (s) => {
+		if (!s || renamingId === s.id) return;
+		openMenuId = null;
+		renamingId = s.id;
+		pendingRenameSelect = true;
+		pendingRenameValue = null; // prefill the committed name
+		renamingTaskId = null;
+		pendingRenameTaskValue = null;
+		pendingRenameTaskSelect = false;
+		doRender();
+	};
+
+	const enterTaskRename = (t) => {
+		if (!t || renamingTaskId === t.id) return;
+		openTaskMenuId = null;
+		renamingTaskId = t.id;
+		pendingRenameTaskSelect = true;
+		pendingRenameTaskValue = null; // prefill the committed title
+		renamingId = null;
+		pendingRenameValue = null;
+		pendingRenameSelect = false;
+		doRender();
+	};
+
 	const docClickHandler = (event) => {
 		if (rootEl.contains(event.target)) return;
 		// Outside click: close without focus return so focus stays where the
@@ -231,6 +259,16 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		return lastState.tasks.find((t) => t.id === taskEl.dataset.id) ?? null;
 	};
 
+	// Double-click a task title to rename. Delegated on rootEl (survives
+	// re-renders), scoped to .task__title only. Section titles live inside the
+	// collapse-toggle button, so they intentionally do NOT get double-click.
+	const dblclickHandler = (event) => {
+		if (!event.target.closest(".task__title")) return;
+		const t = taskFromEvent(event.target);
+		if (t) enterTaskRename(t);
+	};
+	rootEl.addEventListener("dblclick", dblclickHandler);
+
 	const unbindClick = bindActions(rootEl, {
 		"add-section": () => callbacks.onAddSection({ areaId }),
 
@@ -262,19 +300,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		},
 
 		"rename-section": (_event, actionEl) => {
-			const s = sectionFromEvent(actionEl);
-			if (!s) return;
-			openMenuId = null;
-			renamingId = s.id;
-			pendingRenameSelect = true;
-			pendingRenameValue = null; // menu rename → prefill committed name
-			// Cross-type mutual exclusion — null task-rename state too.
-			// If the user picks Rename on section X while task Y is renaming,
-			// Y's typed value is silently discarded and X enters rename.
-			renamingTaskId = null;
-			pendingRenameTaskValue = null;
-			pendingRenameTaskSelect = false;
-			doRender();
+			enterSectionRename(sectionFromEvent(actionEl));
 		},
 
 		// No "commit-rename" click action: the rename input carries
@@ -341,17 +367,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		},
 
 		"rename-task": (_event, actionEl) => {
-			const t = taskFromEvent(actionEl);
-			if (!t) return;
-			openTaskMenuId = null;
-			renamingTaskId = t.id;
-			pendingRenameTaskSelect = true;
-			pendingRenameTaskValue = null; // menu rename → prefill committed title
-			// Cross-type mutual exclusion — null section-rename state.
-			renamingId = null;
-			pendingRenameValue = null;
-			pendingRenameSelect = false;
-			doRender();
+			enterTaskRename(taskFromEvent(actionEl));
 		},
 
 		"move-task-up": (_event, actionEl) => {
@@ -444,6 +460,18 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 				event.preventDefault();
 				commitTaskRenameFromInput(actionEl);
 			}
+		},
+		F2: (event) => {
+			// Innermost match wins: a focused task control resolves to its
+			// [data-id] before the enclosing section's [data-section-id]; a
+			// section-header control resolves only to the section.
+			const t = taskFromEvent(event.target);
+			if (t) {
+				enterTaskRename(t);
+				return;
+			}
+			const s = sectionFromEvent(event.target);
+			if (s) enterSectionRename(s);
 		},
 	});
 
@@ -636,6 +664,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			}
 			unbindClick();
 			unbindKeys();
+			rootEl.removeEventListener("dblclick", dblclickHandler);
 			document.removeEventListener("click", docClickHandler);
 			document.removeEventListener("keydown", docKeyHandler);
 			rootEl.innerHTML = "";

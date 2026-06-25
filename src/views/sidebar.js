@@ -79,6 +79,17 @@ export function createSidebarView(
 		doRender();
 	}
 
+	// Single entry point into area rename — shared by the ⋯-menu "Rename"
+	// action and the F2 shortcut. Idempotent on the already-renaming area.
+	function enterAreaRename(a) {
+		if (!a || renamingAreaId === a.id) return;
+		openAreaMenuId = null;
+		renamingAreaId = a.id;
+		pendingRenameSelect = true;
+		pendingRenameValue = null; // start fresh — pendingRenameValue contract
+		doRender();
+	}
+
 	function commitRenameFromInput(inputEl) {
 		const id = inputEl?.dataset?.areaId ?? renamingAreaId;
 		if (!id) return;
@@ -191,13 +202,7 @@ export function createSidebarView(
 		},
 
 		"rename-area": (_event, actionEl) => {
-			const a = areaFromEvent(actionEl);
-			if (!a) return;
-			openAreaMenuId = null;
-			renamingAreaId = a.id;
-			pendingRenameSelect = true;
-			pendingRenameValue = null; // start fresh — required by pendingRenameValue contract
-			doRender();
+			enterAreaRename(areaFromEvent(actionEl));
 		},
 
 		// No "commit-area-rename" click action: the rename input carries
@@ -245,6 +250,10 @@ export function createSidebarView(
 				event.preventDefault();
 				commitRenameFromInput(actionEl);
 			}
+		},
+		F2: (event) => {
+			const a = areaFromEvent(event.target);
+			if (a) enterAreaRename(a);
 		},
 	});
 

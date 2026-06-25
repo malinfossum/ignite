@@ -57,6 +57,18 @@ export function createTodayView(rootEl, callbacks) {
 		doRender();
 	};
 
+	// Single entry point into task rename — shared by the ⋯-menu "Rename"
+	// action, the F2 shortcut, and the title double-click. Idempotent: a
+	// second trigger on the already-renaming task is a no-op.
+	const enterTaskRename = (t) => {
+		if (!t || renamingTaskId === t.id) return;
+		openMenuTaskId = null;
+		renamingTaskId = t.id;
+		pendingRenameTaskSelect = true;
+		pendingRenameTaskValue = null; // prefill the committed title
+		doRender();
+	};
+
 	const docClickHandler = (event) => {
 		if (!openMenuTaskId) return;
 		if (rootEl.contains(event.target)) return;
@@ -122,6 +134,16 @@ export function createTodayView(rootEl, callbacks) {
 		return lastState.tasks.find((t) => t.id === li.dataset.id) ?? null;
 	};
 
+	// Double-click a task title to rename. Delegated on rootEl (survives
+	// re-renders). Scoped to .task__title — the checkbox / star / ⋯ are
+	// excluded, and section titles / area names aren't rendered here.
+	const dblclickHandler = (event) => {
+		if (!event.target.closest(".task__title")) return;
+		const t = taskFromEvent(event.target);
+		if (t) enterTaskRename(t);
+	};
+	rootEl.addEventListener("dblclick", dblclickHandler);
+
 	const unbind = bindActions(rootEl, {
 		"toggle-complete": (_event, actionEl) => {
 			const t = taskFromEvent(actionEl);
@@ -150,13 +172,7 @@ export function createTodayView(rootEl, callbacks) {
 			doRender();
 		},
 		"rename-task": (_event, actionEl) => {
-			const t = taskFromEvent(actionEl);
-			if (!t) return;
-			openMenuTaskId = null;
-			renamingTaskId = t.id;
-			pendingRenameTaskSelect = true;
-			pendingRenameTaskValue = null; // menu rename → prefill committed title
-			doRender();
+			enterTaskRename(taskFromEvent(actionEl));
 		},
 		"delete-task": (_event, actionEl) => {
 			const t = taskFromEvent(actionEl);
@@ -222,6 +238,11 @@ export function createTodayView(rootEl, callbacks) {
 				event.preventDefault();
 				commitTaskRenameFromInput(actionEl);
 			}
+		},
+		F2: (event) => {
+			// F2 renames the focused row's task (no default browser action).
+			const t = taskFromEvent(event.target);
+			if (t) enterTaskRename(t);
 		},
 	});
 
@@ -324,6 +345,7 @@ export function createTodayView(rootEl, callbacks) {
 			}
 			unbind();
 			unbindKeys();
+			rootEl.removeEventListener("dblclick", dblclickHandler);
 			document.removeEventListener("click", docClickHandler);
 			document.removeEventListener("keydown", docKeyHandler);
 			rootEl.innerHTML = "";
