@@ -214,6 +214,7 @@ export function createTodayView(rootEl, callbacks) {
 
 	const unbindKeys = bindKeys(rootEl, {
 		Enter: (event, actionEl) => {
+			if (event.isComposing) return; // IME mid-composition: Enter confirms the candidate, doesn't commit
 			if (
 				renamingTaskId &&
 				actionEl?.dataset?.action === "commit-task-rename"

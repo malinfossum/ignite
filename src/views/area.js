@@ -431,6 +431,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 
 	const unbindKeys = bindKeys(rootEl, {
 		Enter: (event, actionEl) => {
+			if (event.isComposing) return; // IME mid-composition: Enter confirms the candidate, doesn't commit
 			if (renamingId && actionEl?.dataset?.action === "commit-rename") {
 				event.preventDefault(); // prevent form-like default
 				commitRenameFromInput(actionEl);

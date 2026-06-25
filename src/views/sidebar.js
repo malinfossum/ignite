@@ -237,6 +237,7 @@ export function createSidebarView(
 
 	const unbindKeys = bindKeys(rootEl, {
 		Enter: (event, actionEl) => {
+			if (event.isComposing) return; // IME mid-composition: Enter confirms the candidate, doesn't commit
 			if (
 				renamingAreaId &&
 				actionEl?.dataset?.action === "commit-area-rename"
