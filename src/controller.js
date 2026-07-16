@@ -318,15 +318,24 @@ export function createController({ models, els }) {
 				);
 				const prevId = previousSectionId(peers, sectionId);
 
-				await tasks.removeMany(taskSnapshots.map((t) => t.id));
+				// Empty-layer guard: removeMany([]) still notifies, adding another
+				// in-flight render to the pile the drain below has to absorb.
+				// Mirrors deleteAreaCascade.
+				if (taskSnapshots.length) {
+					await tasks.removeMany(taskSnapshots.map((t) => t.id));
+				}
 				await sections.remove(sectionId);
 
-				// Flag set AFTER both writes, then one forced consuming render.
-				// Setting it earlier looks right and fails in the browser: the
-				// first notify's render consumes it while the section still
-				// exists, then the second render's innerHTML rewrite detaches
-				// the freshly-focused button and drops focus to <body> anyway.
-				// Same shape as closeRecurrenceEditor({ rerender: true }).
+				// DRAIN, then flag, then one final render. notify() is synchronous
+				// and does NOT await its subscribers, so the last write's own
+				// notify-render is still queued when remove() resolves — our
+				// continuation is a microtask and beats it. Flagging here without
+				// the drain lets that queued render consume the flag and focus
+				// correctly, and then THIS applyState's render rewrites innerHTML
+				// and drops focus to <body>. The drain is safe because the pending
+				// renders queued their IDB reads first and reads complete FIFO,
+				// and no notify fires after the last write.
+				await applyState();
 				currentMainView?.focusAfterSectionDelete?.(prevId);
 				await applyState();
 
@@ -421,6 +430,10 @@ export function createController({ models, els }) {
 		}
 		await areas.remove(areaId);
 
+		// DRAIN, then flag, then one final render — same reasoning as
+		// onDeleteSection above, plus one extra competitor here: the redirect's
+		// onHashChange fires its own un-awaited applyState().
+		await applyState();
 		// Desktop only. On mobile the drawer was the user's path to this menu,
 		// and closeDrawer's return-to-.topbar__menu is already correct — defer
 		// to it rather than compete.
