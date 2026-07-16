@@ -53,6 +53,7 @@ export function createSidebarView(
 	let pendingFocusAreaId = null;
 	let pendingFocusAreaButtonId = null;
 	let pendingMenuFocusAreaId = null;
+	let pendingFocusHome = false; // → focus the "Ignite" wordmark (the Today nav item)
 	let pendingRenameSelect = false;
 	let pendingRenameValue = null;
 	let prevSidebarCollapsed = null;
@@ -323,6 +324,20 @@ export function createSidebarView(
 			firstItem?.focus();
 			pendingMenuFocusAreaId = null;
 		}
+
+		// Post-render lookup: an area cascade delete removed the row whose ⋯
+		// had focus and redirected to #today, so focus would fall to <body>.
+		// The wordmark IS the Today nav item — focusing it lands the user
+		// where the redirect took them.
+		//
+		// Cleared UNCONDITIONALLY; skipped while a rename is live so it can't
+		// steal focus out of an open rename input.
+		if (pendingFocusHome) {
+			pendingFocusHome = false;
+			if (!renamingAreaId) {
+				rootEl.querySelector(".sidebar__home")?.focus();
+			}
+		}
 	}
 
 	return {
@@ -348,6 +363,14 @@ export function createSidebarView(
 			prevSidebarCollapsed = nextCollapsed;
 
 			doRender();
+		},
+
+		// Controller hook: after an area cascade delete, put focus on the
+		// wordmark (= the Today nav item, where the redirect just sent the
+		// user). Sets the pending flag ONLY — the controller's applyState()
+		// after its model writes provides the consuming render.
+		focusHome() {
+			pendingFocusHome = true;
 		},
 
 		// Public hook for the controller to flip a freshly-created area
@@ -382,6 +405,7 @@ export function createSidebarView(
 			pendingFocusAreaId = null;
 			pendingFocusAreaButtonId = null;
 			pendingMenuFocusAreaId = null;
+			pendingFocusHome = false;
 			pendingRenameSelect = false;
 			pendingRenameValue = null;
 			prevSidebarCollapsed = null;
