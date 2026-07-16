@@ -6,6 +6,7 @@
 // Owns the 60s clock tick that calls currentMainView.render(state) only.
 
 import { FOCUS_DEFAULT_SECTION_ID, FOCUS_ID } from "./model/areas.js";
+import { previousSectionId } from "./utils/sections.js";
 import { describeRecurrence, formatTaskDeleteMessage } from "./utils/text.js";
 import { formatOccurrenceLabel } from "./utils/time.js";
 import { createAreaView } from "./views/area.js";
@@ -310,8 +311,24 @@ export function createController({ models, els }) {
 				if (!sectionSnapshot) return;
 				const taskSnapshots = await tasks.listBySection(sectionId);
 
+				// Focus target computed BEFORE the writes — afterwards the section
+				// and its ordering context are gone from state.
+				const peers = allSections.filter(
+					(s) => s.areaId === sectionSnapshot.areaId,
+				);
+				const prevId = previousSectionId(peers, sectionId);
+
 				await tasks.removeMany(taskSnapshots.map((t) => t.id));
 				await sections.remove(sectionId);
+
+				// Flag set AFTER both writes, then one forced consuming render.
+				// Setting it earlier looks right and fails in the browser: the
+				// first notify's render consumes it while the section still
+				// exists, then the second render's innerHTML rewrite detaches
+				// the freshly-focused button and drops focus to <body> anyway.
+				// Same shape as closeRecurrenceEditor({ rerender: true }).
+				currentMainView?.focusAfterSectionDelete?.(prevId);
+				await applyState();
 
 				toast.show({
 					message: cascadeMessage(sectionSnapshot.name, taskSnapshots.length),
@@ -372,6 +389,14 @@ export function createController({ models, els }) {
 		// `focus-default`, leaving Focus's tasks gone and no toast shown.
 		if (areaId === FOCUS_ID) return;
 
+		// Snapshot BEFORE the redirect below. That redirect fires hashchange,
+		// whose onHashChange runs closeDrawer() — setting drawerOpen = false and
+		// focusing .topbar__menu — while the awaits below yield. Reading
+		// drawerOpen later would report false on mobile, and we'd then focus
+		// .sidebar__home inside a visibility:hidden drawer, losing focus to
+		// <body>: exactly the bug this routing exists to fix.
+		const wasDrawerOpen = drawerOpen;
+
 		// 1. Snapshot all three layers BEFORE any write.
 		const all = await areas.list();
 		const areaSnapshot = all.find((a) => a.id === areaId);
@@ -395,6 +420,12 @@ export function createController({ models, els }) {
 			await sections.removeMany(sectionSnapshots.map((s) => s.id));
 		}
 		await areas.remove(areaId);
+
+		// Desktop only. On mobile the drawer was the user's path to this menu,
+		// and closeDrawer's return-to-.topbar__menu is already correct — defer
+		// to it rather than compete.
+		if (!wasDrawerOpen) sidebar.focusHome();
+		await applyState();
 
 		// 4. Toast — reverse-cascade restore (parents before children).
 		toast.show({
