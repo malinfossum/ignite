@@ -89,8 +89,10 @@ const prevId = previousSectionId(peers, sectionId);
 
 `doRender` consumes it with a fallback chain:
 
-1. `[data-section-id="${CSS.escape(prevId)}"] [data-action="open-section-menu"]` — the previous section's `⋯`.
-2. `[data-action="add-section"]` — when the deleted section was first or only (`prevId === null`), or when the previous section is itself gone (cascade race).
+1. `[data-section-id="${CSS.escape(prevId)}"] .section__menu-btn` — the previous section's `⋯`.
+2. `.area__add-section` — when the deleted section was first or only (`prevId === null`), or when the previous section is itself gone (cascade race).
+
+(Class selectors, not `data-action`: every existing focus lookup targets the class — `area.js:574`, `area.js:582`, `sidebar.js:301`. `data-action` is the click-delegation contract; classes are the focus contract.)
 3. Neither exists → `?.focus()` no-ops → body. That is today's behaviour, so the worst case is **no regression**.
 
 **`CSS.escape` is mandatory, not decorative.** All eight existing interpolated-id selectors escape (`area.js:179,185,607,615`; `sidebar.js:122,321`; `today.js:81,319`). Ids are `crypto.randomUUID()` today, so nothing is exploitable — but `id.js` explicitly advertises itself as swappable ("Swap-able later if we ever need a custom id format"), and an id containing a quote or backslash turns a render into a thrown `DOMException`. Follow the convention.
