@@ -341,15 +341,24 @@ Replace the body of `onDeleteSection` (lines 307-324) with:
 				);
 				const prevId = previousSectionId(peers, sectionId);
 
-				await tasks.removeMany(taskSnapshots.map((t) => t.id));
+				// Empty-layer guard: removeMany([]) still notifies, adding another
+				// in-flight render to the pile the drain below has to absorb.
+				// Mirrors deleteAreaCascade.
+				if (taskSnapshots.length) {
+					await tasks.removeMany(taskSnapshots.map((t) => t.id));
+				}
 				await sections.remove(sectionId);
 
-				// Flag set AFTER both writes, then one forced consuming render.
-				// Setting it earlier looks right and fails in the browser: the
-				// first notify's render consumes it while the section still
-				// exists, then the second render's innerHTML rewrite detaches
-				// the freshly-focused button and drops focus to <body> anyway.
-				// Same shape as closeRecurrenceEditor({ rerender: true }).
+				// DRAIN, then flag, then one final render. notify() is synchronous
+				// and does NOT await its subscribers, so the last write's own
+				// notify-render is still queued when remove() resolves — our
+				// continuation is a microtask and beats it. Flagging here without
+				// the drain lets that queued render consume the flag and focus
+				// correctly, and then THIS applyState's render rewrites innerHTML
+				// and drops focus to <body>. The drain is safe because the pending
+				// renders queued their IDB reads first and reads complete FIFO,
+				// and no notify fires after the last write.
+				await applyState();
 				currentMainView?.focusAfterSectionDelete?.(prevId);
 				await applyState();
 
@@ -383,6 +392,10 @@ Two edits inside `deleteAreaCascade`.
 **(b)** Between `await areas.remove(areaId);` (line 397) and the `toast.show({` call (line 400), add:
 
 ```js
+		// DRAIN, then flag, then one final render — same reasoning as
+		// onDeleteSection above, plus one extra competitor here: the redirect's
+		// onHashChange fires its own un-awaited applyState().
+		await applyState();
 		// Desktop only. On mobile the drawer was the user's path to this menu,
 		// and closeDrawer's return-to-.topbar__menu is already correct — defer
 		// to it rather than compete.
@@ -463,10 +476,12 @@ Expected: still the predecessor's `.section__menu-btn`. An implementation that s
 At ≥768px, delete a non-Focus area from its sidebar `⋯`.
 Expected: `document.activeElement.className` contains `sidebar__home`; route is `#today`.
 
-- [ ] **Step 7: Area delete — mobile, from the drawer**
+- [ ] **Step 7: Area delete — mobile, from the drawer, deleting the ACTIVE area**
 
-`preview_resize` to 375px wide, open the drawer, delete an area from its `⋯`.
+Resize to 375px wide, navigate to the area you will delete (it must be the **active** route — that is what triggers the redirect this guard exists for), open the drawer, delete it from its `⋯`.
 Expected: `document.activeElement.className` contains `topbar__menu`; drawer closed; focus is **not** on `.sidebar__home`. This is the `wasDrawerOpen` guard — if it regressed, focus lands on `.sidebar__home` or `body`.
+
+**Known gap, do not report as a failure:** deleting a **non-active** area on mobile fires no redirect, so no `closeDrawer` runs, `focusHome()` is skipped anyway, and focus lands on `body`. `wasDrawerOpen` conflates "drawer open" with "closeDrawer will fire". Logged as MINOR-1 for triage at the final review.
 
 - [ ] **Step 8: Regression — no console errors**
 

@@ -66,17 +66,24 @@ await sections.remove(sectionId);                      // notify #2 → render
 
 A flag set *before* these is consumed by render #1 — where the section still exists and focus lands correctly — and then render #2's `innerHTML` rewrite **detaches that very button and drops focus back to body**. It would pass code review and fail in the browser.
 
-So: set the flag **after both awaits**, then call `applyState()` for a deterministic consuming render.
+**And "set the flag after both awaits, then `applyState()`" is NOT sufficient** — that was this spec's original prescription, and it loses to the same race. `notify()` is synchronous and does **not await its subscribers** (`model/sections.js:24-26`: `for (const fn of listeners) fn();`). So `sections.remove()` fires `notify()`, the launched `applyState` immediately suspends on its IndexedDB reads, and *then* `remove()` returns. The caller's `await` continuation is a **microtask**, so it runs before those reads complete — the flag gets set while that render is still queued, and the explicit `applyState()` queues a second render behind it. Two renders land after the flag: the first consumes it and focuses, the second rewrites `innerHTML` and drops focus to `<body>`.
+
+(`closeRecurrenceEditor({ rerender: true })` at `controller.js:543` looks like a counter-example but isn't: it performs **no write**, so no notify-render competes with it.)
+
+So: **drain, then flag, then one final render.**
 
 ```js
 await tasks.removeMany(...);
 await sections.remove(sectionId);
+await applyState();          // drain the in-flight notify-renders
 currentMainView?.focusAfterSectionDelete?.(prevId);
-await applyState();          // consuming render
+await applyState();          // now THIS is genuinely the last render
 toast.show({ ... });
 ```
 
-Not a new pattern — this is exactly `closeRecurrenceEditor({ rerender: true })` (`controller.js:543`): set the pending flag, force one consuming render. The earlier notify-driven renders still drop focus to body; the final render puts it back. The intermediate flicker is imperceptible and is the status quo anyway.
+The drain works because the pending renders queued their IDB reads **before** ours, and read transactions complete FIFO — an ordering assumption already load-bearing across this codebase. After the final write no further notifies fire, so nothing can queue a render behind our last one. Cost: one extra render per delete, imperceptible.
+
+**Empty layers must be guarded for the same reason.** `removeMany([])` still notifies, adding another in-flight render to precisely the pile that causes this. `deleteAreaCascade` already guards (`controller.js:416-421`); `onDeleteSection` must too.
 
 ### 4.2 Section delete — target chain
 
@@ -113,11 +120,14 @@ async function deleteAreaCascade(areaId) {
   const wasDrawerOpen = drawerOpen;        // BEFORE the redirect — see above
   // … snapshots, redirect, cascade writes …
   await areas.remove(areaId);
+  await applyState();                      // drain in-flight notify-renders — see §4.1
   if (!wasDrawerOpen) sidebar.focusHome(); // desktop only
-  await applyState();
+  await applyState();                      // the final, consuming render
   toast.show({ ... });
 }
 ```
+
+The drain matters more here than in §4.2: besides the three cascade writes' notifies, the redirect's `onHashChange` fires its own un-awaited `applyState()`. Same rule, one more competitor.
 
 On mobile, `closeDrawer`'s existing return-to-trigger focus is already the right answer, so the guard defers to it rather than competing.
 
