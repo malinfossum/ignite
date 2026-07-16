@@ -97,6 +97,10 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	// task left this page), focus the source section's ⋯ instead of dropping
 	// focus to <body>.
 	let pendingFocusMoveSourceSectionId = null;
+	// null | { prevSectionId: string | null } — the object wrapper matters:
+	// prevSectionId is legitimately null ("focus ＋ New section"), so a bare
+	// null flag couldn't distinguish "not set" from "set to no-predecessor".
+	let pendingFocusAfterSectionDelete = null;
 
 	// returnFocus=false on click-outside dismiss: focus follows the click
 	// (e.g. into the capture input), not back to the ⋯. Esc / menu-action /
@@ -617,6 +621,27 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			firstItem?.focus();
 			pendingMenuFocusTaskId = null;
 		}
+
+		// Post-render lookup: a cascade delete removed the section whose ⋯ had
+		// focus, so focus would fall to <body>. Route it to the previous
+		// section's ⋯, or "＋ New section" when the deleted one was first/only
+		// (or when the predecessor is itself gone — a cascade race).
+		//
+		// Consumed LAST and cleared UNCONDITIONALLY: a rename input that
+		// claimed focus above must win, and a flag set for a render that never
+		// reaches this branch must not leak into a later, unrelated render.
+		if (pendingFocusAfterSectionDelete) {
+			const { prevSectionId } = pendingFocusAfterSectionDelete;
+			pendingFocusAfterSectionDelete = null;
+			if (!renamingId && !renamingTaskId) {
+				const prevTrigger = prevSectionId
+					? rootEl.querySelector(
+							`[data-section-id="${CSS.escape(prevSectionId)}"] .section__menu-btn`,
+						)
+					: null;
+				(prevTrigger ?? rootEl.querySelector(".area__add-section"))?.focus();
+			}
+		}
 	}
 
 	return {
@@ -639,6 +664,15 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		// pendingFocusTaskId lookup. Mirrors the move-handler focus pattern.
 		focusTaskMenu(taskId) {
 			pendingFocusTaskId = taskId;
+		},
+		// Controller hook: after a section cascade delete, route focus to a
+		// surviving neighbour. Sets the pending flag ONLY — the controller's
+		// applyState() after its model writes provides the consuming render.
+		// Setting it before those writes would let the first notify's render
+		// consume it, and the second render's innerHTML rewrite would then
+		// detach the focused button anyway. Mirrors focusTaskMenu.
+		focusAfterSectionDelete(prevSectionId) {
+			pendingFocusAfterSectionDelete = { prevSectionId };
 		},
 		destroy() {
 			// Destroy-commit: if a section rename is in flight and the input has
@@ -682,6 +716,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			isRendering = false;
 			taskMenuMode = "actions";
 			pendingFocusMoveSourceSectionId = null;
+			pendingFocusAfterSectionDelete = null;
 		},
 	};
 }
