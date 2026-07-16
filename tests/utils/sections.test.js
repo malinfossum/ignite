@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { reorderSections } from "../../src/utils/sections.js";
+import {
+	previousSectionId,
+	reorderSections,
+} from "../../src/utils/sections.js";
 
 const make = (id, order) => ({ id, areaId: "focus", name: id, order });
 
@@ -44,6 +47,49 @@ describe("reorderSections", () => {
 		const input = [make("a", 0), make("b", 1)];
 		const snapshot = input.map((s) => ({ ...s }));
 		reorderSections(input, "a", "down");
+		expect(input).toEqual(snapshot);
+	});
+});
+
+describe("previousSectionId", () => {
+	it("returns the predecessor's id for a middle section", () => {
+		const input = [make("a", 0), make("b", 1), make("c", 2)];
+		expect(previousSectionId(input, "b")).toBe("a");
+	});
+
+	it("returns null for the first section", () => {
+		const input = [make("a", 0), make("b", 1)];
+		expect(previousSectionId(input, "a")).toBeNull();
+	});
+
+	it("returns null for the only section", () => {
+		expect(previousSectionId([make("a", 0)], "a")).toBeNull();
+	});
+
+	it("returns null for an unknown id", () => {
+		const input = [make("a", 0), make("b", 1)];
+		expect(previousSectionId(input, "nope")).toBeNull();
+	});
+
+	it("returns null for an empty list", () => {
+		expect(previousSectionId([], "a")).toBeNull();
+	});
+
+	it("sorts by order — non-contiguous values", () => {
+		// Defensive: non-contiguous orders happen after a restore.
+		const input = [make("a", 0), make("b", 5), make("c", 99)];
+		expect(previousSectionId(input, "c")).toBe("b");
+	});
+
+	it("sorts by order — input array not already sorted", () => {
+		const input = [make("c", 2), make("a", 0), make("b", 1)];
+		expect(previousSectionId(input, "c")).toBe("b");
+	});
+
+	it("does not mutate the input array", () => {
+		const input = [make("b", 1), make("a", 0)];
+		const snapshot = input.map((s) => ({ ...s }));
+		previousSectionId(input, "b");
 		expect(input).toEqual(snapshot);
 	});
 });

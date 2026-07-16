@@ -23,3 +23,20 @@ export function reorderSections(sections, sectionId, direction) {
 		return s;
 	});
 }
+
+// Pure helper: returns the id of the section immediately before `sectionId`
+// when sorted by `order`, or null when it is first, absent, or the list is
+// empty. Caller passes ONE area's sections (the peers) — same contract as
+// reorderSections above. Handles non-contiguous and unsorted input.
+//
+// Used for cascade-delete focus routing: the deleted section's ⋯ button is
+// gone after the delete, so focus is routed to its predecessor's ⋯ instead
+// of dropping to <body>. A null return means "no predecessor" — the caller
+// falls back to the area's "＋ New section" button.
+
+export function previousSectionId(sections, sectionId) {
+	const sorted = [...sections].sort((a, b) => a.order - b.order);
+	const idx = sorted.findIndex((s) => s.id === sectionId);
+	if (idx <= 0) return null; // -1 = not found, 0 = first → no predecessor
+	return sorted[idx - 1].id;
+}
