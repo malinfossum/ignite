@@ -1,7 +1,35 @@
 [
-  { "label": "dev", "command": "npm", "args": ["run", "dev"], "use_new_terminal": true, "reveal": "always" },
-  { "label": "test (watch)", "command": "npm", "args": ["run", "test"], "use_new_terminal": true, "reveal": "always" },
-  { "label": "test (run once)", "command": "npm", "args": ["run", "test:run"], "reveal": "always" },
-  { "label": "build", "command": "npm", "args": ["run", "build"], "reveal": "always" },
-  { "label": "preview", "command": "npm", "args": ["run", "preview"], "use_new_terminal": true, "reveal": "always" }
+	{
+		"label": "dev",
+		"command": "npm",
+		"args": ["run", "dev"],
+		"use_new_terminal": true,
+		"reveal": "always"
+	},
+	{
+		"label": "test (watch)",
+		"command": "npm",
+		"args": ["run", "test"],
+		"use_new_terminal": true,
+		"reveal": "always"
+	},
+	{
+		"label": "test (run once)",
+		"command": "npm",
+		"args": ["run", "test:run"],
+		"reveal": "always"
+	},
+	{
+		"label": "build",
+		"command": "npm",
+		"args": ["run", "build"],
+		"reveal": "always"
+	},
+	{
+		"label": "preview",
+		"command": "npm",
+		"args": ["run", "preview"],
+		"use_new_terminal": true,
+		"reveal": "always"
+	}
 ]
