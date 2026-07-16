@@ -83,7 +83,7 @@ toast.show({ ... });
 
 The drain works because the pending renders queued their IDB reads **before** ours, and read transactions complete FIFO — an ordering assumption already load-bearing across this codebase. After the final write no further notifies fire, so nothing can queue a render behind our last one. Cost: one extra render per delete, imperceptible.
 
-**Empty layers must be guarded for the same reason.** `removeMany([])` still notifies, adding another in-flight render to precisely the pile that causes this. `deleteAreaCascade` already guards (`controller.js:416-421`); `onDeleteSection` must too.
+**Empty layers must be guarded for the same reason.** `removeMany([])` still notifies, adding another in-flight render to precisely the pile that causes this. `deleteAreaCascade` already guards (`controller.js:425-430`); `onDeleteSection` must too.
 
 ### 4.2 Section delete — target chain
 

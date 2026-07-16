@@ -333,7 +333,9 @@ export function createController({ models, els }) {
 				// the drain lets that queued render consume the flag and focus
 				// correctly, and then THIS applyState's render rewrites innerHTML
 				// and drops focus to <body>. The drain is safe because the pending
-				// renders queued their IDB reads first and reads complete FIFO,
+				// renders queued their IDB reads first and reads complete FIFO
+				// (engine behaviour in practice, not an IDB spec guarantee — the
+				// same assumption every notify-driven render here already makes),
 				// and no notify fires after the last write.
 				await applyState();
 				currentMainView?.focusAfterSectionDelete?.(prevId);

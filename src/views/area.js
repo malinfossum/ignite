@@ -335,8 +335,10 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			const s = sectionFromEvent(actionEl);
 			openMenuId = null;
 			// No pendingFocusSectionId — the section is about to vanish.
-			// The toast appears (announced via aria-live) and the user
-			// Tabs to Undo from there.
+			// Focus is routed by the controller AFTER the cascade writes land,
+			// via focusAfterSectionDelete → see onDeleteSection in controller.js.
+			// Do not set a focus flag here: it would be consumed by an
+			// in-flight notify-render and then wiped by the next one.
 			if (s) callbacks.onDeleteSection({ sectionId: s.id });
 		},
 
