@@ -85,13 +85,11 @@ export function renderIconPicker(selected) {
 				aria-checked="${current === icon}" tabindex="${icon === tabStop ? "0" : "-1"}"
 				aria-label="${label}">${icon || "•"}</button>`;
 
-	// No aria-label on the group wrapper itself: the wrapper's own aria-label
-	// would be a 25th match against the "one label per option" test below —
-	// caught by running that test before writing this. role="radiogroup" still
-	// identifies the group; it sits directly under the rename input's own
-	// aria-label ("Rename area: ..."), which supplies the surrounding context.
+	// The group carries its own aria-label: a role="radiogroup" without an
+	// accessible name announces as a bare "radio group" with no indication of
+	// what it groups. The label count assertion in the tests accounts for it.
 	return `
-		<div class="icon-picker" role="radiogroup">
+		<div class="icon-picker" role="radiogroup" aria-label="Area icon">
 			${AREA_ICONS.map((icon) => option(icon, LABELS[icon])).join("")}
 			${option("", "No icon", " icon-picker__option--clear")}
 		</div>

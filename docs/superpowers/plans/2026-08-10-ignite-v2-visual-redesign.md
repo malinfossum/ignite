@@ -1809,7 +1809,7 @@ Append to `main.css`:
 - [ ] **Step 10: Run the whole suite**
 
 Run: `npm run check && npm run test:run`
-Expected: Biome clean, 199 passed (187 + 12).
+Expected: Biome clean, 198 passed (187 + 12).
 
 - [ ] **Step 11: Verify in the browser**
 
@@ -1862,7 +1862,7 @@ git commit -m "feat(areas): add an emoji picker for area icons"
 - [ ] **Step 1: Run the full green baseline**
 
 Run: `npm run check && npm run test:run && npm run build`
-Expected: Biome clean, 199 passed, build succeeds.
+Expected: Biome clean, 198 passed, build succeeds.
 
 - [ ] **Step 2: Run the full browser matrix**
 
@@ -1893,7 +1893,7 @@ Go offline, hard-reload, and confirm the app loads, renders in Bricolage/Hanken,
 In `README.md`, change line 7 to:
 
 ```markdown
-**Status:** v0.4.0 — 199 tests passing. **Live:** [malinfossum.github.io/ignite](https://malinfossum.github.io/ignite/)
+**Status:** v0.4.0 — 198 tests passing. **Live:** [malinfossum.github.io/ignite](https://malinfossum.github.io/ignite/)
 ```
 
 In the Features list, add:
@@ -1904,7 +1904,7 @@ In the Features list, add:
 
 In the Roadmap section, remove the line `- A refreshed visual design (the next milestone, toward v1.0.0)` — it has shipped.
 
-Also update the test count in the Tech section from `(166 tests)` to `(199 tests)`.
+Also update the test count in the Tech section from `(166 tests)` to `(198 tests)`.
 
 - [ ] **Step 5: Bump the version**
 

@@ -65,10 +65,14 @@ describe("renderIconPicker", () => {
 		expect(html.match(/tabindex="0"/g)).toHaveLength(1);
 	});
 
-	it("gives every option an accessible name", () => {
+	it("names the group as well as every option", () => {
 		const html = renderIconPicker("");
+		// The group itself must be named — an unnamed role="radiogroup" announces
+		// as a bare "radio group". So the expected count is every option (icons
+		// plus the clear option) PLUS the group wrapper.
+		expect(flat(html)).toContain('role="radiogroup" aria-label="Area icon"');
 		expect(html.match(/aria-label="[^"]+"/g)).toHaveLength(
-			AREA_ICONS.length + 1,
+			AREA_ICONS.length + 2,
 		);
 	});
 });
