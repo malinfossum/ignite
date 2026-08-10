@@ -355,7 +355,13 @@ body {
 	height: 1rem;
 	cursor: pointer;
 }
+/* flex:1 + min-width:0 are load-bearing, not cosmetic. `.task` is a flex row, so
+   without the grow the star and ⋯ bunch up against the title instead of sitting
+   at the right edge, and without min-width:0 a flex item refuses to shrink below
+   its content, so the ellipsis never engages. `.sidebar__name` mirrors this. */
 .task__title {
+	flex: 1;
+	min-width: 0;
 	color: var(--color-text);
 	overflow: hidden;
 	text-overflow: ellipsis;

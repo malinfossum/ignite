@@ -1351,6 +1351,23 @@ Find the existing `.task` rule and ensure it carries:
 
 `min-height: 2.75rem` (44px) keeps the touch target usable on mobile, per the design system's non-negotiable rules.
 
+**Then update `.task__title` in the same pass** — this was missed in the original plan and caused a real regression: `.task` was previously `display: grid` with a `1fr` middle column, so switching it to flex leaves the title with no grow, bunching the star and ⋯ against the text instead of the right edge, and no `min-width: 0`, so the ellipsis never engages.
+
+```css
+/* flex:1 + min-width:0 are load-bearing, not cosmetic. `.task` is a flex row, so
+   without the grow the star and ⋯ bunch up against the title instead of sitting
+   at the right edge, and without min-width:0 a flex item refuses to shrink below
+   its content, so the ellipsis never engages. `.sidebar__name` mirrors this. */
+.task__title {
+	flex: 1;
+	min-width: 0;
+	color: var(--color-text);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+```
+
 - [ ] **Step 4: Verify**
 
 Run: `npm run test:run && npm run check`
