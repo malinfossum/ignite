@@ -535,6 +535,24 @@ export function createController({ models, els }) {
 			onDeleteArea: async ({ areaId }) => {
 				await deleteAreaCascade(areaId);
 			},
+			onPickAreaIcon: async (areaId, icon) => {
+				try {
+					await areas.update(areaId, { icon });
+					// THE DRAIN IS LOAD-BEARING. notify() is synchronous and does not
+					// await its subscribers, so this write's own notify-render is still
+					// queued here — and this continuation, being a microtask, beats it.
+					// Setting the focus flag without draining means the queued render
+					// consumes it, and the NEXT render's innerHTML rewrite detaches the
+					// button again. See the cascade focus routing notes in invariants.md.
+					await applyState();
+					sidebar?.focusAreaIcon?.(areaId, icon);
+					await applyState();
+				} catch (err) {
+					// Cascade race: the area was deleted mid-edit. Matches how the other
+					// area handlers swallow this exact case.
+					if (!/not found/i.test(err.message)) throw err;
+				}
+			},
 		};
 	}
 

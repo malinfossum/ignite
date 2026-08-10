@@ -32,6 +32,7 @@ import {
 	nextEnabledIndex,
 } from "../utils/menu-keyboard.js";
 import { attachRenameInput, readRenameCaret } from "../utils/rename-input.js";
+import { renderIconPicker } from "./icon-picker.js";
 
 const THEME_GLYPH = { system: "◐", light: "☀", dark: "☾" };
 const THEME_WORD = { system: "system", light: "light", dark: "dark" };
@@ -49,6 +50,7 @@ export function createSidebarView(
 		onDeleteArea,
 		onCloseDrawer,
 		onCycleTheme,
+		onPickAreaIcon,
 	},
 ) {
 	let lastState = null;
@@ -57,6 +59,7 @@ export function createSidebarView(
 	let pendingFocusAreaId = null;
 	let pendingFocusAreaButtonId = null;
 	let pendingMenuFocusAreaId = null;
+	let pendingFocusAreaIcon = null; // { areaId, icon } — consumed by the next render
 	let pendingFocusHome = false; // → focus the "Ignite" wordmark (the Today nav item)
 	let pendingRenameSelect = false;
 	let pendingRenameValue = null;
@@ -245,7 +248,28 @@ export function createSidebarView(
 			// Tabs to Undo from there.
 			if (a) onDeleteArea({ areaId: a.id });
 		},
+
+		"pick-area-icon": (_event, actionEl) => {
+			const row = actionEl.closest("[data-area-id]");
+			if (row) onPickAreaIcon(row.dataset.areaId, actionEl.dataset.icon);
+		},
 	});
+
+	// Arrow/Home/End within the icon radiogroup. Guarded on the group being the
+	// event's ancestor FIRST — without that, any sidebar keydown would fire this,
+	// the same trap documented for the menu arrow handlers.
+	function moveIconFocus(event, direction, pick) {
+		const group = event.target.closest(".icon-picker");
+		if (!group) return;
+		event.preventDefault();
+		const els = Array.from(group.querySelectorAll('[role="radio"]'));
+		const items = els.map((el) => ({ disabled: el.disabled }));
+		const currentIndex = els.indexOf(event.target);
+		const idx = pick
+			? pick(items)
+			: nextEnabledIndex(items, currentIndex, direction);
+		if (idx >= 0) els[idx].focus();
+	}
 
 	const unbindKeys = bindKeys(rootEl, {
 		Enter: (event, actionEl) => {
@@ -262,6 +286,12 @@ export function createSidebarView(
 			const a = areaFromEvent(event.target);
 			if (a) enterAreaRename(a);
 		},
+		ArrowRight: (event) => moveIconFocus(event, 1),
+		ArrowLeft: (event) => moveIconFocus(event, -1),
+		ArrowDown: (event) => moveIconFocus(event, 1),
+		ArrowUp: (event) => moveIconFocus(event, -1),
+		Home: (event) => moveIconFocus(event, 0, firstEnabledIndex),
+		End: (event) => moveIconFocus(event, 0, lastEnabledIndex),
 	});
 
 	function doRender() {
@@ -344,6 +374,19 @@ export function createSidebarView(
 				rootEl.querySelector(".sidebar__home")?.focus();
 			}
 		}
+
+		// Consumed last and cleared unconditionally: rename-input.js re-focuses the
+		// rename input on every render, so without this a pick ejects the user from
+		// the picker back to the text field every single time.
+		if (pendingFocusAreaIcon) {
+			const { areaId, icon } = pendingFocusAreaIcon;
+			pendingFocusAreaIcon = null;
+			rootEl
+				.querySelector(
+					`[data-area-id="${CSS.escape(areaId)}"] .icon-picker [data-icon="${CSS.escape(icon)}"]`,
+				)
+				?.focus();
+		}
 	}
 
 	return {
@@ -379,6 +422,13 @@ export function createSidebarView(
 			pendingFocusHome = true;
 		},
 
+		// Controller hook: after picking an area icon, put focus back on that
+		// option. Sets the pending flag ONLY — the controller's second
+		// applyState() after the drain provides the consuming render.
+		focusAreaIcon(areaId, icon) {
+			pendingFocusAreaIcon = { areaId, icon };
+		},
+
 		// Public hook for the controller to flip a freshly-created area
 		// into rename mode without the view subscribing to model changes.
 		enterRename(areaId) {
@@ -412,6 +462,7 @@ export function createSidebarView(
 			pendingFocusAreaButtonId = null;
 			pendingMenuFocusAreaId = null;
 			pendingFocusHome = false;
+			pendingFocusAreaIcon = null;
 			pendingRenameSelect = false;
 			pendingRenameValue = null;
 			prevSidebarCollapsed = null;
@@ -501,6 +552,7 @@ function renderAreaRow(area, state, route, opts) {
 					aria-label="Rename area: ${escapeHtml(area.name)}"
 					placeholder="${escapeHtml(area.name)}"
 					autofocus />
+				${renderIconPicker(area.icon)}
 			</li>
 		`;
 	}
