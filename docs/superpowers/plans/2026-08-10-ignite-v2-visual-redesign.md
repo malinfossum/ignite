@@ -699,8 +699,8 @@ In `index.html`, insert this immediately before the `<link rel="stylesheet" href
 			   Mirrors resolveTheme() in src/utils/theme.js: anything that is not
 			   an explicit "dark"/"light" — including "system", absent, or stale —
 			   follows the OS. */
-			(function () {
-				var choice = localStorage.getItem("ignite:theme");
+			(() => {
+				const choice = localStorage.getItem("ignite:theme");
 				document.documentElement.dataset.theme =
 					choice === "dark" || choice === "light"
 						? choice
