@@ -1244,3 +1244,17 @@ body.is-drawer-open #scrim {
 		animation: none;
 	}
 }
+
+/* --- Today header --- */
+.today-header {
+	margin-bottom: var(--space-5);
+}
+/* biome-ignore lint/style/noDescendingSpecificity: only touches margin; #main h1 above only sets font-size, so there's no real conflict. */
+.today-header h1 {
+	margin: 0;
+}
+.today-header__date {
+	margin: var(--space-1) 0 0;
+	color: var(--text-faint);
+	font-size: var(--text-sm);
+}

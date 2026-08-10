@@ -380,7 +380,7 @@ function template(
 		!next && overdue.length === 0 && today.length === 0 && starred.length === 0;
 
 	if (allEmpty) {
-		return `<h1 class="sr-only">Today</h1><p class="empty">You're clear. Nice.</p>`;
+		return `${renderHeader(state.now)}<p class="empty">You're clear. Nice.</p>`;
 	}
 
 	// ≥1 section other than any task's own ⇒ a valid move target exists.
@@ -400,11 +400,29 @@ function template(
 	}
 
 	return `
-		<h1 class="sr-only">Today</h1>
+		${renderHeader(state.now)}
 		${next ? renderNextCard(next, state.now, openMenuTaskId, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets) : ""}
 		${renderGroup("Overdue", "group--overdue", overdue, state.now, openMenuTaskId, true, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets)}
 		${renderGroup("Today", "group--today", today, state.now, openMenuTaskId, true, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets)}
 		${renderGroup("Starred", "group--starred", starred, state.now, openMenuTaskId, false, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets)}
+	`;
+}
+
+// Today is the app's home screen and had no visible title — the <h1> was
+// screen-reader-only, added to satisfy axe's page-has-heading-one. A real
+// heading satisfies it better. BOTH branches of `template` must render one:
+// the empty state is a real route, not a transient.
+function renderHeader(now) {
+	const date = now.toLocaleDateString(undefined, {
+		weekday: "long",
+		day: "numeric",
+		month: "long",
+	});
+	return `
+		<header class="today-header">
+			<h1>Today</h1>
+			<p class="today-header__date">${date}</p>
+		</header>
 	`;
 }
 
