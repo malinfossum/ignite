@@ -70,3 +70,47 @@ describe("createSettingsModel — sidebarCollapsed", () => {
 		expect(after.sidebarCollapsed).toBe(true);
 	});
 });
+
+describe("createSettingsModel — theme", () => {
+	it("defaults to system on a fresh install", async () => {
+		const { model } = await freshModel();
+		const current = await model.get();
+		expect(current.theme).toBe("system");
+	});
+
+	it("persists every valid choice and notifies", async () => {
+		const { model } = await freshModel();
+
+		const calls = [];
+		model.subscribe(() => calls.push("notified"));
+
+		await model.setTheme("light");
+		expect((await model.get()).theme).toBe("light");
+
+		await model.setTheme("dark");
+		expect((await model.get()).theme).toBe("dark");
+
+		// Returning to system must be persistable — that is what keeps the control
+		// reversible instead of a one-way door.
+		await model.setTheme("system");
+		expect((await model.get()).theme).toBe("system");
+
+		expect(calls).toHaveLength(3);
+	});
+
+	it("rejects an unrecognised choice rather than persisting it", async () => {
+		const { model } = await freshModel();
+		await expect(model.setTheme("purple")).rejects.toThrow(/theme/i);
+		const after = await model.get();
+		expect(after.theme).toBe("system");
+	});
+
+	it("leaves other settings untouched", async () => {
+		const { model } = await freshModel();
+		await model.setTheme("dark");
+		const after = await model.get();
+		expect(after.theme).toBe("dark");
+		expect(after.quietStart).toBe(23);
+		expect(after.sidebarCollapsed).toBe(false);
+	});
+});
