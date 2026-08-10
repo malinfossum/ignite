@@ -13,6 +13,9 @@ const SHELL = [
 	"./icons/apple-touch-icon-180.png",
 ].map((path) => new URL(path, SCOPE).toString());
 
+// Font families this app actually renders — see the filter in `install`.
+const FONT_FAMILIES = ["bricolage-grotesque", "hanken-grotesk"];
+
 self.addEventListener("install", (event) => {
 	event.waitUntil(
 		self.caches
@@ -36,11 +39,22 @@ self.addEventListener("install", (event) => {
 					for (const styleUrl of assets.filter((u) => u.endsWith(".css"))) {
 						const css = await (await fetch(styleUrl)).text();
 						for (const m of css.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/g)) {
-							const resolved = new URL(m[1], styleUrl).toString();
-							// Same-origin only, matching the fetch handler's own rule. This
-							// also drops data: URIs, which need no caching.
-							if (resolved.startsWith(self.location.origin))
-								fonts.add(resolved);
+							const resolved = new URL(m[1], styleUrl);
+							// Strict origin equality, matching the fetch handler's own rule
+							// (a startsWith prefix test would accept evil-<origin>.example).
+							// This also drops data: URIs, which need no caching.
+							if (resolved.origin !== self.location.origin) continue;
+							const href = resolved.toString();
+							// The design system declares @font-face for all nine families its
+							// palettes share, so an unfiltered sweep precaches ~236 KB of which
+							// ~164 KB never renders here. Ignite only uses these two; anything
+							// else still resolves via the runtime cache-first handler below.
+							if (
+								/\.woff2?(?:$|\?)/i.test(href) &&
+								!FONT_FAMILIES.some((family) => href.includes(family))
+							)
+								continue;
+							fonts.add(href);
 						}
 					}
 					// Per-item, NOT cache.addAll: addAll is atomic, so a single stale url()
