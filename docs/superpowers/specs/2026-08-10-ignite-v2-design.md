@@ -45,9 +45,19 @@ future spec and absorbs this control when it lands.
 ### 2.2 Why fonts are not trimmed
 
 The extracted `assets/fonts/` carries nine families; Ignite uses two. Deleting the other
-seven would save ~130 KB of repo and `dist/` weight but permanently drift the extracted copy
-from canonical, so `extract.mjs --check` would report drift forever. An unused `@font-face`
-never downloads, so the runtime cost of keeping them is zero. Drift-free wins.
+seven would save repo and `dist/` weight but permanently drift the extracted copy from
+canonical, so `extract.mjs --check` would report drift forever. Drift-free wins.
+
+**Corrected during implementation.** This section originally justified that with "an unused
+`@font-face` never downloads, so the runtime cost of keeping them is zero." That is true of
+the browser but false of the service worker: §5's precache walks every `url()` in the bundled
+CSS, so it would pull all **15 emitted `.woff2` files (236,600 bytes)** on install, of which
+Ignite renders **4 (72,096 bytes)** — 164 KB of dead weight per install.
+
+The fix keeps the extract pristine and filters at the point of cost instead: `sw.js` holds a
+`FONT_FAMILIES` allowlist (`bricolage-grotesque`, `hanken-grotesk`) and precaches only those.
+The filter applies to font files only — other same-origin `url()` assets still precache —
+and anything omitted still resolves through the runtime cache-first handler.
 
 ---
 
@@ -269,21 +279,33 @@ a task list.
 
 Fix: app-scoped `h1` at `--text-2xl`, `h2` at `--text-xl`.
 
-### 6.3 Border temperature — judgment call
+### 6.3 Border temperature — light theme only
 
-`tokens/palettes/ignite.css` overrides surfaces, accent, and type, but **not** borders or
-muted text — those still come from base `colors.css`, which is cool blue-grey
-(`--border: #232c35`, `--text-muted: #b4bdc7`). Against the palette's warm greyer ground
-(`#0b0a0a` → `#343230`) they read faintly blue.
+**Corrected during implementation.** This section originally claimed the `ignite` palette
+inherits cool blue-grey borders and muted text from base `colors.css`, and prescribed a local
+override for both themes. That was wrong: `ignite.css`'s own header points at
+`tokens/palettes/_oled.css`, a shared foundation the original reading missed, and it
+**already** warms the dark ground for this palette:
 
-Fix: a local warm-neutral override of `--border`, `--border-strong`, `--border-soft` and
-`--text-muted` under `[data-palette="ignite"]` in `main.css`. Concrete hex values are chosen
-during implementation, sampled against the palette's own surface ramp and checked for
-contrast in both themes — this spec fixes the decision, not the numbers.
+```
+--text: #faf9f5;  --text-muted: #beb9ad;  --text-faint: #8a8478;
+--border: #2b2622;  --border-strong: #3a342c;  --border-soft: #1c1814;
+```
 
-This is a mismatch in canonical, not in Ignite. `design-system/` is read-only here, so Ignite
-overrides locally. **File an issue against workbench** proposing that `ignite.css` carry its
-own warm border and muted-text values, and drop the local override once it does.
+So no dark override is needed, and none ships. Adding one would only shadow the design
+system with near-identical numbers — exactly the drift the read-only policy exists to
+prevent.
+
+`_oled.css` has **no light-theme block**, though. Under `[data-theme="light"]` the tokens
+fall back to base `colors.css`, which is cool blue-grey (`--border: #d8dee4`,
+`--text-muted: #52606d`). So Ignite ships one override, light only:
+
+```css
+[data-theme="light"][data-palette="ignite"] { /* warm borders + muted text */ }
+```
+
+Verified live: dark resolves to `#2b2622` / `#beb9ad` from `_oled.css`; light resolves to the
+local warm values. No workbench issue is warranted — canonical is correct as it stands.
 
 ### 6.4 `.visually-hidden` is retired
 
