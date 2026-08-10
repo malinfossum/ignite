@@ -1283,11 +1283,17 @@ body.is-drawer-open #scrim {
 }
 
 /* --- Area icon picker --- */
-/* Mobile-first: 4 columns at the baseline, because six 44px targets plus gaps do
-   not fit the 300px drawer. Six from tablet up. */
+/* Auto-fit rather than a fixed column count. A fixed count cannot be right at
+   both widths, because the DESKTOP SIDEBAR (240px) is NARROWER than the mobile
+   drawer (min(80vw, 300px)) — so "more columns on wider screens" is backwards
+   here. auto-fit packs as many 44px targets as the container actually has room
+   for, which also keeps it correct if the sidebar width ever changes. */
 .icon-picker {
+	/* The editing row is a wrapping flex row; without a 100% basis this lands on
+	   its own line but shrinks to content, collapsing the grid to one column. */
+	flex: 1 0 100%;
 	display: grid;
-	grid-template-columns: repeat(4, 1fr);
+	grid-template-columns: repeat(auto-fit, minmax(2.75rem, 1fr));
 	gap: var(--space-1);
 	margin-top: var(--space-2);
 	padding: var(--space-2);
@@ -1315,12 +1321,6 @@ body.is-drawer-open #scrim {
 }
 .icon-picker__option--clear {
 	color: var(--text-faint);
-}
-
-@media (min-width: 768px) {
-	.icon-picker {
-		grid-template-columns: repeat(6, 1fr);
-	}
 }
 
 /* Collapsed rail: the rename input that owns this picker is hidden too (see
