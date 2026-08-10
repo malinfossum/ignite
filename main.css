@@ -1249,8 +1249,10 @@ body.is-drawer-open #scrim {
 .today-header {
 	margin-bottom: var(--space-5);
 }
-/* biome-ignore lint/style/noDescendingSpecificity: only touches margin; #main h1 above only sets font-size, so there's no real conflict. */
-.today-header h1 {
+/* Classed rather than a `.today-header h1` descendant selector: the latter
+   overlaps `#main h1` on the same element and trips noDescendingSpecificity.
+   Font size still comes from `#main h1`; this only zeroes the default margin. */
+.today-header__title {
 	margin: 0;
 }
 .today-header__date {
