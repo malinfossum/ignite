@@ -774,10 +774,6 @@ body {
 	outline: 2px solid var(--color-accent);
 	outline-offset: 2px;
 }
-.sidebar__area.is-active {
-	color: var(--color-accent);
-	background: var(--color-bg-hover);
-}
 
 /* Reduced motion: disable chevron rotation animation */
 @media (prefers-reduced-motion: reduce) {
@@ -804,6 +800,17 @@ body {
 .sidebar__area-row .sidebar__area {
 	flex: 1;
 	min-width: 0;
+}
+.sidebar__area.is-active {
+	background: var(--accent-soft);
+	color: var(--text);
+}
+.sidebar__area.is-active .sidebar__count {
+	color: var(--accent);
+	font-weight: 500;
+}
+.sidebar__area:not(.is-active):hover {
+	background: var(--surface-3);
 }
 
 /* Menu trigger — mirrors .section__menu-btn */
