@@ -56,6 +56,10 @@ describe("renderIconPicker", () => {
 	it("puts the tab stop on the clear option when nothing is selected", () => {
 		const html = flat(renderIconPicker(""));
 		expect(html).toContain('data-icon="" aria-checked="true" tabindex="0"');
+		// Exclusivity, not just presence: an off-by-one in the tabStop fallback
+		// could leave a second option tabbable and still satisfy the line above.
+		expect(html.match(/tabindex="0"/g)).toHaveLength(1);
+		expect(html.match(/tabindex="-1"/g)).toHaveLength(AREA_ICONS.length);
 	});
 
 	it("still exposes one tab stop for an icon outside the curated set", () => {
@@ -63,6 +67,12 @@ describe("renderIconPicker", () => {
 		// keyboard user with zero reachable options.
 		const html = renderIconPicker("🦊");
 		expect(html.match(/tabindex="0"/g)).toHaveLength(1);
+		expect(html.match(/tabindex="-1"/g)).toHaveLength(AREA_ICONS.length);
+		// The tab stop lands on the clear option, since no visible option
+		// represents the unrecognised value.
+		expect(flat(html)).toContain(
+			'data-icon="" aria-checked="false" tabindex="0"',
+		);
 	});
 
 	it("names the group as well as every option", () => {
