@@ -883,6 +883,7 @@ body {
 .sidebar__area-row--editing {
 	padding: 0.25rem 0.5rem;
 	gap: 0.5rem;
+	flex-wrap: wrap;
 }
 .sidebar__rename-input {
 	flex: 1;
@@ -1332,5 +1333,14 @@ body.is-drawer-open #scrim {
 @media (min-width: 768px) {
 	.icon-picker {
 		grid-template-columns: repeat(6, 1fr);
+	}
+}
+
+/* Collapsed rail: the rename input that owns this picker is hidden too (see
+   the collapsed-state rule above) — hide the picker itself so it cannot
+   render across the 48px rail into the main content. */
+@media (min-width: 768px) {
+	body.is-sidebar-collapsed .icon-picker {
+		display: none;
 	}
 }
