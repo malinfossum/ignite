@@ -57,12 +57,6 @@
 #main h1 {
 	font-size: var(--text-2xl);
 }
-.next-card__label {
-	font-size: var(--text-sm);
-}
-.group__heading {
-	font-size: var(--text-md);
-}
 
 /* The ignite palette's dark ground is already warmed by the design system's
    shared _oled.css foundation. Light is not — _oled.css has no light block, so
@@ -281,11 +275,14 @@ body {
 	padding: 1rem;
 }
 .next-card__label {
-	margin: 0 0 0.5rem;
-	font-size: 0.7rem;
-	letter-spacing: 0.12em;
-	color: var(--color-accent);
-	text-transform: uppercase;
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	margin: 0 0 var(--space-3);
+	font-size: var(--text-sm);
+	letter-spacing: var(--tracking-heading);
+	text-transform: none;
+	color: var(--accent);
 }
 .next-card__list {
 	list-style: none;
@@ -295,11 +292,20 @@ body {
 
 /* --- Groups --- */
 .group__heading {
-	margin: 0 0 0.5rem;
-	font-size: 0.85rem;
-	color: var(--color-text-muted);
-	text-transform: uppercase;
-	letter-spacing: 0.08em;
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-2);
+	margin: 0 0 var(--space-2);
+	font-size: var(--text-md);
+	letter-spacing: var(--tracking-heading);
+	text-transform: none;
+	color: var(--text);
+}
+.group__count {
+	font-family: var(--font-sans);
+	font-size: var(--text-sm);
+	font-weight: 400;
+	color: var(--text-faint);
 }
 .group--overdue .group__heading {
 	color: var(--color-overdue);

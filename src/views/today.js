@@ -438,7 +438,7 @@ function renderNextCard(
 ) {
 	return `
 		<article class="next-card">
-			<h2 class="next-card__label">NEXT</h2>
+			<h2 class="next-card__label">Next</h2>
 			<ul class="next-card__list">
 				${renderTaskRowWithMenu(task, now, openMenuTaskId, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets)}
 			</ul>
@@ -460,7 +460,12 @@ function renderGroup(
 	hasMoveTargets,
 ) {
 	if (tasks.length === 0) return "";
-	const headingText = showCount ? `${heading} (${tasks.length})` : heading;
+	// The count is a separate element, not part of the heading string: it is
+	// metadata, and styling it as such is what lets the heading itself read as a
+	// heading rather than a label.
+	const countHtml = showCount
+		? `<span class="group__count">${tasks.length}</span>`
+		: "";
 	const rows = tasks
 		.map((t) =>
 			renderTaskRowWithMenu(
@@ -477,7 +482,7 @@ function renderGroup(
 		.join("");
 	return `
 		<section class="group ${modifierClass}">
-			<h3 class="group__heading">${headingText}</h3>
+			<h3 class="group__heading">${heading}${countHtml}</h3>
 			<ul class="group__list">${rows}</ul>
 		</section>
 	`;
