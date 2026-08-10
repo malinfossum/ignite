@@ -70,10 +70,12 @@ node C:/Users/Nugget/Documents/Development/workbench/tools/extract.mjs design-sy
 Run:
 
 ```bash
-ls design-system && cat design-system/VERSION
+ls design-system && head -1 design-system/tokens/index.css
 ```
 
-Expected: directories `tokens base primitives components compositions utilities theme assets`, and a version string. `gallery/`, `sandbox/` and `docs/` must be absent — `extract.json` excludes them.
+Expected: directories `assets base components compositions primitives theme tokens utilities`, and a first line reading `/* workbench-lib: design-system v2.0.0 — extracted; edit in the workbench, not here */`. `gallery/`, `sandbox/` and `docs/` must be absent — `extract.json` excludes them.
+
+Note there is **no top-level `design-system/VERSION` file**: `extract.json`'s `versionFile` names the version file in the *source* library, and the extractor stamps the version as a header comment on each index file rather than copying it across.
 
 - [ ] **Step 3: Confirm the ignite palette and its fonts arrived**
 
