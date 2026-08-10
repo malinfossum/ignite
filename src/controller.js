@@ -6,6 +6,7 @@
 // Owns the 60s clock tick that calls currentMainView.render(state) only.
 
 import { FOCUS_DEFAULT_SECTION_ID, FOCUS_ID } from "./model/areas.js";
+import { escapeHtml } from "./utils/dom.js";
 import { previousSectionId } from "./utils/sections.js";
 import { describeRecurrence, formatTaskDeleteMessage } from "./utils/text.js";
 import {
@@ -46,6 +47,7 @@ export function createController({ models, els }) {
 		topbarRoot,
 		scrimEl,
 		mainEl,
+		pageHeaderRoot,
 		captureRoot,
 		mainRoot,
 		toastRoot,
@@ -110,6 +112,28 @@ export function createController({ models, els }) {
 		};
 	}
 
+	// Page chrome, not view content: the title varies by route, and the route is
+	// the controller's. It lives above the capture bar, which is why it cannot be
+	// rendered by the views — they render into #main-root, a later sibling.
+	function renderPageHeader(state) {
+		if (currentRoute.name === "area") {
+			const area = state.areas.find((a) => a.id === currentRoute.id);
+			pageHeaderRoot.innerHTML = `<h1 class="page-header__title">${
+				area ? escapeHtml(area.name) : "Area not found."
+			}</h1>`;
+			return;
+		}
+		const date = state.now.toLocaleDateString(undefined, {
+			weekday: "long",
+			day: "numeric",
+			month: "long",
+		});
+		pageHeaderRoot.innerHTML = `
+			<h1 class="page-header__title">Today</h1>
+			<p class="page-header__date">${date}</p>
+		`;
+	}
+
 	async function applyState() {
 		const state = await buildState();
 		const choice = state.settings.theme ?? DEFAULT_CHOICE;
@@ -130,6 +154,7 @@ export function createController({ models, els }) {
 			"is-area-route",
 			currentRoute.name === "area",
 		);
+		renderPageHeader(state);
 		sidebar?.render(state);
 		currentMainView?.render(state);
 	}

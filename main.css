@@ -520,12 +520,6 @@ body {
 	gap: 0.75rem;
 }
 
-.area__title {
-	font-weight: 600;
-	color: var(--color-text);
-	margin: 0;
-}
-
 .area--not-found {
 	color: var(--color-text-muted);
 }
@@ -1270,13 +1264,15 @@ body.is-drawer-open #scrim {
 	}
 }
 
-/* --- Today header --- */
-.today-header {
+/* --- Page header --- */
+.page-header {
 	margin-bottom: var(--space-5);
 }
-/* No rule for the heading itself: `#main h1` gives it its size, and the design
-   system's reset.css already zeroes every margin globally. */
-.today-header__date {
+/* No rule for .page-header__title: `#main h1` gives it its size, and the
+   design system's reset.css already zeroes every margin globally. The area
+   route's default h1 weight/color already match what `.area__title` used to
+   set explicitly, so there's nothing left to fold in. */
+.page-header__date {
 	margin: var(--space-1) 0 0;
 	color: var(--text-faint);
 	font-size: var(--text-sm);

@@ -740,7 +740,6 @@ function template(
 	if (!area) {
 		return `
 			<section class="area area--not-found">
-				<h1 class="area__title">Area not found.</h1>
 				<p class="area__not-found-help">
 					<a href="#today" class="area__back-link">Back to Today</a>
 				</p>
@@ -803,13 +802,9 @@ function template(
 		)
 		.join("");
 
-	const titleHtml = area.name
-		? `<h1 class="area__title">${escapeHtml(area.name)}</h1>`
-		: "";
-
 	return `
 		<section class="area" data-area-id="${escapeHtml(area.id)}">
-			<header class="area__header">${titleHtml}</header>
+			<header class="area__header"></header>
 			<div class="area__sections">${sectionHtml}</div>
 			<footer class="area__footer">
 				<button type="button" class="area__add-section" data-action="add-section">＋ New section</button>
