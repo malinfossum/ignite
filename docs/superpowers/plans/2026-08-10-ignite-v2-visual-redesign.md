@@ -422,7 +422,7 @@ git commit -m "fix(sw): precache fonts referenced from bundled CSS"
 
 **Interfaces:**
 - Consumes: nothing
-- Produces: `THEME_CHOICES` (`["system", "dark", "light"]`), `DEFAULT_CHOICE` (`"system"`), `resolveTheme(choice, prefersDark) → "dark" | "light"`, `nextThemeChoice(choice) → choice` — used by Tasks 6, 8 and 9
+- Produces: `THEME_CHOICES` (`["system", "light", "dark"]` — array order IS the cycle), `DEFAULT_CHOICE` (`"system"`), `resolveTheme(choice, prefersDark) → "dark" | "light"`, `nextThemeChoice(choice) → choice` — used by Tasks 6, 8 and 9
 
 - [ ] **Step 1: Write the failing tests**
 
