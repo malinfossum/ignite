@@ -1,22 +1,67 @@
 /* main.css — Ignite app styles.
-   App-specific layout and components live here.
-   Shared foundation lives in base.css. */
+   Layer order per the design system's spec: tokens → base → primitives →
+   components → project UI. `design-system/` is READ-ONLY; anything that needs
+   changing is overridden below or filed against workbench. */
 
+@import url("./design-system/tokens/index.css");
+@import url("./design-system/base/reset.css");
+@import url("./design-system/base/base.css");
+@import url("./design-system/primitives/container.css");
+@import url("./design-system/primitives/stack.css");
+@import url("./design-system/primitives/cluster.css");
+@import url("./design-system/components/index.css");
+@import url("./design-system/utilities/index.css");
+
+/* NOT imported, deliberately:
+   - compositions/ — .app-shell and .main-shell are page patterns with 3–5rem
+     block padding, wrong for a task app.
+   - primitives/index.css — it pulls in primitives/sidebar.css, whose
+     .sidebar-layout breaks at max-width: 62rem: both a max-width query (against
+     this project's mobile-first rule) and the wrong breakpoint (Ignite's drawer
+     flips at 768px). The three primitives Ignite uses are imported individually;
+     grid, split and center have no consumer here. */
+
+/* Legacy token aliases. Ignite's own CSS was written against these eight names;
+   pointing them at system tokens retokenizes every existing surface — menus,
+   dialogs, toast, drawer — in both themes, without rewriting it. */
 :root {
-	--color-bg: #0f0f10;
-	--color-bg-elevated: #18181b;
-	--color-bg-hover: rgba(255, 255, 255, 0.04);
-	--color-text: #e8e8ea;
-	--color-text-muted: #9a9aa3;
-	--color-border: #1f1f22;
-	--color-accent: #f56b0a;
-	--color-overdue: #c94a4a;
+	--color-bg: var(--surface-1);
+	--color-bg-elevated: var(--surface-2);
+	--color-bg-hover: var(--surface-3);
+	--color-text: var(--text);
+	--color-text-muted: var(--text-muted);
+	--color-border: var(--border);
+	--color-accent: var(--accent);
+	--color-overdue: var(--danger);
 
 	--sidebar-width: 240px;
 	--sidebar-rail-width: 48px;
-	--main-max-width: 960px;
-	--main-padding: 1.5rem;
-	--radius: 6px;
+	--main-max-width: var(--reading-width);
+	--main-padding: var(--space-5);
+	--radius: var(--radius-sm);
+}
+
+/* --- Required overrides: the system is built for documents, Ignite is an app --- */
+
+/* base/base.css sets `p, li { color: var(--text-muted) }`. Ignite renders
+   <li class="task"> and <li class="sidebar__area-row">, so without this reset
+   EVERY task title and area name in the app turns grey. */
+.task,
+.sidebar__area-row,
+.sidebar__add-area-row {
+	color: var(--text);
+}
+
+/* base/base.css sets h1 to --text-4xl (up to 60px) and h3 to --text-xl. Those
+   are document scales; these are app-chrome scales. */
+#main h1 {
+	font-size: var(--text-2xl);
+}
+.next-card__label {
+	font-size: var(--text-sm);
+}
+.group__heading {
+	font-size: var(--text-md);
 }
 
 /* Visually hidden, but exposed to screen readers + heading navigation.
