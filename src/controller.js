@@ -8,6 +8,11 @@
 import { FOCUS_DEFAULT_SECTION_ID, FOCUS_ID } from "./model/areas.js";
 import { previousSectionId } from "./utils/sections.js";
 import { describeRecurrence, formatTaskDeleteMessage } from "./utils/text.js";
+import {
+	DEFAULT_CHOICE,
+	nextThemeChoice,
+	resolveTheme,
+} from "./utils/theme.js";
 import { formatOccurrenceLabel } from "./utils/time.js";
 import { createAreaView } from "./views/area.js";
 import { createCaptureView } from "./views/capture.js";
@@ -62,6 +67,26 @@ export function createController({ models, els }) {
 	let recurrenceDialog = null;
 	let repeatEditorTaskId = null; // transient UI state — NOT a model field
 	const completing = new Set(); // task ids mid-completion (re-entry guard)
+	let currentChoice = null; // "system" | "dark" | "light" — mirrors the model
+	let currentTheme = null; // resolved "dark" | "light" — what is on the document
+	let themeMq = null; // matchMedia("(prefers-color-scheme: dark)")
+	let themeMqHandler = null;
+
+	// Applies the resolved theme to the document. The settings model is the source
+	// of truth; localStorage is a derived paint-time cache read only by the inline
+	// <head> snippet, and stores the CHOICE (including "system") so the snippet can
+	// re-resolve it the same way on the next boot.
+	function applyTheme(choice, theme) {
+		const choiceChanged = choice !== currentChoice;
+		const themeChanged = theme !== currentTheme;
+		currentChoice = choice;
+		currentTheme = theme;
+		if (choiceChanged) localStorage.setItem("ignite:theme", choice);
+		if (!themeChanged) return;
+		document.documentElement.dataset.theme = theme;
+		const meta = document.querySelector('meta[name="theme-color"]');
+		meta?.setAttribute("content", theme === "dark" ? "#0b0a0a" : "#f6f8fa");
+	}
 
 	async function buildState() {
 		const [areaList, sectionList, taskList, settingsRecord] = await Promise.all(
@@ -79,6 +104,16 @@ export function createController({ models, els }) {
 
 	async function applyState() {
 		const state = await buildState();
+		const choice = state.settings.theme ?? DEFAULT_CHOICE;
+		applyTheme(
+			choice,
+			resolveTheme(
+				choice,
+				window.matchMedia("(prefers-color-scheme: dark)").matches,
+			),
+		);
+		state.themeChoice = currentChoice;
+		state.theme = currentTheme;
 		document.body.classList.toggle(
 			"is-sidebar-collapsed",
 			!!(state.settings.sidebarCollapsed ?? false),
@@ -655,6 +690,9 @@ export function createController({ models, els }) {
 				closeDrawer();
 			},
 			onCloseDrawer: () => closeDrawer(),
+			onCycleTheme: async () => {
+				await settings.setTheme(nextThemeChoice(currentChoice));
+			},
 			...sidebarCallbacks(),
 		});
 
@@ -691,6 +729,16 @@ export function createController({ models, els }) {
 		};
 		drawerMq.addEventListener("change", drawerMqHandler);
 
+		themeMq = window.matchMedia("(prefers-color-scheme: dark)");
+		themeMqHandler = () => {
+			// Early-return unless the user is actually following the OS. applyState
+			// is a four-model read plus a full innerHTML rewrite of the sidebar and
+			// main view — far too expensive to run for a guaranteed no-op.
+			if (currentChoice !== "system") return;
+			applyState();
+		};
+		themeMq.addEventListener("change", themeMqHandler);
+
 		tickHandle = setInterval(applyState, TICK_MS);
 	}
 
@@ -704,6 +752,9 @@ export function createController({ models, els }) {
 		drawerMq?.removeEventListener("change", drawerMqHandler);
 		drawerMq = null;
 		drawerMqHandler = null;
+		themeMq?.removeEventListener("change", themeMqHandler);
+		themeMq = null;
+		themeMqHandler = null;
 		for (const unsub of unsubs) unsub();
 		unsubs = [];
 		currentMainView?.destroy();
