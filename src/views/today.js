@@ -380,7 +380,7 @@ function template(
 		!next && overdue.length === 0 && today.length === 0 && starred.length === 0;
 
 	if (allEmpty) {
-		return `<h1 class="visually-hidden">Today</h1><p class="empty">You're clear. Nice.</p>`;
+		return `<h1 class="sr-only">Today</h1><p class="empty">You're clear. Nice.</p>`;
 	}
 
 	// ≥1 section other than any task's own ⇒ a valid move target exists.
@@ -400,7 +400,7 @@ function template(
 	}
 
 	return `
-		<h1 class="visually-hidden">Today</h1>
+		<h1 class="sr-only">Today</h1>
 		${next ? renderNextCard(next, state.now, openMenuTaskId, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets) : ""}
 		${renderGroup("Overdue", "group--overdue", overdue, state.now, openMenuTaskId, true, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets)}
 		${renderGroup("Today", "group--today", today, state.now, openMenuTaskId, true, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets)}

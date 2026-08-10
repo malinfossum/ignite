@@ -1,10 +1,10 @@
 // createSidebarView(rootEl, {
 //   onToggleCollapse, onGoToday, onOpenArea,
 //   onAddArea, onCommitAreaRename, onMoveAreaUp, onMoveAreaDown, onDeleteArea,
-//   onCloseDrawer,
+//   onCloseDrawer, onCycleTheme,
 // }) → { render(state), enterRename(areaId), destroy() }
 //
-// state expected: { areas, sections, tasks, settings, route, now }
+// state expected: { areas, sections, tasks, settings, route, now, themeChoice, theme }
 // route:
 //   { name: "today" }            → wordmark gets aria-current="page"
 //   { name: "area", id: "..." }  → matching area row gets aria-current="page"
@@ -33,6 +33,9 @@ import {
 } from "../utils/menu-keyboard.js";
 import { attachRenameInput, readRenameCaret } from "../utils/rename-input.js";
 
+const THEME_GLYPH = { system: "◐", light: "☀", dark: "☾" };
+const THEME_WORD = { system: "system", light: "light", dark: "dark" };
+
 export function createSidebarView(
 	rootEl,
 	{
@@ -45,6 +48,7 @@ export function createSidebarView(
 		onMoveAreaDown,
 		onDeleteArea,
 		onCloseDrawer,
+		onCycleTheme,
 	},
 ) {
 	let lastState = null;
@@ -183,6 +187,8 @@ export function createSidebarView(
 		},
 
 		"add-area": () => onAddArea(),
+
+		"cycle-theme": () => onCycleTheme(),
 
 		"open-area-menu": (event, actionEl) => {
 			event.stopPropagation();
@@ -459,6 +465,12 @@ function template(
 				</button>
 			</li>
 		</ul>
+		<div class="sidebar__footer">
+			<button class="sidebar__theme" type="button" data-action="cycle-theme">
+				<span class="sidebar__theme-icon" aria-hidden="true">${THEME_GLYPH[state.themeChoice]}</span>
+				<span class="sidebar__theme-text">Theme: ${THEME_WORD[state.themeChoice]}</span>
+			</button>
+		</div>
 	`;
 }
 

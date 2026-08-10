@@ -75,21 +75,6 @@
 	--text-faint: #7d766e;
 }
 
-/* Visually hidden, but exposed to screen readers + heading navigation.
-   Used for a page-level <h1> on views with no visible title (e.g. Today). */
-.visually-hidden {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	margin: -1px;
-	padding: 0;
-	border: 0;
-	clip: rect(0 0 0 0);
-	clip-path: inset(50%);
-	overflow: hidden;
-	white-space: nowrap;
-}
-
 /* Mobile baseline: stacked layout. */
 body {
 	display: grid;
@@ -213,6 +198,56 @@ body {
 	body.is-sidebar-collapsed .sidebar__name,
 	body.is-sidebar-collapsed .sidebar__count {
 		display: none;
+	}
+}
+
+/* --- Sidebar footer: theme control --- */
+.sidebar__footer {
+	margin-top: auto;
+	padding-top: var(--space-3);
+	border-top: 1px solid var(--border);
+}
+.sidebar__theme {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	width: 100%;
+	min-height: 2.75rem;
+	padding: var(--space-2);
+	border-radius: var(--radius-sm);
+	color: var(--text-muted);
+	transition: background-color var(--duration-base) var(--ease-standard);
+}
+.sidebar__theme:hover {
+	background: var(--surface-3);
+	color: var(--text);
+}
+.sidebar__theme-icon {
+	font-size: var(--text-lg);
+	line-height: 1;
+}
+
+/* Collapsed rail: hide the label but keep it in the accessible name.
+   Can't apply .sr-only from CSS (it's a class, not selectable from here),
+   and hiding it via a template-conditional class would be wrong too — this
+   rail is desktop-only (@media above), but sidebarCollapsed is also set on
+   mobile, where the drawer is full width and the label must stay visible.
+   So the clip-based hiding has to live here, scoped to the desktop media
+   query, repeating .sr-only's technique rather than reusing the class. */
+@media (min-width: 768px) {
+	body.is-sidebar-collapsed .sidebar__theme-text {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+	body.is-sidebar-collapsed .sidebar__theme {
+		justify-content: center;
 	}
 }
 
