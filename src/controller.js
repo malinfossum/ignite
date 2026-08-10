@@ -81,7 +81,15 @@ export function createController({ models, els }) {
 		const themeChanged = theme !== currentTheme;
 		currentChoice = choice;
 		currentTheme = theme;
-		if (choiceChanged) localStorage.setItem("ignite:theme", choice);
+		// localStorage can throw (e.g. Firefox with cookies blocked) even though
+		// IndexedDB — the model's real store — still works. This write is a
+		// disposable paint-time cache, not the source of truth, so losing it is
+		// the designed degradation: swallow the error and keep rendering.
+		if (choiceChanged) {
+			try {
+				localStorage.setItem("ignite:theme", choice);
+			} catch {}
+		}
 		if (!themeChanged) return;
 		document.documentElement.dataset.theme = theme;
 		const meta = document.querySelector('meta[name="theme-color"]');

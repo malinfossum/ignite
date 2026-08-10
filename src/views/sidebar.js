@@ -1,7 +1,7 @@
 // createSidebarView(rootEl, {
 //   onToggleCollapse, onGoToday, onOpenArea,
 //   onAddArea, onCommitAreaRename, onMoveAreaUp, onMoveAreaDown, onDeleteArea,
-//   onCloseDrawer, onCycleTheme,
+//   onCloseDrawer, onCycleTheme, onPickAreaIcon,
 // }) → { render(state), enterRename(areaId), destroy() }
 //
 // state expected: { areas, sections, tasks, settings, route, now, themeChoice, theme }

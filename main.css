@@ -282,7 +282,6 @@ body {
 	gap: var(--space-2);
 	margin: 0 0 var(--space-3);
 	font-size: var(--text-sm);
-	letter-spacing: var(--tracking-heading);
 	text-transform: none;
 	color: var(--accent);
 }
@@ -299,7 +298,6 @@ body {
 	gap: var(--space-2);
 	margin: 0 0 var(--space-2);
 	font-size: var(--text-md);
-	letter-spacing: var(--tracking-heading);
 	text-transform: none;
 	color: var(--text);
 }
@@ -523,7 +521,6 @@ body {
 }
 
 .area__title {
-	font-size: 1.5rem;
 	font-weight: 600;
 	color: var(--color-text);
 	margin: 0;
@@ -776,13 +773,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
 	.section__chevron {
 		transition: none;
-	}
-}
-
-/* Desktop+ */
-@media (min-width: 1024px) {
-	.area__title {
-		font-size: 1.75rem;
 	}
 }
 
