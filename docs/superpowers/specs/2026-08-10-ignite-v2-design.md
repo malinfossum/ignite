@@ -415,8 +415,20 @@ flag must be set after a draining `applyState()`, never before.
 ### 8.3 Targets and columns
 
 Options are 44px minimum, per the design system's touch-target rule and matching the task
-rows. Six 44px columns do not fit the 300px mobile drawer, so the grid is **4 columns at the
-mobile baseline, 6 from `min-width: 768px`** — mobile-first, like everything else here.
+rows.
+
+**Corrected during implementation.** This section originally specified a fixed count — 4
+columns at the mobile baseline, 6 from `min-width: 768px`. That is wrong in both directions,
+because **the desktop sidebar (240px) is narrower than the mobile drawer (`min(80vw, 300px)`)**,
+so "more columns on wider screens" is backwards here. Six 44px columns fit neither.
+
+The grid uses `repeat(auto-fit, minmax(2.75rem, 1fr))` instead, packing as many 44px targets
+as the container actually has room for: **3 columns in the desktop sidebar, 4 in the mobile
+drawer**, verified live. It also stays correct if the sidebar width ever changes.
+
+The picker is a flex child of the editing row, so it also needs `flex: 1 0 100%` — the row
+wraps, and without a full basis the picker lands on its own line but shrinks to content,
+collapsing the grid to one column.
 
 ### 8.4 Escape
 
