@@ -929,13 +929,14 @@ body {
 
 /* --- Inline task rename --- */
 /* When a task row is in rename mode, the <li> renders an input-only child.
-   Override the grid layout so the input takes the full row width
-   (checkbox / star / ⋯ are not rendered during rename — mutually exclusive
-   with menu state). Row height is preserved by min-block-size on the input
-   matching .task baseline padding so neighbours don't shift. */
+   Override the flex row so the input takes the full row width (checkbox /
+   star / ⋯ are not rendered during rename — mutually exclusive with menu
+   state). The padding MUST track `.task`'s: both classes sit on the same <li>
+   at equal specificity and this rule comes later, so it wins — a stale value
+   here makes the row visibly jump on entering and leaving rename mode. */
 .task--editing {
 	display: block;
-	padding: 0.5rem 0.6rem;
+	padding: var(--space-3) var(--space-4);
 }
 .task--editing:hover {
 	background: transparent; /* no hover bg during rename — focus border is the affordance */
