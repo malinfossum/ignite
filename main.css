@@ -1,37 +1,72 @@
 /* main.css — Ignite app styles.
-   App-specific layout and components live here.
-   Shared foundation lives in base.css. */
+   Layer order per the design system's spec: tokens → base → primitives →
+   components → project UI. `design-system/` is READ-ONLY; anything that needs
+   changing is overridden below or filed against workbench. */
 
+@import url("./design-system/tokens/index.css");
+@import url("./design-system/base/reset.css");
+@import url("./design-system/base/base.css");
+@import url("./design-system/primitives/container.css");
+@import url("./design-system/primitives/stack.css");
+@import url("./design-system/primitives/cluster.css");
+@import url("./design-system/components/index.css");
+@import url("./design-system/utilities/index.css");
+
+/* NOT imported, deliberately:
+   - compositions/ — .app-shell and .main-shell are page patterns with 3–5rem
+     block padding, wrong for a task app.
+   - primitives/index.css — it pulls in primitives/sidebar.css, whose
+     .sidebar-layout breaks at max-width: 62rem: both a max-width query (against
+     this project's mobile-first rule) and the wrong breakpoint (Ignite's drawer
+     flips at 768px). The three primitives Ignite uses are imported individually;
+     grid, split and center have no consumer here. */
+
+/* Legacy token aliases. Ignite's own CSS was written against these eight names;
+   pointing them at system tokens retokenizes every existing surface — menus,
+   dialogs, toast, drawer — in both themes, without rewriting it. */
 :root {
-	--color-bg: #0f0f10;
-	--color-bg-elevated: #18181b;
-	--color-bg-hover: rgba(255, 255, 255, 0.04);
-	--color-text: #e8e8ea;
-	--color-text-muted: #9a9aa3;
-	--color-border: #1f1f22;
-	--color-accent: #f56b0a;
-	--color-overdue: #c94a4a;
+	--color-bg: var(--surface-1);
+	--color-bg-elevated: var(--surface-2);
+	--color-bg-hover: var(--surface-3);
+	--color-text: var(--text);
+	--color-text-muted: var(--text-muted);
+	--color-border: var(--border);
+	--color-accent: var(--accent);
+	--color-overdue: var(--danger);
 
 	--sidebar-width: 240px;
 	--sidebar-rail-width: 48px;
-	--main-max-width: 960px;
-	--main-padding: 1.5rem;
-	--radius: 6px;
+	--main-max-width: var(--reading-width);
+	--main-padding: var(--space-5);
+	--radius: var(--radius-sm);
 }
 
-/* Visually hidden, but exposed to screen readers + heading navigation.
-   Used for a page-level <h1> on views with no visible title (e.g. Today). */
-.visually-hidden {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	margin: -1px;
-	padding: 0;
-	border: 0;
-	clip: rect(0 0 0 0);
-	clip-path: inset(50%);
-	overflow: hidden;
-	white-space: nowrap;
+/* --- Required overrides: the system is built for documents, Ignite is an app --- */
+
+/* base/base.css sets `p, li { color: var(--text-muted) }`. Ignite renders
+   <li class="task"> and <li class="sidebar__area-row">, so without this reset
+   EVERY task title and area name in the app turns grey. */
+.task,
+.sidebar__area-row,
+.sidebar__add-area-row {
+	color: var(--text);
+}
+
+/* base/base.css sets h1 to --text-4xl (up to 60px) and h3 to --text-xl. Those
+   are document scales; these are app-chrome scales. */
+#main h1 {
+	font-size: var(--text-2xl);
+}
+
+/* The ignite palette's dark ground is already warmed by the design system's
+   shared _oled.css foundation. Light is not — _oled.css has no light block, so
+   without this, light mode falls back to the base file's cool blue-grey. */
+[data-theme="light"][data-palette="ignite"] {
+	--border: #ded8d0;
+	--border-strong: #c8c1b8;
+	--border-soft: #ece7e0;
+	--text-muted: #5d5750;
+	--text-faint: #7d766e;
 }
 
 /* Mobile baseline: stacked layout. */
@@ -160,6 +195,56 @@ body {
 	}
 }
 
+/* --- Sidebar footer: theme control --- */
+.sidebar__footer {
+	margin-top: auto;
+	padding-top: var(--space-3);
+	border-top: 1px solid var(--border);
+}
+.sidebar__theme {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	width: 100%;
+	min-height: 2.75rem;
+	padding: var(--space-2);
+	border-radius: var(--radius-sm);
+	color: var(--text-muted);
+	transition: background-color var(--duration-base) var(--ease-standard);
+}
+.sidebar__theme:hover {
+	background: var(--surface-4);
+	color: var(--text);
+}
+.sidebar__theme-icon {
+	font-size: var(--text-lg);
+	line-height: 1;
+}
+
+/* Collapsed rail: hide the label but keep it in the accessible name.
+   Can't apply .sr-only from CSS (it's a class, not selectable from here),
+   and hiding it via a template-conditional class would be wrong too — this
+   rail is desktop-only (@media above), but sidebarCollapsed is also set on
+   mobile, where the drawer is full width and the label must stay visible.
+   So the clip-based hiding has to live here, scoped to the desktop media
+   query, repeating .sr-only's technique rather than reusing the class. */
+@media (min-width: 768px) {
+	body.is-sidebar-collapsed .sidebar__theme-text {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+	body.is-sidebar-collapsed .sidebar__theme {
+		justify-content: center;
+	}
+}
+
 /* --- Capture --- */
 .capture__form {
 	display: flex;
@@ -183,18 +268,22 @@ body {
 
 /* --- NEXT card --- */
 .next-card {
-	background: var(--color-bg-elevated);
-	border: 1px solid var(--color-border);
-	border-left: 3px solid var(--color-accent);
-	border-radius: var(--radius);
-	padding: 1rem;
+	margin: 0 0 var(--space-5);
+	padding: var(--space-4);
+	background: var(--card-bg);
+	/* A full border, not the v1 left rule: single-sided borders and rounded
+	   corners do not combine, and the accent tint carries the emphasis anyway. */
+	border: 1px solid rgb(var(--accent-rgb) / 28%);
+	border-radius: var(--radius-md);
 }
 .next-card__label {
-	margin: 0 0 0.5rem;
-	font-size: 0.7rem;
-	letter-spacing: 0.12em;
-	color: var(--color-accent);
-	text-transform: uppercase;
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	margin: 0 0 var(--space-3);
+	font-size: var(--text-sm);
+	text-transform: none;
+	color: var(--accent);
 }
 .next-card__list {
 	list-style: none;
@@ -204,11 +293,19 @@ body {
 
 /* --- Groups --- */
 .group__heading {
-	margin: 0 0 0.5rem;
-	font-size: 0.85rem;
-	color: var(--color-text-muted);
-	text-transform: uppercase;
-	letter-spacing: 0.08em;
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-2);
+	margin: 0 0 var(--space-2);
+	font-size: var(--text-md);
+	text-transform: none;
+	color: var(--text);
+}
+.group__count {
+	font-family: var(--font-sans);
+	font-size: var(--text-sm);
+	font-weight: 400;
+	color: var(--text-faint);
 }
 .group--overdue .group__heading {
 	color: var(--color-overdue);
@@ -217,23 +314,38 @@ body {
 	list-style: none;
 	margin: 0;
 	padding: 0;
-	display: flex;
-	flex-direction: column;
-	gap: 0.25rem;
+	background: var(--panel-bg);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+}
+.group__list > .task + .task {
+	border-top: 1px solid var(--border-soft);
+}
+/* Round the end rows individually. Do NOT reach for `overflow: hidden` here — the
+   task ⋯ menu injects INSIDE the <li> as its last child (see today.js), so a
+   clipping ancestor cuts the menu off. It bites worst on the last row of a group,
+   which is exactly where a menu most needs to overflow. */
+.group__list > .task:first-child {
+	border-start-start-radius: var(--radius-md);
+	border-start-end-radius: var(--radius-md);
+}
+.group__list > .task:last-child {
+	border-end-start-radius: var(--radius-md);
+	border-end-end-radius: var(--radius-md);
 }
 
 /* --- Task row --- */
 .task {
 	position: relative;
-	display: grid;
-	grid-template-columns: auto 1fr auto auto auto auto;
-	gap: 0.6rem;
+	display: flex;
 	align-items: center;
-	padding: 0.5rem 0.6rem;
+	gap: var(--space-3);
+	padding: var(--space-3) var(--space-4);
+	min-height: 2.75rem;
 	border-radius: var(--radius);
 }
 .task:hover {
-	background: var(--color-bg-elevated);
+	background: var(--surface-3);
 }
 .task__check {
 	accent-color: var(--color-accent);
@@ -241,7 +353,13 @@ body {
 	height: 1rem;
 	cursor: pointer;
 }
+/* flex:1 + min-width:0 are load-bearing, not cosmetic. `.task` is a flex row, so
+   without the grow the star and ⋯ bunch up against the title instead of sitting
+   at the right edge, and without min-width:0 a flex item refuses to shrink below
+   its content, so the ellipsis never engages. `.sidebar__name` mirrors this. */
 .task__title {
+	flex: 1;
+	min-width: 0;
 	color: var(--color-text);
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -394,19 +512,6 @@ body {
 	flex-direction: column;
 	gap: 1.25rem;
 	padding: var(--main-padding, 1.5rem);
-}
-
-.area__header {
-	display: flex;
-	align-items: baseline;
-	gap: 0.75rem;
-}
-
-.area__title {
-	font-size: 1.5rem;
-	font-weight: 600;
-	color: var(--color-text);
-	margin: 0;
 }
 
 .area--not-found {
@@ -647,29 +752,15 @@ body {
 	cursor: pointer;
 	border-radius: 6px;
 }
-.sidebar__area:hover {
-	background: var(--color-bg-hover);
-}
 .sidebar__area:focus-visible {
 	outline: 2px solid var(--color-accent);
 	outline-offset: 2px;
-}
-.sidebar__area.is-active {
-	color: var(--color-accent);
-	background: var(--color-bg-hover);
 }
 
 /* Reduced motion: disable chevron rotation animation */
 @media (prefers-reduced-motion: reduce) {
 	.section__chevron {
 		transition: none;
-	}
-}
-
-/* Desktop+ */
-@media (min-width: 1024px) {
-	.area__title {
-		font-size: 1.75rem;
 	}
 }
 
@@ -684,6 +775,17 @@ body {
 .sidebar__area-row .sidebar__area {
 	flex: 1;
 	min-width: 0;
+}
+.sidebar__area.is-active {
+	background: var(--accent-soft);
+	color: var(--text);
+}
+.sidebar__area.is-active .sidebar__count {
+	color: var(--accent);
+	font-weight: 500;
+}
+.sidebar__area:not(.is-active):hover {
+	background: var(--surface-4);
 }
 
 /* Menu trigger — mirrors .section__menu-btn */
@@ -756,6 +858,7 @@ body {
 .sidebar__area-row--editing {
 	padding: 0.25rem 0.5rem;
 	gap: 0.5rem;
+	flex-wrap: wrap;
 }
 .sidebar__rename-input {
 	flex: 1;
@@ -809,13 +912,14 @@ body {
 
 /* --- Inline task rename --- */
 /* When a task row is in rename mode, the <li> renders an input-only child.
-   Override the grid layout so the input takes the full row width
-   (checkbox / star / ⋯ are not rendered during rename — mutually exclusive
-   with menu state). Row height is preserved by min-block-size on the input
-   matching .task baseline padding so neighbours don't shift. */
+   Override the flex row so the input takes the full row width (checkbox /
+   star / ⋯ are not rendered during rename — mutually exclusive with menu
+   state). The padding MUST track `.task`'s: both classes sit on the same <li>
+   at equal specificity and this rule comes later, so it wins — a stale value
+   here makes the row visibly jump on entering and leaving rename mode. */
 .task--editing {
 	display: block;
-	padding: 0.5rem 0.6rem;
+	padding: var(--space-3) var(--space-4);
 }
 .task--editing:hover {
 	background: transparent; /* no hover bg during rename — focus border is the affordance */
@@ -1151,5 +1255,69 @@ body.is-drawer-open #scrim {
 		max-inline-size: 92vw;
 		border-radius: var(--radius);
 		animation: none;
+	}
+}
+
+/* --- Page header --- */
+.page-header {
+	margin-bottom: var(--space-5);
+}
+/* No rule for .page-header__title: `#main h1` gives it its size, and the
+   design system's reset.css already zeroes every margin globally. The area
+   route's default h1 weight/color already match what `.area__title` used to
+   set explicitly, so there's nothing left to fold in. */
+.page-header__date {
+	margin: var(--space-1) 0 0;
+	color: var(--text-faint);
+	font-size: var(--text-sm);
+}
+
+/* --- Area icon picker --- */
+/* Auto-fit rather than a fixed column count. A fixed count cannot be right at
+   both widths, because the DESKTOP SIDEBAR (240px) is NARROWER than the mobile
+   drawer (min(80vw, 300px)) — so "more columns on wider screens" is backwards
+   here. auto-fit packs as many 44px targets as the container actually has room
+   for, which also keeps it correct if the sidebar width ever changes. */
+.icon-picker {
+	/* The editing row is a wrapping flex row; without a 100% basis this lands on
+	   its own line but shrinks to content, collapsing the grid to one column. */
+	flex: 1 0 100%;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(2.75rem, 1fr));
+	gap: var(--space-1);
+	margin-top: var(--space-2);
+	padding: var(--space-2);
+	background: var(--surface-3);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+}
+.icon-picker__option {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	/* 44px, matching the task rows and the design system's touch-target rule. */
+	min-width: 2.75rem;
+	min-height: 2.75rem;
+	border-radius: var(--radius-xs);
+	font-size: var(--text-md);
+	transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.icon-picker__option:hover {
+	background: var(--surface-5);
+}
+.icon-picker__option[aria-checked="true"] {
+	background: var(--accent-soft);
+	box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 45%);
+}
+.icon-picker__option--clear {
+	color: var(--text-faint);
+}
+
+/* Collapsed rail: the rename input that owns this picker is hidden too (see
+   the collapsed-state rule above) — hide the picker itself so it cannot
+   render across the 48px rail into the main content. */
+@media (min-width: 768px) {
+	body.is-sidebar-collapsed .icon-picker {
+		display: none;
 	}
 }

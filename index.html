@@ -1,15 +1,33 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-palette="ignite">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
-		<meta name="theme-color" content="#0f0f10" />
+		<meta name="theme-color" content="#0b0a0a" />
 		<meta name="description" content="Ignite — a small flame, kept going." />
 		<link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
 		<link rel="icon" href="%BASE_URL%icon.svg" type="image/svg+xml" />
 		<link rel="apple-touch-icon" href="%BASE_URL%icons/apple-touch-icon-180.png" />
 		<title>Ignite</title>
-		<link rel="stylesheet" href="/base.css" />
+		<script>
+			/* Inline and synchronous on purpose: an external script runs after the
+			   stylesheets parse, which flashes the wrong theme on first paint. The
+			   settings model in IndexedDB is the source of truth, but IndexedDB is
+			   async and cannot be read this early — so the controller mirrors the
+			   chosen theme into localStorage purely as this paint-time cache.
+			   Mirrors resolveTheme() in src/utils/theme.js: anything that is not
+			   an explicit "dark"/"light" — including "system", absent, or stale —
+			   follows the OS. */
+			(() => {
+				const choice = localStorage.getItem("ignite:theme");
+				document.documentElement.dataset.theme =
+					choice === "dark" || choice === "light"
+						? choice
+						: window.matchMedia("(prefers-color-scheme: light)").matches
+							? "light"
+							: "dark";
+			})();
+		</script>
 		<link rel="stylesheet" href="/main.css" />
 	</head>
 	<body>

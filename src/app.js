@@ -21,6 +21,7 @@ async function boot() {
 	const scrimEl = document.getElementById("scrim");
 
 	mainEl.innerHTML = `
+		<header class="page-header" id="page-header"></header>
 		<section class="capture" id="capture-root"></section>
 		<section id="main-root"></section>
 	`;
@@ -40,6 +41,7 @@ async function boot() {
 			topbarRoot,
 			scrimEl,
 			mainEl,
+			pageHeaderRoot: document.getElementById("page-header"),
 			captureRoot: document.getElementById("capture-root"),
 			mainRoot: document.getElementById("main-root"),
 			toastRoot,

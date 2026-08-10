@@ -4,9 +4,9 @@
 
 An ADHD-friendly task app — open source, local-first, zero bloat.
 
-**Status:** v0.3.0 — 166 tests passing. **Live:** [malinfossum.github.io/ignite](https://malinfossum.github.io/ignite/)
+**Status:** v0.4.0 — 198 tests passing. **Live:** [malinfossum.github.io/ignite](https://malinfossum.github.io/ignite/)
 
-![Ignite — the Focus area: a capture bar, a "This week" and "Tasks" section, and the area sidebar on the left](docs/desktop_preview.png)
+![Ignite in dark mode — the Today view showing a Next card and a Starred group, with the area sidebar and theme control on the left](docs/desktop_preview.png)
 
 ---
 
@@ -40,6 +40,7 @@ Built to replace a cluttered subscription task app with something minimal, free,
 - **Keyboard & screen reader** — ARIA menu navigation and full keyboard paths throughout
 - **Install & offline** — installable PWA; works fully offline once loaded, including airplane mode
 - **Mobile** — responsive shell with an off-canvas navigation drawer and a pinned capture bar
+- **Light and dark** — follows your system by default, or pick one; the control cycles back to system whenever you want it
 
 ---
 
@@ -50,7 +51,7 @@ Vanilla HTML, CSS, and JavaScript — no frameworks. Strict MVC with a `subscrib
 - **Build:** Vite
 - **Persistence:** IndexedDB (hand-rolled wrapper)
 - **Offline:** hand-rolled service worker + web app manifest
-- **Test:** Vitest + fake-indexeddb (166 tests)
+- **Test:** Vitest + fake-indexeddb (198 tests)
 - **Format / lint:** Biome
 - **Deploy:** GitHub Pages via GitHub Actions
 
@@ -84,7 +85,6 @@ Once installed it runs offline, and your data stays on the device.
 
 Planned, not yet shipped:
 
-- A refreshed visual design (the next milestone, toward v1.0.0)
 - Reminders and scheduled notifications
 - Drag-to-reorder, editable due dates, and richer task metadata
 - A custom install prompt

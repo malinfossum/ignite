@@ -6,8 +6,14 @@
 // Owns the 60s clock tick that calls currentMainView.render(state) only.
 
 import { FOCUS_DEFAULT_SECTION_ID, FOCUS_ID } from "./model/areas.js";
+import { escapeHtml } from "./utils/dom.js";
 import { previousSectionId } from "./utils/sections.js";
 import { describeRecurrence, formatTaskDeleteMessage } from "./utils/text.js";
+import {
+	DEFAULT_CHOICE,
+	nextThemeChoice,
+	resolveTheme,
+} from "./utils/theme.js";
 import { formatOccurrenceLabel } from "./utils/time.js";
 import { createAreaView } from "./views/area.js";
 import { createCaptureView } from "./views/capture.js";
@@ -41,6 +47,7 @@ export function createController({ models, els }) {
 		topbarRoot,
 		scrimEl,
 		mainEl,
+		pageHeaderRoot,
 		captureRoot,
 		mainRoot,
 		toastRoot,
@@ -62,6 +69,34 @@ export function createController({ models, els }) {
 	let recurrenceDialog = null;
 	let repeatEditorTaskId = null; // transient UI state — NOT a model field
 	const completing = new Set(); // task ids mid-completion (re-entry guard)
+	let currentChoice = null; // "system" | "dark" | "light" — mirrors the model
+	let currentTheme = null; // resolved "dark" | "light" — what is on the document
+	let themeMq = null; // matchMedia("(prefers-color-scheme: dark)")
+	let themeMqHandler = null;
+
+	// Applies the resolved theme to the document. The settings model is the source
+	// of truth; localStorage is a derived paint-time cache read only by the inline
+	// <head> snippet, and stores the CHOICE (including "system") so the snippet can
+	// re-resolve it the same way on the next boot.
+	function applyTheme(choice, theme) {
+		const choiceChanged = choice !== currentChoice;
+		const themeChanged = theme !== currentTheme;
+		currentChoice = choice;
+		currentTheme = theme;
+		// localStorage can throw (e.g. Firefox with cookies blocked) even though
+		// IndexedDB — the model's real store — still works. This write is a
+		// disposable paint-time cache, not the source of truth, so losing it is
+		// the designed degradation: swallow the error and keep rendering.
+		if (choiceChanged) {
+			try {
+				localStorage.setItem("ignite:theme", choice);
+			} catch {}
+		}
+		if (!themeChanged) return;
+		document.documentElement.dataset.theme = theme;
+		const meta = document.querySelector('meta[name="theme-color"]');
+		meta?.setAttribute("content", theme === "dark" ? "#0b0a0a" : "#f6f8fa");
+	}
 
 	async function buildState() {
 		const [areaList, sectionList, taskList, settingsRecord] = await Promise.all(
@@ -77,8 +112,40 @@ export function createController({ models, els }) {
 		};
 	}
 
+	// Page chrome, not view content: the title varies by route, and the route is
+	// the controller's. It lives above the capture bar, which is why it cannot be
+	// rendered by the views — they render into #main-root, a later sibling.
+	function renderPageHeader(state) {
+		if (currentRoute.name === "area") {
+			const area = state.areas.find((a) => a.id === currentRoute.id);
+			pageHeaderRoot.innerHTML = `<h1 class="page-header__title">${
+				area ? escapeHtml(area.name) : "Area not found."
+			}</h1>`;
+			return;
+		}
+		const date = state.now.toLocaleDateString(undefined, {
+			weekday: "long",
+			day: "numeric",
+			month: "long",
+		});
+		pageHeaderRoot.innerHTML = `
+			<h1 class="page-header__title">Today</h1>
+			<p class="page-header__date">${date}</p>
+		`;
+	}
+
 	async function applyState() {
 		const state = await buildState();
+		const choice = state.settings.theme ?? DEFAULT_CHOICE;
+		applyTheme(
+			choice,
+			resolveTheme(
+				choice,
+				window.matchMedia("(prefers-color-scheme: dark)").matches,
+			),
+		);
+		state.themeChoice = currentChoice;
+		state.theme = currentTheme;
 		document.body.classList.toggle(
 			"is-sidebar-collapsed",
 			!!(state.settings.sidebarCollapsed ?? false),
@@ -87,6 +154,7 @@ export function createController({ models, els }) {
 			"is-area-route",
 			currentRoute.name === "area",
 		);
+		renderPageHeader(state);
 		sidebar?.render(state);
 		currentMainView?.render(state);
 	}
@@ -500,6 +568,24 @@ export function createController({ models, els }) {
 			onDeleteArea: async ({ areaId }) => {
 				await deleteAreaCascade(areaId);
 			},
+			onPickAreaIcon: async (areaId, icon) => {
+				try {
+					await areas.update(areaId, { icon });
+					// THE DRAIN IS LOAD-BEARING. notify() is synchronous and does not
+					// await its subscribers, so this write's own notify-render is still
+					// queued here — and this continuation, being a microtask, beats it.
+					// Setting the focus flag without draining means the queued render
+					// consumes it, and the NEXT render's innerHTML rewrite detaches the
+					// button again. See the cascade focus routing notes in invariants.md.
+					await applyState();
+					sidebar?.focusAreaIcon?.(areaId, icon);
+					await applyState();
+				} catch (err) {
+					// Cascade race: the area was deleted mid-edit. Matches how the other
+					// area handlers swallow this exact case.
+					if (!/not found/i.test(err.message)) throw err;
+				}
+			},
 		};
 	}
 
@@ -655,6 +741,9 @@ export function createController({ models, els }) {
 				closeDrawer();
 			},
 			onCloseDrawer: () => closeDrawer(),
+			onCycleTheme: async () => {
+				await settings.setTheme(nextThemeChoice(currentChoice));
+			},
 			...sidebarCallbacks(),
 		});
 
@@ -691,6 +780,16 @@ export function createController({ models, els }) {
 		};
 		drawerMq.addEventListener("change", drawerMqHandler);
 
+		themeMq = window.matchMedia("(prefers-color-scheme: dark)");
+		themeMqHandler = () => {
+			// Early-return unless the user is actually following the OS. applyState
+			// is a four-model read plus a full innerHTML rewrite of the sidebar and
+			// main view — far too expensive to run for a guaranteed no-op.
+			if (currentChoice !== "system") return;
+			applyState();
+		};
+		themeMq.addEventListener("change", themeMqHandler);
+
 		tickHandle = setInterval(applyState, TICK_MS);
 	}
 
@@ -704,6 +803,9 @@ export function createController({ models, els }) {
 		drawerMq?.removeEventListener("change", drawerMqHandler);
 		drawerMq = null;
 		drawerMqHandler = null;
+		themeMq?.removeEventListener("change", themeMqHandler);
+		themeMq = null;
+		themeMqHandler = null;
 		for (const unsub of unsubs) unsub();
 		unsubs = [];
 		currentMainView?.destroy();
