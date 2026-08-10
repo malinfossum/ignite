@@ -268,11 +268,13 @@ body {
 
 /* --- NEXT card --- */
 .next-card {
-	background: var(--color-bg-elevated);
-	border: 1px solid var(--color-border);
-	border-left: 3px solid var(--color-accent);
-	border-radius: var(--radius);
-	padding: 1rem;
+	margin: 0 0 var(--space-5);
+	padding: var(--space-4);
+	background: var(--card-bg);
+	/* A full border, not the v1 left rule: single-sided borders and rounded
+	   corners do not combine, and the accent tint carries the emphasis anyway. */
+	border: 1px solid rgb(var(--accent-rgb) / 28%);
+	border-radius: var(--radius-md);
 }
 .next-card__label {
 	display: flex;
@@ -314,19 +316,34 @@ body {
 	list-style: none;
 	margin: 0;
 	padding: 0;
-	display: flex;
-	flex-direction: column;
-	gap: 0.25rem;
+	background: var(--panel-bg);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+}
+.group__list > .task + .task {
+	border-top: 1px solid var(--border-soft);
+}
+/* Round the end rows individually. Do NOT reach for `overflow: hidden` here — the
+   task ⋯ menu injects INSIDE the <li> as its last child (see today.js), so a
+   clipping ancestor cuts the menu off. It bites worst on the last row of a group,
+   which is exactly where a menu most needs to overflow. */
+.group__list > .task:first-child {
+	border-start-start-radius: var(--radius-md);
+	border-start-end-radius: var(--radius-md);
+}
+.group__list > .task:last-child {
+	border-end-start-radius: var(--radius-md);
+	border-end-end-radius: var(--radius-md);
 }
 
 /* --- Task row --- */
 .task {
 	position: relative;
-	display: grid;
-	grid-template-columns: auto 1fr auto auto auto auto;
-	gap: 0.6rem;
+	display: flex;
 	align-items: center;
-	padding: 0.5rem 0.6rem;
+	gap: var(--space-3);
+	padding: var(--space-3) var(--space-4);
+	min-height: 2.75rem;
 	border-radius: var(--radius);
 }
 .task:hover {
