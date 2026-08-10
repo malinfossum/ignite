@@ -6,7 +6,7 @@ An ADHD-friendly task app — open source, local-first, zero bloat.
 
 **Status:** v0.4.0 — 198 tests passing. **Live:** [malinfossum.github.io/ignite](https://malinfossum.github.io/ignite/)
 
-![Ignite — the Focus area: a capture bar, a "This week" and "Tasks" section, and the area sidebar on the left](docs/desktop_preview.png)
+![Ignite in dark mode — the Today view showing a Next card and a Starred group, with the area sidebar and theme control on the left](docs/desktop_preview.png)
 
 ---
 
