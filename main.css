@@ -514,12 +514,6 @@ body {
 	padding: var(--main-padding, 1.5rem);
 }
 
-.area__header {
-	display: flex;
-	align-items: baseline;
-	gap: 0.75rem;
-}
-
 .area--not-found {
 	color: var(--color-text-muted);
 }

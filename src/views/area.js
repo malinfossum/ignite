@@ -804,7 +804,6 @@ function template(
 
 	return `
 		<section class="area" data-area-id="${escapeHtml(area.id)}">
-			<header class="area__header"></header>
 			<div class="area__sections">${sectionHtml}</div>
 			<footer class="area__footer">
 				<button type="button" class="area__add-section" data-action="add-section">＋ New section</button>
