@@ -64,18 +64,9 @@
 	font-size: var(--text-md);
 }
 
-/* The ignite palette warms the surfaces but inherits cool blue-grey borders and
-   muted text from base colors.css. These are sampled off the palette's own ramp
-   so hairlines read neutral against the warm ground rather than faintly blue.
-   Upstream fix: ignite.css should carry these itself — see the workbench issue. */
-[data-palette="ignite"] {
-	--border: #262320;
-	--border-strong: #3a3632;
-	--border-soft: #1b1917;
-	--text-muted: #b8b2aa;
-	--text-faint: #8b857d;
-}
-
+/* The ignite palette's dark ground is already warmed by the design system's
+   shared _oled.css foundation. Light is not — _oled.css has no light block, so
+   without this, light mode falls back to the base file's cool blue-grey. */
 [data-theme="light"][data-palette="ignite"] {
 	--border: #ded8d0;
 	--border-strong: #c8c1b8;
