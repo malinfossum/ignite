@@ -1,6 +1,6 @@
 // public/sw.js — Ignite service worker (hand-rolled). Caches the app SHELL (code);
 // task DATA already lives offline in IndexedDB and is never touched here.
-const VERSION = "ignite-v1"; // bump to invalidate all caches (hygiene; online users self-heal)
+const VERSION = "ignite-v2"; // bump to invalidate all caches (hygiene; online users self-heal)
 const SCOPE = self.registration.scope; // base-correct, e.g. https://host/ignite/
 
 const SHELL = [
@@ -28,6 +28,26 @@ self.addEventListener("install", (event) => {
 						...html.matchAll(/(?:src|href)="([^"]*\/assets\/[^"]+)"/g),
 					].map((m) => new URL(m[1], SCOPE).toString());
 					if (assets.length) await cache.addAll(assets);
+
+					// Second hop: fonts are url() references INSIDE the bundled CSS, so the
+					// HTML regex above never sees them. Without this, an installed offline
+					// Ignite falls back to system-ui and loses its type identity entirely.
+					const fonts = new Set();
+					for (const styleUrl of assets.filter((u) => u.endsWith(".css"))) {
+						const css = await (await fetch(styleUrl)).text();
+						for (const m of css.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/g)) {
+							const resolved = new URL(m[1], styleUrl).toString();
+							// Same-origin only, matching the fetch handler's own rule. This
+							// also drops data: URIs, which need no caching.
+							if (resolved.startsWith(self.location.origin))
+								fonts.add(resolved);
+						}
+					}
+					// Per-item, NOT cache.addAll: addAll is atomic, so a single stale url()
+					// reference would reject the whole batch into the catch below and leave
+					// ZERO fonts precached — silently reintroducing the exact bug this task
+					// exists to fix, one layer up.
+					await Promise.allSettled([...fonts].map((url) => cache.add(url)));
 				} catch {
 					// best-effort: anything not precached falls back to runtime cache-first
 				}
