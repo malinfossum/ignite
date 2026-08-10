@@ -1249,12 +1249,8 @@ body.is-drawer-open #scrim {
 .today-header {
 	margin-bottom: var(--space-5);
 }
-/* Classed rather than a `.today-header h1` descendant selector: the latter
-   overlaps `#main h1` on the same element and trips noDescendingSpecificity.
-   Font size still comes from `#main h1`; this only zeroes the default margin. */
-.today-header__title {
-	margin: 0;
-}
+/* No rule for the heading itself: `#main h1` gives it its size, and the design
+   system's reset.css already zeroes every margin globally. */
 .today-header__date {
 	margin: var(--space-1) 0 0;
 	color: var(--text-faint);

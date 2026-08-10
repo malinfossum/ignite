@@ -420,7 +420,7 @@ function renderHeader(now) {
 	});
 	return `
 		<header class="today-header">
-			<h1 class="today-header__title">Today</h1>
+			<h1>Today</h1>
 			<p class="today-header__date">${date}</p>
 		</header>
 	`;
