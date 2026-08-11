@@ -248,13 +248,6 @@ body {
 /* --- Capture --- */
 .capture__form {
 	display: flex;
-	/* Not load-bearing for .capture-picker's positioning — .capture__picker-root
-	   (which actually contains it) is .capture__form's SIBLING, not its
-	   descendant, so this doesn't reach it; #capture-root (both elements'
-	   parent, see below) is what .capture-picker really anchors to. Kept
-	   because a form is a natural place to expect a positioning context and
-	   a future picker-adjacent addition may want it. */
-	position: relative;
 }
 .capture__input {
 	flex: 1;

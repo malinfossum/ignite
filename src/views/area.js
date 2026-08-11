@@ -678,11 +678,21 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			);
 			pendingFocusAddSectionId = null;
 			el?.focus();
-		} else if (addFocus) {
+		} else if (addFocus && !renamingId && !renamingTaskId) {
 			// C2: no explicit post-commit focus request (the branch above), but
 			// an add-input had focus going into this rewrite — restore it, the
 			// value it already carries (rendered from pendingAddValue, see
 			// template()), and the caret.
+			//
+			// Guarded on !renamingId/!renamingTaskId: F2 from a focused
+			// add-input resolves to enterSectionRename (taskFromEvent misses —
+			// no [data-id] ancestor — so sectionFromEvent's match wins), which
+			// re-renders with the section-rename input attached (and focused)
+			// by attachRenameInput ABOVE. Without this guard, addFocus still
+			// pointed at the (now stale) add-input's section id and would
+			// steal focus straight back — which, worse, fires the rename
+			// input's {once:true} blur listener synchronously and commits a
+			// no-op rename (isRendering is already false by this point).
 			const el = rootEl.querySelector(
 				`.section__add-input[data-section-id="${CSS.escape(addFocus.sectionId)}"]`,
 			);
