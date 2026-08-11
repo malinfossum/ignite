@@ -7,6 +7,11 @@
 // Mounts once, never re-renders — preserves the input cursor across
 // model notifies and route changes.
 
+import {
+	firstEnabledIndex,
+	lastEnabledIndex,
+	nextEnabledIndex,
+} from "../utils/menu-keyboard.js";
 import { renderCapturePicker } from "./capture-picker.js";
 
 export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
@@ -19,6 +24,7 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 				placeholder="What's next?"
 				aria-label="Capture a new task"
 				aria-describedby="capture-destination"
+				aria-haspopup="menu"
 			/>
 			<span class="capture__chip" id="capture-destination"></span>
 		</form>
@@ -36,42 +42,61 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 	let destination = { kind: "focus" };
 
 	function openPicker() {
+		// Idempotent teardown first: a reentrant call (e.g. the input regains
+		// focus while the picker is still open, then Enter fires again) would
+		// otherwise reassign docClickHandler while the old listener is still
+		// attached to document, and it could then never be removed.
+		closePicker();
 		pickerRoot.innerHTML = renderCapturePicker({
 			sections: destination.sections ?? [],
 		});
 		pickerOpen = true;
-		input.setAttribute("aria-expanded", "true");
 		pickerRoot.querySelector('[role="menuitem"]')?.focus();
 
 		// Outside click closes and KEEPS the text. Registered async so the
 		// submit that opened the picker doesn't immediately close it.
-		docClickHandler = (event) => {
+		// `handler` is a local const the timeout closes over, so the function
+		// that gets added to document is always the one this call scheduled —
+		// never whatever docClickHandler happens to point to by the time the
+		// timeout fires.
+		const handler = (event) => {
 			if (rootEl.contains(event.target)) return;
 			closePicker();
 		};
-		setTimeout(() => document.addEventListener("click", docClickHandler), 0);
+		docClickHandler = handler;
+		setTimeout(() => document.addEventListener("click", handler), 0);
 	}
 
 	// Closing NEVER clears the input. The typed title is the thing the user
 	// was trying not to lose; discarding it is the failure this whole feature
 	// exists to prevent. Spec §4.2.
-	function closePicker() {
+	//
+	// restoreFocus=false for the two lifecycle paths where focusing the input
+	// would be wrong: destroy() (about to wipe the subtree — focusing first
+	// just drops focus to <body>) and the controller's onHashChange (which
+	// pulls focus into the capture bar itself before the new view mounts).
+	function closePicker({ restoreFocus = true } = {}) {
 		if (!pickerOpen) return;
 		pickerRoot.innerHTML = "";
 		pickerOpen = false;
-		input.setAttribute("aria-expanded", "false");
 		if (docClickHandler) {
 			document.removeEventListener("click", docClickHandler);
 			docClickHandler = null;
 		}
-		input.focus();
+		if (restoreFocus) input.focus();
 	}
 
-	function commit(sectionId) {
+	async function commit(sectionId) {
 		const value = input.value.trim();
 		if (!value) return;
-		onSubmit(value, sectionId);
-		input.value = "";
+		try {
+			await onSubmit(value, sectionId);
+			input.value = "";
+		} catch {
+			// Write failed (quota, private mode, …) — leave the typed text in
+			// place. Clearing it here would be exactly the data loss this
+			// whole feature exists to prevent. No toast: out of scope.
+		}
 		closePicker();
 		input.focus();
 	}
@@ -107,13 +132,52 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 	// Escape precedence: picker first, then clear. With the picker open,
 	// Escape must close it and LEAVE the text — clearing would throw away
 	// exactly what the user was protecting.
+	//
+	// Below Escape: ARIA APG menu navigation for the picker, guarded on
+	// pickerOpen — same shape as the ⋯-menu handlers in today.js / area.js,
+	// extending this single rootEl listener rather than adding a second one.
 	const keydownHandler = (event) => {
-		if (event.key !== "Escape") return;
-		if (pickerOpen) {
-			closePicker();
+		if (event.key === "Escape") {
+			if (pickerOpen) {
+				closePicker();
+				return;
+			}
+			input.value = "";
 			return;
 		}
-		input.value = "";
+
+		if (!pickerOpen) return;
+
+		const menuItems = Array.from(
+			pickerRoot.querySelectorAll('[role="menuitem"]'),
+		);
+		const currentIndex = menuItems.indexOf(event.target);
+		const items = menuItems.map((el) => ({ disabled: el.disabled }));
+
+		let nextIdx = -1;
+		switch (event.key) {
+			case "ArrowDown":
+				nextIdx = nextEnabledIndex(items, currentIndex, 1);
+				break;
+			case "ArrowUp":
+				nextIdx = nextEnabledIndex(items, currentIndex, -1);
+				break;
+			case "Home":
+				nextIdx = firstEnabledIndex(items);
+				break;
+			case "End":
+				nextIdx = lastEnabledIndex(items);
+				break;
+			case "Tab":
+				event.preventDefault();
+				closePicker();
+				return;
+			default:
+				return;
+		}
+
+		event.preventDefault();
+		if (nextIdx >= 0) menuItems[nextIdx].focus();
 	};
 	rootEl.addEventListener("keydown", keydownHandler);
 
@@ -128,7 +192,7 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 		},
 		closePicker,
 		destroy() {
-			closePicker();
+			closePicker({ restoreFocus: false });
 			form.removeEventListener("submit", handler);
 			rootEl.removeEventListener("keydown", keydownHandler);
 			pickerRoot.removeEventListener("click", pickerClickHandler);
