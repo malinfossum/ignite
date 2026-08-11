@@ -18,6 +18,7 @@
 //   taskMenuMode           - 'actions' | 'picker'; sub-face of the open task menu
 //   movePickerHtml         - pre-rendered picker string for the open task, or null
 //   hasMoveTargets         - true when ≥1 other section exists (gates "Move to…")
+//   showFile               - passed through to renderTaskRow (consumed by Task 6)
 //   now                    - Date used by renderTaskRow for time labels
 
 import { escapeHtml } from "../utils/dom.js";
@@ -38,6 +39,7 @@ export function renderSection({
 	taskMenuMode,
 	movePickerHtml,
 	hasMoveTargets,
+	showFile,
 	now,
 }) {
 	const isOpen = openMenuId === section.id;
@@ -52,6 +54,7 @@ export function renderSection({
 		isOpen && !isRenaming ? renderMenu({ isFirst, isLast, isUndeletable }) : "";
 
 	const body = renderBody(
+		section,
 		tasks,
 		now,
 		openTaskMenuId,
@@ -60,6 +63,7 @@ export function renderSection({
 		taskMenuMode,
 		movePickerHtml,
 		hasMoveTargets,
+		showFile,
 	);
 
 	return `
@@ -155,6 +159,7 @@ function renderMenu({ isFirst, isLast, isUndeletable }) {
 }
 
 function renderBody(
+	section,
 	tasks,
 	now,
 	openTaskMenuId,
@@ -163,6 +168,7 @@ function renderBody(
 	taskMenuMode,
 	movePickerHtml,
 	hasMoveTargets,
+	showFile,
 ) {
 	const rows = tasks
 		.map((t, i) =>
@@ -176,12 +182,26 @@ function renderBody(
 				taskMenuMode,
 				movePickerHtml,
 				hasMoveTargets,
+				showFile,
 			}),
 		)
 		.join("");
+	// Bare input, never a <form>: SubmitEvent has no isComposing, so the IME
+	// guard would be impossible. Enter is handled by the view's bindKeys.
+	// The aria-label names the section — four identically-labelled "Add task"
+	// fields are unusable with a screen reader.
 	return `
 		<div class="section__body">
 			<ul class="section__tasks">${rows}</ul>
+			<div class="section__add">
+				<input
+					type="text"
+					class="section__add-input"
+					data-action="commit-section-add"
+					data-section-id="${escapeHtml(section.id)}"
+					placeholder="Add task"
+					aria-label="Add task to ${escapeHtml(section.name)}" />
+			</div>
 		</div>
 	`;
 }
@@ -198,6 +218,7 @@ function renderTaskRowWithMenu(
 		taskMenuMode,
 		movePickerHtml,
 		hasMoveTargets,
+		showFile,
 	},
 ) {
 	const isRenaming = renamingTaskId === task.id;
@@ -212,7 +233,7 @@ function renderTaskRowWithMenu(
 	}
 
 	const isOpen = openTaskMenuId === task.id;
-	const row = renderTaskRow(task, { now, isOpen });
+	const row = renderTaskRow(task, { now, isOpen, showFile });
 	if (!isOpen) return row;
 
 	// Picker face: replace the action menu with the pre-rendered picker.

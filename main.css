@@ -703,6 +703,28 @@ body {
 	gap: 0.25rem;
 }
 
+.section__add {
+	padding: 0.25rem 0 0;
+}
+.section__add-input {
+	width: 100%;
+	min-height: 44px;
+	padding: 0.5rem 0.75rem;
+	background: transparent;
+	color: var(--color-text);
+	border: 1px dashed var(--color-border);
+	border-radius: 8px;
+	font: inherit;
+}
+.section__add-input::placeholder {
+	color: var(--color-text-muted);
+}
+.section__add-input:focus {
+	outline: none;
+	border-style: solid;
+	border-color: var(--color-accent);
+}
+
 /* Collapsed state — CSS hook on the outer <section> */
 .section[data-collapsed="true"] .section__body {
 	display: none;

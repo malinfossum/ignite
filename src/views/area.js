@@ -9,6 +9,10 @@
 //   pendingFocusSectionId  - after the next render, look up this section's
 //                            ⋯ button and focus it. Used for menu-close,
 //                            rename commit/cancel, and post-create rename.
+//   pendingFocusAddSectionId - after the next render, look up this section's
+//                            add-task input and focus it. Set on Enter in the
+//                            inline add row so a run of tasks can be typed
+//                            without reaching for the mouse.
 //   pendingMenuFocusSectionId - after the next render, look up the first
 //                            [role="menuitem"] inside this section's menu
 //                            and focus it. Used when the menu opens via
@@ -80,6 +84,9 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	let openTaskMenuId = null;
 	let renamingId = null;
 	let pendingFocusSectionId = null;
+	// After adding a task inline, re-focus that section's add input so a run
+	// of tasks can be typed without reaching for the mouse.
+	let pendingFocusAddSectionId = null;
 	let pendingMenuFocusSectionId = null;
 	let pendingRenameSelect = false;
 	let pendingFocusTaskId = null;
@@ -454,6 +461,16 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	const unbindKeys = bindKeys(rootEl, {
 		Enter: (event, actionEl) => {
 			if (event.isComposing) return; // IME mid-composition: Enter confirms the candidate, doesn't commit
+			if (actionEl?.dataset?.action === "commit-section-add") {
+				event.preventDefault();
+				const title = actionEl.value.trim();
+				const sectionId = actionEl.dataset.sectionId;
+				if (!title || !sectionId) return;
+				actionEl.value = "";
+				pendingFocusAddSectionId = sectionId;
+				callbacks.onAddTaskToSection({ sectionId, title });
+				return;
+			}
 			if (renamingId && actionEl?.dataset?.action === "commit-rename") {
 				event.preventDefault(); // prevent form-like default
 				commitRenameFromInput(actionEl);
@@ -583,6 +600,14 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			pendingFocusSectionId = null;
 		}
 
+		if (pendingFocusAddSectionId) {
+			const el = rootEl.querySelector(
+				`[data-section-id="${CSS.escape(pendingFocusAddSectionId)}"] .section__add-input`,
+			);
+			pendingFocusAddSectionId = null;
+			el?.focus();
+		}
+
 		if (pendingFocusTaskId) {
 			const trigger = rootEl.querySelector(
 				`[data-id="${CSS.escape(pendingFocusTaskId)}"] .task__menu-btn`,
@@ -708,6 +733,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			openMenuId = null;
 			openTaskMenuId = null;
 			pendingFocusSectionId = null;
+			pendingFocusAddSectionId = null;
 			pendingFocusTaskId = null;
 			pendingMenuFocusSectionId = null;
 			pendingMenuFocusTaskId = null;
@@ -786,6 +812,7 @@ function template(
 				section: s,
 				tasks: tasksBySection.get(s.id) ?? [],
 				isUndeletable: s.id === "focus-default",
+				showFile: s.id === "focus-default",
 				isFirst: i === 0,
 				isLast: i === sections.length - 1,
 				openMenuId,

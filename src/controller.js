@@ -341,6 +341,9 @@ export function createController({ models, els }) {
 				await sections.setCollapsed(sectionId, collapsed);
 			},
 
+			onAddTaskToSection: ({ sectionId, title }) =>
+				tasks.create({ sectionId, title }),
+
 			onCommitRename: async ({ sectionId, name }) => {
 				try {
 					await sections.rename(sectionId, name);
