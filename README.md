@@ -31,10 +31,11 @@ Built to replace a cluttered subscription task app with something minimal, free,
 
 ## Features
 
-- **Quick capture** — type and go; new tasks land in the area you're in
+- **Quick capture** — type and go; the bar shows where the task will land, and asks which section when an area has more than one
 - **Today view** — what's next, with relative time labels that tick live
 - **Areas & sections** — organize with a two-level hierarchy; create, rename, reorder, and delete
-- **Tasks** — complete, star, reorder, rename in place, and move between sections
+- **Add in place** — every section has its own add row, so a run of tasks goes in without leaving the keyboard
+- **Tasks** — complete, star, reorder, rename in place, and move between sections; tasks in Focus file into any section in one tap
 - **Recurring tasks** — repeat daily, weekly, monthly, or yearly (every N); completing one advances it to the next date and records when you last did it
 - **Undo everything** — deletes (including a whole area and its contents) are undoable from the toast
 - **Keyboard & screen reader** — ARIA menu navigation and full keyboard paths throughout
