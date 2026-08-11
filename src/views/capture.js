@@ -94,10 +94,11 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 		try {
 			await onSubmit(value, sectionId);
 			input.value = "";
-		} catch {
+		} catch (err) {
 			// Write failed (quota, private mode, …) — leave the typed text in
 			// place. Clearing it here would be exactly the data loss this
 			// whole feature exists to prevent. No toast: out of scope.
+			console.error("Ignite: capture failed to save", err);
 		}
 		closePicker();
 		input.focus();
@@ -156,6 +157,19 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 			return;
 		}
 
+		// Tab closes the picker whenever it's open, regardless of where focus
+		// sits inside the capture root — deliberately NOT gated on
+		// pickerRoot.contains(event.target) like the Arrow/Home/End guard
+		// below. Clicking back into the input is a reachable state (the
+		// outside-click handler early-returns for anything inside rootEl),
+		// and picker items are tabindex="-1", so without this Tab from the
+		// input would jump past the open menu and leave it open.
+		if (event.key === "Tab" && pickerOpen) {
+			event.preventDefault();
+			closePicker();
+			return;
+		}
+
 		if (!pickerOpen) return;
 		if (!pickerRoot.contains(event.target)) return;
 
@@ -179,10 +193,6 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 			case "End":
 				nextIdx = lastEnabledIndex(items);
 				break;
-			case "Tab":
-				event.preventDefault();
-				closePicker();
-				return;
 			default:
 				return;
 		}
