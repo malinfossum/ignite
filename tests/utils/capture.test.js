@@ -39,6 +39,12 @@ describe("captureDestination", () => {
 			kind: "none",
 		});
 	});
+
+	it("reports `none` when sections is omitted entirely (the `sections ?? []` guard)", () => {
+		expect(captureDestination({ name: "area", id: "a1" })).toEqual({
+			kind: "none",
+		});
+	});
 });
 
 describe("captureChipLabel", () => {
@@ -66,5 +72,11 @@ describe("captureChipLabel", () => {
 
 	it("explains itself when the area has no sections", () => {
 		expect(captureChipLabel({ kind: "none" })).toBe("Add a section first");
+	});
+
+	it("throws on an unrecognized kind instead of silently mislabelling it as `none`", () => {
+		expect(() => captureChipLabel({ kind: "bogus" })).toThrow(
+			/Unknown capture destination kind/,
+		);
 	});
 });

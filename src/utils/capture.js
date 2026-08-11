@@ -32,7 +32,14 @@ export function captureChipLabel(destination, sectionName) {
 			return sectionName ?? "This section";
 		case "pick":
 			return "Choose section…";
-		default:
+		case "none":
 			return "Add a section first";
+		default:
+			// Was the catch-all for "none" too, which silently mislabelled a
+			// future fifth destination.kind with "none"'s own text. Now that
+			// "none" is its own case, an unrecognized kind here is a real bug
+			// in captureDestination — throw rather than guess a label.
+			// Mirrors model/recurrence.js's exhaustive-switch guard.
+			throw new Error(`Unknown capture destination kind: ${destination.kind}`);
 	}
 }
