@@ -31,7 +31,7 @@ Built to replace a cluttered subscription task app with something minimal, free,
 
 ## Features
 
-- **Quick capture** — type and go; new tasks land in your **Focus** area
+- **Quick capture** — type and go; new tasks land in the area you're in
 - **Today view** — what's next, with relative time labels that tick live
 - **Areas & sections** — organize with a two-level hierarchy; create, rename, reorder, and delete
 - **Tasks** — complete, star, reorder, rename in place, and move between sections
