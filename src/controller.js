@@ -713,6 +713,7 @@ export function createController({ models, els }) {
 	function onHashChange() {
 		closeDrawer(); // close on ALL route changes incl. browser back/forward
 		closeRecurrenceEditor({ rerender: false }); // route change closes the dialog
+		capture?.closePicker();
 		currentRoute = parseHash(window.location.hash);
 		mountMainView(currentRoute);
 		applyState();
@@ -760,8 +761,8 @@ export function createController({ models, els }) {
 		capture = createCaptureView(captureRoot, {
 			// No `starred` — a star means "I chose this for today", and capture
 			// setting it on everything made the signal worthless. Spec D2.
-			onSubmit: (title) =>
-				tasks.create({ sectionId: FOCUS_DEFAULT_SECTION_ID, title }),
+			onSubmit: (title, sectionId) => tasks.create({ sectionId, title }),
+			focusSectionId: FOCUS_DEFAULT_SECTION_ID,
 		});
 
 		unsubs.push(
