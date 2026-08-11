@@ -15,6 +15,8 @@
 //   pendingRenameValue     - in-progress section-rename text (survives re-renders), or null
 //   renamingTaskId         - task id currently in rename mode, or null
 //   pendingRenameTaskValue - in-progress task-rename text (survives re-renders), or null
+//   pendingAddValue        - in-progress "Add task" text for THIS section
+//                            (survives re-renders), or undefined
 //   taskMenuMode           - 'actions' | 'picker'; sub-face of the open task menu
 //   movePickerHtml         - pre-rendered picker string for the open task, or null
 //   hasMoveTargets         - true when ≥1 other section exists (gates "Move to…")
@@ -41,6 +43,7 @@ export function renderSection({
 	hasMoveTargets,
 	showFile,
 	now,
+	pendingAddValue,
 }) {
 	const isOpen = openMenuId === section.id;
 	const isRenaming = renamingId === section.id;
@@ -64,6 +67,7 @@ export function renderSection({
 		movePickerHtml,
 		hasMoveTargets,
 		showFile,
+		pendingAddValue,
 	);
 
 	return `
@@ -169,6 +173,7 @@ function renderBody(
 	movePickerHtml,
 	hasMoveTargets,
 	showFile,
+	pendingAddValue,
 ) {
 	const rows = tasks
 		.map((t, i) =>
@@ -190,6 +195,9 @@ function renderBody(
 	// guard would be impossible. Enter is handled by the view's bindKeys.
 	// The aria-label names the section — four identically-labelled "Add task"
 	// fields are unusable with a screen reader.
+	// value carries pendingAddValue (mirrors the rename inputs): without it,
+	// any re-render mid-typing — including the unconditional 60s tick —
+	// wipes whatever the user was in the middle of typing here.
 	return `
 		<div class="section__body">
 			<ul class="section__tasks">${rows}</ul>
@@ -199,6 +207,7 @@ function renderBody(
 					class="section__add-input"
 					data-action="commit-section-add"
 					data-section-id="${escapeHtml(section.id)}"
+					value="${escapeHtml(pendingAddValue ?? "")}"
 					placeholder="Add task"
 					aria-label="Add task to ${escapeHtml(section.name)}" />
 			</div>
