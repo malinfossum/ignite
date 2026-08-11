@@ -248,6 +248,13 @@ body {
 /* --- Capture --- */
 .capture__form {
 	display: flex;
+	/* Not load-bearing for .capture-picker's positioning — .capture__picker-root
+	   (which actually contains it) is .capture__form's SIBLING, not its
+	   descendant, so this doesn't reach it; #capture-root (both elements'
+	   parent, see below) is what .capture-picker really anchors to. Kept
+	   because a form is a natural place to expect a positioning context and
+	   a future picker-adjacent addition may want it. */
+	position: relative;
 }
 .capture__input {
 	flex: 1;
@@ -266,7 +273,11 @@ body {
 	border-color: var(--color-accent);
 }
 .capture__chip {
-	flex: 0 0 auto;
+	flex: 0 1 auto;
+	min-width: 0;
+	max-width: 45%;
+	overflow: hidden;
+	text-overflow: ellipsis;
 	align-self: center;
 	margin-inline-start: 0.5rem;
 	padding: 0.15rem 0.55rem;
@@ -282,27 +293,7 @@ body {
 	cursor: not-allowed;
 }
 .capture__picker-root {
-	position: relative;
-}
-.capture-picker {
-	position: absolute;
-	inset-inline: 0;
-	bottom: 100%;
-	margin-block-end: 0.5rem;
-	max-height: 50vh;
-	overflow-y: auto;
-	z-index: 70;
-}
-/* No .task-menu__item min-height override here: the base rule (below, "Task
-   `…` menu" section) already sets min-block-size: 44px, which applies here
-   too — a second, more-specific rule would only trigger a descending-
-   specificity lint for a value that's already guaranteed. */
-@media (min-width: 768px) {
-	.capture-picker {
-		bottom: auto;
-		top: 100%;
-		margin-block: 0.5rem 0;
-	}
+	position: static;
 }
 
 /* --- NEXT card --- */
@@ -482,6 +473,35 @@ body {
 .task-menu__item:disabled {
 	color: var(--color-text-muted);
 	cursor: not-allowed;
+}
+
+/* Declared AFTER .task-menu on purpose: .capture-picker shares the
+   .task-menu class (see capture-picker.js), and both selectors are
+   single-class — without an explicit `top` reset here, .task-menu's
+   `top: 100%` (above) would leak into this element since nothing had ever
+   overridden it. Anchored to .capture__picker-root (position: static, so
+   the containing block resolves to the nearest positioned ancestor —
+   #capture-root) rather than the picker-root div itself, which is a
+   zero-height wrapper that sits after the form: anchoring to a zero-height
+   box collapses `top`/`bottom` to the same point, so even "upward" would
+   overlay the input instead of clearing it. */
+.capture-picker {
+	position: absolute;
+	inset-inline: 0;
+	top: auto; /* reset .task-menu */
+	bottom: 100%; /* measured against #capture-root's box → clears the input */
+	margin-block: 0 0.5rem;
+	max-height: 50vh;
+	overflow-y: auto;
+	z-index: 70;
+}
+/* .task-menu__item's min-block-size: 44px (above) already covers items here. */
+@media (min-width: 768px) {
+	.capture-picker {
+		bottom: auto;
+		top: 100%;
+		margin-block: 0.5rem 0;
+	}
 }
 
 /* --- Move-to picker (a sub-face of the task `…` menu) --- */
@@ -1122,7 +1142,15 @@ body.is-drawer-open {
 		display: none;
 	}
 	#capture-root {
-		position: static;
+		/* NOT static: .capture-picker (position: absolute) needs a positioned
+		   ancestor to anchor to. On mobile #capture-root is itself
+		   position: fixed, which already provides one; at this breakpoint it
+		   drops out of fixed positioning entirely, so relative is the
+		   replacement — visually identical to static (no top/left offset is
+		   set) but keeps .capture-picker anchored to the capture bar instead
+		   of falling through to the initial containing block (the page),
+		   which sends it to the bottom of the whole document. */
+		position: relative;
 		z-index: auto;
 		padding: 0;
 		background: transparent;
