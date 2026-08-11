@@ -310,6 +310,7 @@ In `src/views/capture.js`, replace the `rootEl.innerHTML = ...` block with:
 				placeholder="What's next?"
 				aria-label="Capture a new task"
 				aria-describedby="capture-destination"
+				aria-haspopup="menu"
 			/>
 			<span class="capture__chip" id="capture-destination"></span>
 		</form>
@@ -325,7 +326,6 @@ Still in `src/views/capture.js`, below the existing `const input = ...` line add
 
 ```js
 	const chip = rootEl.querySelector(".capture__chip");
-	let destination = { kind: "focus" };
 ```
 
 and in the returned object, above `destroy()`:
@@ -335,11 +335,16 @@ and in the returned object, above `destroy()`:
 		// input's cursor position on every model notify — the whole reason this
 		// view mounts once and never re-renders.
 		setDestination(next, label) {
-			destination = next;
 			chip.textContent = label;
 			input.disabled = next.kind === "none";
 		},
 ```
+
+> **Corrected during execution (2026-08-11).** This step originally also declared
+> `let destination = { kind: "focus" }` and assigned it in `setDestination`. Nothing reads it
+> until Task 4, so Biome's `noUnusedVariables` flagged it — correctly. The declaration now
+> lives in Task 4, where the submit handler actually reads it. Task 3 needs only the chip text
+> and the disabled toggle.
 
 - [ ] **Step 3: Feed the destination from the controller**
 
@@ -481,6 +486,18 @@ Below `const chip = ...` add:
 	const pickerRoot = rootEl.querySelector(".capture__picker-root");
 	let pickerOpen = false;
 	let docClickHandler = null;
+	// Declared HERE, not in Task 3: this is the first task that reads it.
+	let destination = { kind: "focus" };
+```
+
+and add the assignment back into `setDestination` (Step 5 below shows the final form):
+
+```js
+		setDestination(next, label) {
+			destination = next;
+			chip.textContent = label;
+			input.disabled = next.kind === "none";
+		},
 ```
 
 Then add these three helpers above the returned object:

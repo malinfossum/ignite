@@ -147,7 +147,11 @@ Unspecified focus is how keyboard users get stranded, so all four transitions ar
 | Escape | back to the capture input, **text intact** |
 | Outside click | back to the capture input, **text intact** |
 
-The input carries `aria-haspopup="menu"` and `aria-expanded`, so the menu is discoverable rather than something you have to guess is there.
+The input carries `aria-haspopup="menu"`, so the menu is discoverable rather than something you have to guess is there. Focus moving into the menu on open, plus the menu's own `aria-label="Choose a section"`, conveys that it opened.
+
+> **Corrected 2026-08-11, during Plan 1 execution.** This originally also required `aria-expanded` on the input. **`aria-expanded` is not a supported attribute on a plain textbox** — axe's `aria-allowed-attr` flags it, which would have broken the project's axe-clean bar. The valid alternative that carries both is `role="combobox"` + `aria-controls`, but combobox implies selecting a value *into* the input, which is not what capture does. Malin's call: `aria-haspopup` alone.
+
+**The picker is a `role="menu"` and must therefore be operable by keyboard**: Arrow keys traverse, Home/End jump to the ends, Tab closes it. Every other menu in the app already does this through `utils/menu-keyboard.js` — a menu whose items are all `tabindex="-1"` with no key handler strands a keyboard user on the first item, which is a WCAG 2.1.1 failure.
 
 #### The typed text must survive dismissal
 
