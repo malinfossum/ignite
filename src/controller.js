@@ -6,6 +6,7 @@
 // Owns the 60s clock tick that calls currentMainView.render(state) only.
 
 import { FOCUS_DEFAULT_SECTION_ID, FOCUS_ID } from "./model/areas.js";
+import { captureChipLabel, captureDestination } from "./utils/capture.js";
 import { escapeHtml } from "./utils/dom.js";
 import { previousSectionId } from "./utils/sections.js";
 import { describeRecurrence, formatTaskDeleteMessage } from "./utils/text.js";
@@ -156,6 +157,15 @@ export function createController({ models, els }) {
 		);
 		renderPageHeader(state);
 		sidebar?.render(state);
+		const destination = captureDestination(currentRoute, state.sections);
+		const sectionName =
+			destination.kind === "direct"
+				? state.sections.find((s) => s.id === destination.sectionId)?.name
+				: undefined;
+		capture?.setDestination(
+			destination,
+			captureChipLabel(destination, sectionName),
+		);
 		currentMainView?.render(state);
 	}
 

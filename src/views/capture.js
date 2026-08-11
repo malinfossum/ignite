@@ -14,12 +14,16 @@ export function createCaptureView(rootEl, { onSubmit }) {
 				name="title"
 				placeholder="What's next?"
 				aria-label="Capture a new task"
+				aria-describedby="capture-destination"
 			/>
+			<span class="capture__chip" id="capture-destination"></span>
 		</form>
+		<div class="capture__picker-root"></div>
 	`;
 
 	const form = rootEl.querySelector(".capture__form");
 	const input = rootEl.querySelector(".capture__input");
+	const chip = rootEl.querySelector(".capture__chip");
 
 	const handler = (event) => {
 		event.preventDefault();
@@ -39,6 +43,14 @@ export function createCaptureView(rootEl, { onSubmit }) {
 	input.addEventListener("keydown", keydownHandler);
 
 	return {
+		// Targeted text write ONLY. An innerHTML rewrite here would destroy the
+		// input's cursor position on every model notify — the whole reason this
+		// view mounts once and never re-renders.
+		setDestination(next, label) {
+			chip.textContent = label;
+			input.disabled = next.kind === "none";
+		},
+
 		destroy() {
 			form.removeEventListener("submit", handler);
 			input.removeEventListener("keydown", keydownHandler);

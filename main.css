@@ -265,6 +265,22 @@ body {
 	outline: none;
 	border-color: var(--color-accent);
 }
+.capture__chip {
+	flex: 0 0 auto;
+	align-self: center;
+	margin-inline-start: 0.5rem;
+	padding: 0.15rem 0.55rem;
+	border-radius: 99px;
+	font-size: 0.78rem;
+	color: var(--color-accent);
+	border: 1px solid var(--color-accent);
+	background: transparent;
+	white-space: nowrap;
+}
+.capture__input:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
 
 /* --- NEXT card --- */
 .next-card {
