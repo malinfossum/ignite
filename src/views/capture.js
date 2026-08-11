@@ -71,10 +71,12 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 	// was trying not to lose; discarding it is the failure this whole feature
 	// exists to prevent. Spec §4.2.
 	//
-	// restoreFocus=false for the two lifecycle paths where focusing the input
-	// would be wrong: destroy() (about to wipe the subtree — focusing first
-	// just drops focus to <body>) and the controller's onHashChange (which
-	// pulls focus into the capture bar itself before the new view mounts).
+	// restoreFocus defaults to true — every dismissal path (Escape, Cancel,
+	// outside click, Tab, the controller's onHashChange) wants focus back on
+	// the input. destroy() is the one caller that passes false: it's about
+	// to wipe the subtree, so focusing the input first would only get
+	// immediately discarded, dropping focus to <body> instead of leaving it
+	// wherever destroy()'s caller intends.
 	function closePicker({ restoreFocus = true } = {}) {
 		if (!pickerOpen) return;
 		pickerRoot.innerHTML = "";
@@ -134,8 +136,16 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 	// exactly what the user was protecting.
 	//
 	// Below Escape: ARIA APG menu navigation for the picker, guarded on
-	// pickerOpen — same shape as the ⋯-menu handlers in today.js / area.js,
+	// pickerOpen AND the event target being inside the picker — same double
+	// guard as the ⋯-menu handlers in today.js / area.js (area.js:216-217),
 	// extending this single rootEl listener rather than adding a second one.
+	// The second half matters here specifically: clicking back into the
+	// input does NOT close the picker (the outside-click handler returns
+	// early for anything inside rootEl), so "picker open, focus in the
+	// input" is reachable. Without this guard, Home/End would yank focus
+	// out of the input into the menu instead of moving the caret, and
+	// ArrowUp would compute currentIndex === -1 (the input isn't a
+	// menuitem) and land on the wrong item.
 	const keydownHandler = (event) => {
 		if (event.key === "Escape") {
 			if (pickerOpen) {
@@ -147,6 +157,7 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 		}
 
 		if (!pickerOpen) return;
+		if (!pickerRoot.contains(event.target)) return;
 
 		const menuItems = Array.from(
 			pickerRoot.querySelectorAll('[role="menuitem"]'),
