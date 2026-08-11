@@ -456,6 +456,24 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			pendingMenuFocusTaskId = t.id; // focus first action item (Rename)
 			doRender();
 		},
+
+		// File is a shortcut, not a new mechanism: it opens the task's own ⋯
+		// menu already switched to picker mode, so pick-move-target, its drain
+		// and the move undo toast all apply unchanged.
+		//
+		// stopPropagation is REQUIRED. The synchronous doRender below detaches
+		// this button, after which the document click handler would see a
+		// detached target and close the menu it just opened — the same trap
+		// documented for move-task-to.
+		"file-task": (event, actionEl) => {
+			event.stopPropagation();
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			openMenuId = null;
+			openTaskMenuId = t.id;
+			taskMenuMode = "picker";
+			doRender();
+		},
 	});
 
 	const unbindKeys = bindKeys(rootEl, {

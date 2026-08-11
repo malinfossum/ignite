@@ -21,9 +21,13 @@ import { formatOccurrenceLabel, formatTimeLabel } from "../utils/time.js";
 
 export function renderTaskRow(
 	task,
-	{ now, isOpen = false, renaming = false, pendingRenameValue = null } = {
-		now: new Date(),
-	},
+	{
+		now,
+		isOpen = false,
+		renaming = false,
+		pendingRenameValue = null,
+		showFile = false,
+	} = { now: new Date() },
 ) {
 	if (renaming) return renderRenameRow(task, pendingRenameValue);
 
@@ -38,6 +42,13 @@ export function renderTaskRow(
 	const timeLabel = task.dueAt
 		? `<span class="task__time-label">${escapeHtml(formatTimeLabel(task.dueAt, now))}</span>`
 		: "";
+	// One-tap filing for notepad rows. Named per task, because a column of
+	// buttons all called "File" is unusable by voice or screen reader.
+	const fileBtn = showFile
+		? `<button class="task__file" type="button" data-action="file-task"
+				aria-haspopup="menu"
+				aria-label="File ${escapeHtml(task.title)}">File</button>`
+		: "";
 
 	return `
 		<li class="task" data-id="${escapeHtml(task.id)}">
@@ -48,6 +59,7 @@ export function renderTaskRow(
 				aria-label="Star: ${escapeHtml(task.title)}">${starGlyph}</button>
 			${recurring}
 			${timeLabel}
+			${fileBtn}
 			<button class="task__menu-btn" type="button" data-action="open-menu"
 				aria-haspopup="menu"
 				aria-expanded="${isOpen}"

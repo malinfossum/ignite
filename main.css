@@ -427,6 +427,19 @@ body {
 	color: var(--color-text-muted);
 	font-size: 0.85rem;
 }
+.task__file {
+	flex: 0 0 auto;
+	min-height: 44px;
+	min-width: 44px;
+	padding: 0 0.6rem;
+	background: transparent;
+	color: var(--color-accent);
+	border: 1px solid var(--color-accent);
+	border-radius: 8px;
+	font: inherit;
+	font-size: 0.78rem;
+	cursor: pointer;
+}
 
 /* --- Task `…` menu --- */
 /* Anchored to the row via the row's position: relative + this absolute. */
