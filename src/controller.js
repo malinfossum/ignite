@@ -6,6 +6,7 @@
 // Owns the 60s clock tick that calls currentMainView.render(state) only.
 
 import { FOCUS_DEFAULT_SECTION_ID, FOCUS_ID } from "./model/areas.js";
+import { captureChipLabel, captureDestination } from "./utils/capture.js";
 import { escapeHtml } from "./utils/dom.js";
 import { previousSectionId } from "./utils/sections.js";
 import { describeRecurrence, formatTaskDeleteMessage } from "./utils/text.js";
@@ -156,6 +157,15 @@ export function createController({ models, els }) {
 		);
 		renderPageHeader(state);
 		sidebar?.render(state);
+		const destination = captureDestination(currentRoute, state.sections);
+		const sectionName =
+			destination.kind === "direct"
+				? state.sections.find((s) => s.id === destination.sectionId)?.name
+				: undefined;
+		capture?.setDestination(
+			destination,
+			captureChipLabel(destination, sectionName),
+		);
 		currentMainView?.render(state);
 	}
 
@@ -330,6 +340,9 @@ export function createController({ models, els }) {
 			onToggleSection: async ({ sectionId, collapsed }) => {
 				await sections.setCollapsed(sectionId, collapsed);
 			},
+
+			onAddTaskToSection: ({ sectionId, title }) =>
+				tasks.create({ sectionId, title }),
 
 			onCommitRename: async ({ sectionId, name }) => {
 				try {
@@ -703,6 +716,7 @@ export function createController({ models, els }) {
 	function onHashChange() {
 		closeDrawer(); // close on ALL route changes incl. browser back/forward
 		closeRecurrenceEditor({ rerender: false }); // route change closes the dialog
+		capture?.closePicker();
 		currentRoute = parseHash(window.location.hash);
 		mountMainView(currentRoute);
 		applyState();
@@ -748,12 +762,10 @@ export function createController({ models, els }) {
 		});
 
 		capture = createCaptureView(captureRoot, {
-			onSubmit: (title) =>
-				tasks.create({
-					sectionId: FOCUS_DEFAULT_SECTION_ID,
-					title,
-					starred: true,
-				}),
+			// No `starred` — a star means "I chose this for today", and capture
+			// setting it on everything made the signal worthless. Spec D2.
+			onSubmit: (title, sectionId) => tasks.create({ sectionId, title }),
+			focusSectionId: FOCUS_DEFAULT_SECTION_ID,
 		});
 
 		unsubs.push(

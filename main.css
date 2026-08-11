@@ -265,6 +265,29 @@ body {
 	outline: none;
 	border-color: var(--color-accent);
 }
+.capture__chip {
+	flex: 0 1 auto;
+	min-width: 0;
+	max-width: 45%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	align-self: center;
+	margin-inline-start: 0.5rem;
+	padding: 0.15rem 0.55rem;
+	border-radius: 99px;
+	font-size: 0.78rem;
+	color: var(--color-accent);
+	border: 1px solid var(--color-accent);
+	background: transparent;
+	white-space: nowrap;
+}
+.capture__input:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+.capture__picker-root {
+	position: static;
+}
 
 /* --- NEXT card --- */
 .next-card {
@@ -388,6 +411,19 @@ body {
 	color: var(--color-text-muted);
 	font-size: 0.85rem;
 }
+.task__file {
+	flex: 0 0 auto;
+	min-height: 44px;
+	min-width: 44px;
+	padding: 0 0.6rem;
+	background: transparent;
+	color: var(--color-accent);
+	border: 1px solid var(--color-accent);
+	border-radius: 8px;
+	font: inherit;
+	font-size: 0.78rem;
+	cursor: pointer;
+}
 
 /* --- Task `…` menu --- */
 /* Anchored to the row via the row's position: relative + this absolute. */
@@ -430,6 +466,35 @@ body {
 .task-menu__item:disabled {
 	color: var(--color-text-muted);
 	cursor: not-allowed;
+}
+
+/* Declared AFTER .task-menu on purpose: .capture-picker shares the
+   .task-menu class (see capture-picker.js), and both selectors are
+   single-class — without an explicit `top` reset here, .task-menu's
+   `top: 100%` (above) would leak into this element since nothing had ever
+   overridden it. Anchored to .capture__picker-root (position: static, so
+   the containing block resolves to the nearest positioned ancestor —
+   #capture-root) rather than the picker-root div itself, which is a
+   zero-height wrapper that sits after the form: anchoring to a zero-height
+   box collapses `top`/`bottom` to the same point, so even "upward" would
+   overlay the input instead of clearing it. */
+.capture-picker {
+	position: absolute;
+	inset-inline: 0;
+	top: auto; /* reset .task-menu */
+	bottom: 100%; /* measured against #capture-root's box → clears the input */
+	margin-block: 0 0.5rem;
+	max-height: 50vh;
+	overflow-y: auto;
+	z-index: 70;
+}
+/* .task-menu__item's min-block-size: 44px (above) already covers items here. */
+@media (min-width: 768px) {
+	.capture-picker {
+		bottom: auto;
+		top: 100%;
+		margin-block: 0.5rem 0;
+	}
 }
 
 /* --- Move-to picker (a sub-face of the task `…` menu) --- */
@@ -662,6 +727,28 @@ body {
 	display: flex;
 	flex-direction: column;
 	gap: 0.25rem;
+}
+
+.section__add {
+	padding: 0.25rem 0 0;
+}
+.section__add-input {
+	width: 100%;
+	min-height: 44px;
+	padding: 0.5rem 0.75rem;
+	background: transparent;
+	color: var(--color-text);
+	border: 1px dashed var(--color-border);
+	border-radius: 8px;
+	font: inherit;
+}
+.section__add-input::placeholder {
+	color: var(--color-text-muted);
+}
+.section__add-input:focus {
+	outline: none;
+	border-style: solid;
+	border-color: var(--color-accent);
 }
 
 /* Collapsed state — CSS hook on the outer <section> */
@@ -1048,7 +1135,15 @@ body.is-drawer-open {
 		display: none;
 	}
 	#capture-root {
-		position: static;
+		/* NOT static: .capture-picker (position: absolute) needs a positioned
+		   ancestor to anchor to. On mobile #capture-root is itself
+		   position: fixed, which already provides one; at this breakpoint it
+		   drops out of fixed positioning entirely, so relative is the
+		   replacement — visually identical to static (no top/left offset is
+		   set) but keeps .capture-picker anchored to the capture bar instead
+		   of falling through to the initial containing block (the page),
+		   which sends it to the bottom of the whole document. */
+		position: relative;
 		z-index: auto;
 		padding: 0;
 		background: transparent;

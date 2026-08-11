@@ -9,6 +9,18 @@
 //   pendingFocusSectionId  - after the next render, look up this section's
 //                            ⋯ button and focus it. Used for menu-close,
 //                            rename commit/cancel, and post-create rename.
+//   pendingFocusAddSectionId - after the next render, look up this section's
+//                            add-task input and focus it. Set on Enter in the
+//                            inline add row so a run of tasks can be typed
+//                            without reaching for the mouse.
+//   pendingAddValue        - Map<sectionId, string> of in-progress "Add task"
+//                            text, kept current on every keystroke via a
+//                            delegated input listener (not just for the
+//                            focused section — a user can type in one
+//                            section's row, then something else re-renders
+//                            while a DIFFERENT input has focus). Rendered
+//                            back into each add-input's value; cleared for a
+//                            section only when its add commits successfully.
 //   pendingMenuFocusSectionId - after the next render, look up the first
 //                            [role="menuitem"] inside this section's menu
 //                            and focus it. Used when the menu opens via
@@ -80,6 +92,12 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	let openTaskMenuId = null;
 	let renamingId = null;
 	let pendingFocusSectionId = null;
+	// After adding a task inline, re-focus that section's add input so a run
+	// of tasks can be typed without reaching for the mouse.
+	let pendingFocusAddSectionId = null;
+	// Map<sectionId, string> — in-flight "Add task" text per section. See
+	// the closure-state doc comment above.
+	let pendingAddValue = new Map();
 	let pendingMenuFocusSectionId = null;
 	let pendingRenameSelect = false;
 	let pendingFocusTaskId = null;
@@ -273,6 +291,21 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	};
 	rootEl.addEventListener("dblclick", dblclickHandler);
 
+	// Mirrors the rename inputs' onInput mirroring, but delegated rather than
+	// attached per-element: rename-input.js's attachRenameInput assumes a
+	// single live input (rootEl.querySelector(selector) — first match only),
+	// which doesn't fit here since every section renders its own add-input
+	// at once. A delegated listener on rootEl survives each innerHTML
+	// rewrite without re-wiring, and keeps pendingAddValue current for every
+	// section's row, not just whichever one currently has focus.
+	const addInputHandler = (event) => {
+		const el = event.target;
+		if (!el.classList?.contains("section__add-input")) return;
+		const sectionId = el.dataset.sectionId;
+		if (sectionId) pendingAddValue.set(sectionId, el.value);
+	};
+	rootEl.addEventListener("input", addInputHandler);
+
 	const unbindClick = bindActions(rootEl, {
 		"add-section": () => callbacks.onAddSection({ areaId }),
 
@@ -449,11 +482,50 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			pendingMenuFocusTaskId = t.id; // focus first action item (Rename)
 			doRender();
 		},
+
+		// File is a shortcut, not a new mechanism: it opens the task's own ⋯
+		// menu already switched to picker mode, so pick-move-target, its drain
+		// and the move undo toast all apply unchanged.
+		//
+		// stopPropagation is REQUIRED. The synchronous doRender below detaches
+		// this button, after which the document click handler would see a
+		// detached target and close the menu it just opened — the same trap
+		// documented for move-task-to.
+		"file-task": (event, actionEl) => {
+			event.stopPropagation();
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			openMenuId = null;
+			openTaskMenuId = t.id;
+			taskMenuMode = "picker";
+			doRender();
+		},
 	});
 
 	const unbindKeys = bindKeys(rootEl, {
-		Enter: (event, actionEl) => {
+		Enter: async (event, actionEl) => {
 			if (event.isComposing) return; // IME mid-composition: Enter confirms the candidate, doesn't commit
+			if (actionEl?.dataset?.action === "commit-section-add") {
+				event.preventDefault();
+				const title = actionEl.value.trim();
+				const sectionId = actionEl.dataset.sectionId;
+				if (!title || !sectionId) return;
+				// Await and clear only on success — mirrors capture.js's commit().
+				// Clearing eagerly (the old behaviour) ate the typed text on any
+				// rejected write; the held pendingAddValue must survive a failure
+				// too, or C2's re-render protection loses the same text a
+				// different way.
+				try {
+					await callbacks.onAddTaskToSection({ sectionId, title });
+					actionEl.value = "";
+					pendingAddValue.delete(sectionId);
+					pendingFocusAddSectionId = sectionId;
+				} catch {
+					// Write failed (quota, private mode, …) — leave the typed
+					// text and the held value in place. No toast: out of scope.
+				}
+				return;
+			}
 			if (renamingId && actionEl?.dataset?.action === "commit-rename") {
 				event.preventDefault(); // prevent form-like default
 				commitRenameFromInput(actionEl);
@@ -521,6 +593,22 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 		const sectionCaret = readRenameCaret(rootEl, ".section__rename-input");
 		const taskCaret = readRenameCaret(rootEl, ".task__rename-input");
 
+		// C2: same idea for whichever add-input has focus, if any — captured
+		// before the rewrite detaches it. Doesn't reuse readRenameCaret (it
+		// takes a single selector and returns the FIRST match; multiple
+		// section__add-input elements are on screen at once, so "first" is
+		// not necessarily "focused").
+		const focusedAddEl = document.activeElement;
+		const addFocus =
+			focusedAddEl?.classList?.contains("section__add-input") &&
+			rootEl.contains(focusedAddEl)
+				? {
+						sectionId: focusedAddEl.dataset.sectionId,
+						start: focusedAddEl.selectionStart,
+						end: focusedAddEl.selectionEnd,
+					}
+				: null;
+
 		isRendering = true;
 		try {
 			rootEl.innerHTML = template(lastState, areaId, {
@@ -531,6 +619,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 				renamingTaskId,
 				pendingRenameTaskValue,
 				taskMenuMode,
+				pendingAddValue,
 			});
 		} finally {
 			// try/finally so a defensive template throw can't strand
@@ -581,6 +670,36 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			);
 			trigger?.focus();
 			pendingFocusSectionId = null;
+		}
+
+		if (pendingFocusAddSectionId) {
+			const el = rootEl.querySelector(
+				`[data-section-id="${CSS.escape(pendingFocusAddSectionId)}"] .section__add-input`,
+			);
+			pendingFocusAddSectionId = null;
+			el?.focus();
+		} else if (addFocus && !renamingId && !renamingTaskId) {
+			// C2: no explicit post-commit focus request (the branch above), but
+			// an add-input had focus going into this rewrite — restore it, the
+			// value it already carries (rendered from pendingAddValue, see
+			// template()), and the caret.
+			//
+			// Guarded on !renamingId/!renamingTaskId: F2 from a focused
+			// add-input resolves to enterSectionRename (taskFromEvent misses —
+			// no [data-id] ancestor — so sectionFromEvent's match wins), which
+			// re-renders with the section-rename input attached (and focused)
+			// by attachRenameInput ABOVE. Without this guard, addFocus still
+			// pointed at the (now stale) add-input's section id and would
+			// steal focus straight back — which, worse, fires the rename
+			// input's {once:true} blur listener synchronously and commits a
+			// no-op rename (isRendering is already false by this point).
+			const el = rootEl.querySelector(
+				`.section__add-input[data-section-id="${CSS.escape(addFocus.sectionId)}"]`,
+			);
+			if (el) {
+				el.focus();
+				el.setSelectionRange(addFocus.start, addFocus.end);
+			}
 		}
 
 		if (pendingFocusTaskId) {
@@ -701,6 +820,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			unbindClick();
 			unbindKeys();
 			rootEl.removeEventListener("dblclick", dblclickHandler);
+			rootEl.removeEventListener("input", addInputHandler);
 			document.removeEventListener("click", docClickHandler);
 			document.removeEventListener("keydown", docKeyHandler);
 			rootEl.innerHTML = "";
@@ -708,6 +828,8 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			openMenuId = null;
 			openTaskMenuId = null;
 			pendingFocusSectionId = null;
+			pendingFocusAddSectionId = null;
+			pendingAddValue = new Map();
 			pendingFocusTaskId = null;
 			pendingMenuFocusSectionId = null;
 			pendingMenuFocusTaskId = null;
@@ -734,6 +856,7 @@ function template(
 		renamingTaskId,
 		pendingRenameTaskValue,
 		taskMenuMode,
+		pendingAddValue,
 	},
 ) {
 	const area = state.areas.find((a) => a.id === areaId);
@@ -786,6 +909,7 @@ function template(
 				section: s,
 				tasks: tasksBySection.get(s.id) ?? [],
 				isUndeletable: s.id === "focus-default",
+				showFile: s.id === "focus-default",
 				isFirst: i === 0,
 				isLast: i === sections.length - 1,
 				openMenuId,
@@ -798,6 +922,7 @@ function template(
 				movePickerHtml,
 				hasMoveTargets,
 				now: state.now,
+				pendingAddValue: pendingAddValue.get(s.id),
 			}),
 		)
 		.join("");
