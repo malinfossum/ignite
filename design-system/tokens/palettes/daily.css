@@ -1,6 +1,6 @@
 /*
  * Daily — general-purpose warm-charcoal OLED palette.
- * Ember accent on a de-purpled warm ground; Space Grotesk headings + Inter body
+ * Ember accent on a de-purpled warm ground; Space Grotesk headings + Figtree body
  * at the calm base scale. Shares the OLED foundation in _oled.css.
  * Opt in with <html data-palette="daily">.
  */
@@ -16,9 +16,9 @@
 	--accent-rgb: 190 85 38;
 	--accent-strong-rgb: 210 100 50;
 
-	/* Type skin — Space Grotesk headings, Inter body. */
-	--font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-	--font-display: "Space Grotesk", "Inter", sans-serif;
+	/* Type skin — Space Grotesk headings, Figtree body (both bundled). */
+	--font-sans: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+	--font-display: "Space Grotesk", "Figtree", sans-serif;
 
 	/* Solid-button ink — in dark theme, ember is mid-tone, so the fill deepens
 	   (button-only) for white text at AA; light theme resolves the base light accent below, which passes on its own. */
