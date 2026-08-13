@@ -195,40 +195,95 @@ describe("groupTasksForFocus", () => {
 });
 
 describe("pickNextTask", () => {
-	it("picks the earliest upcoming time-dated task", () => {
-		const tasks = [
-			task({ id: "a", dueAt: "2026-04-28T18:00:00.000Z" }),
-			task({ id: "b", dueAt: "2026-04-28T16:00:00.000Z" }),
-		];
-		expect(pickNextTask(tasks, NOW)?.id).toBe("b");
+	// The hero reads the grouped buckets, not the raw list, so it can never
+	// promote something due next week into a card labelled "Next" on Today.
+	const groups = (over, todayList) => ({
+		overdue: over,
+		today: todayList,
+		tomorrow: [],
+		starred: [],
+		notepad: [],
 	});
 
-	it("falls back to oldest overdue when nothing is upcoming", () => {
-		const tasks = [
-			task({ id: "a", dueAt: "2026-04-26T09:00:00.000Z" }),
-			task({ id: "b", dueAt: "2026-04-27T09:00:00.000Z" }),
-		];
-		expect(pickNextTask(tasks, NOW)?.id).toBe("a");
+	it("picks the earliest still-upcoming timed task today", () => {
+		const a = task({
+			id: "a",
+			dueAt: "2026-04-28T18:00:00.000Z",
+			hasTime: true,
+		});
+		const b = task({
+			id: "b",
+			dueAt: "2026-04-28T16:00:00.000Z",
+			hasTime: true,
+		});
+		expect(pickNextTask(groups([], [b, a]), NOW)?.id).toBe("b");
 	});
 
-	it("falls back to first starred undated when nothing is dated", () => {
-		const tasks = [
-			task({ id: "a", starred: true, order: 2 }),
-			task({ id: "b", starred: true, order: 0 }),
-		];
-		expect(pickNextTask(tasks, NOW)?.id).toBe("b");
+	it("skips a timed task that has already passed today", () => {
+		const past = task({
+			id: "past",
+			dueAt: "2026-04-28T09:00:00.000Z",
+			hasTime: true,
+		});
+		const soon = task({
+			id: "soon",
+			dueAt: "2026-04-28T18:00:00.000Z",
+			hasTime: true,
+		});
+		expect(pickNextTask(groups([], [past, soon]), NOW)?.id).toBe("soon");
 	});
 
-	it("returns null on empty input", () => {
-		expect(pickNextTask([], NOW)).toBeNull();
+	it("prefers an untimed task due today over anything overdue", () => {
+		// An untimed task is stored at local midnight, so `dueAt > now` is false
+		// from 00:01 onward. Reading the buckets instead of the raw dates is what
+		// stops that stored midnight from reading as "overdue" — the defect Plan 2
+		// recorded and deferred to here.
+		const untimed = task({
+			id: "untimed",
+			dueAt: "2026-04-28T00:00:00.000Z",
+			hasTime: false,
+		});
+		const old = task({
+			id: "old",
+			dueAt: "2026-04-20T09:00:00.000Z",
+			hasTime: true,
+		});
+		expect(pickNextTask(groups([old], [untimed]), NOW)?.id).toBe("untimed");
 	});
 
-	it("ignores completed tasks", () => {
-		const tasks = [
-			task({ id: "a", completed: true, dueAt: "2026-04-28T18:00:00.000Z" }),
-			task({ id: "b", starred: true, order: 0 }),
-		];
-		expect(pickNextTask(tasks, NOW)?.id).toBe("b");
+	it("falls back to the first task due today when everything today has passed", () => {
+		const past = task({
+			id: "past",
+			dueAt: "2026-04-28T09:00:00.000Z",
+			hasTime: true,
+		});
+		expect(pickNextTask(groups([], [past]), NOW)?.id).toBe("past");
+	});
+
+	it("falls back to the oldest overdue task when nothing is due today", () => {
+		// `overdue` arrives day-ascending from sortByDueThenUntimed, so [0] is the
+		// thing that has been rotting longest.
+		const older = task({ id: "older", dueAt: "2026-04-20T09:00:00.000Z" });
+		const newer = task({ id: "newer", dueAt: "2026-04-27T09:00:00.000Z" });
+		expect(pickNextTask(groups([older, newer], []), NOW)?.id).toBe("older");
+	});
+
+	it("never reaches into Starred, Tomorrow or the notepad", () => {
+		const result = pickNextTask(
+			{
+				overdue: [],
+				today: [],
+				tomorrow: [task({ id: "t" })],
+				starred: [task({ id: "s", starred: true })],
+				notepad: [task({ id: "n" })],
+			},
+			NOW,
+		);
+		expect(result).toBeNull();
+	});
+
+	it("returns null for empty groups", () => {
+		expect(pickNextTask(groups([], []), NOW)).toBeNull();
 	});
 });
 

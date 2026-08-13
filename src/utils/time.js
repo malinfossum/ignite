@@ -185,25 +185,25 @@ function byDueThenUntimed(a, b) {
 	return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0;
 }
 
-export function pickNextTask(tasks, now) {
-	const active = tasks.filter((t) => !t.completed);
-	const dated = active.filter((t) => t.dueAt).sort(byDueAtAsc);
-	const upcoming = dated.find(
-		(t) => new Date(t.dueAt).getTime() > now.getTime(),
+// The Today tab's "Next up" hero. Takes the grouped buckets rather than the raw
+// task list for two reasons: it can then never promote something due next week
+// into a card labelled "Next", and an untimed task due today stays a candidate
+// instead of being mistaken for overdue (its stored midnight is behind `now`
+// from 00:01 onward).
+//
+// Candidate order: the next timed thing still ahead of you today → anything
+// untimed today ("sometime today" is still ahead of you) → the earliest thing
+// today that has already passed → the oldest overdue item. `groups.today` and
+// `groups.overdue` both arrive sorted, so first-match is the right pick.
+export function pickNextTask(groups, now) {
+	const today = groups?.today ?? [];
+	const upcoming = today.find(
+		(t) => t.hasTime && new Date(t.dueAt).getTime() > now.getTime(),
 	);
 	if (upcoming) return upcoming;
 
-	const overdue = dated.find(
-		(t) => new Date(t.dueAt).getTime() <= now.getTime(),
-	);
-	if (overdue) return overdue;
+	const untimed = today.find((t) => !t.hasTime);
+	if (untimed) return untimed;
 
-	const starred = active
-		.filter((t) => t.starred && !t.dueAt)
-		.sort((a, b) => a.order - b.order);
-	return starred[0] ?? null;
-}
-
-function byDueAtAsc(a, b) {
-	return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
+	return today[0] ?? groups?.overdue?.[0] ?? null;
 }
