@@ -1251,6 +1251,37 @@ body.is-drawer-open #scrim {
 	align-items: center;
 	gap: 0.5rem;
 }
+/* Date and time share a row from tablet up. Stacked on a phone, where two
+   native pickers side by side would squeeze both. `.repeat-field` is already
+   a column flex container — only the row switch and the columns are new. */
+.repeat-field--when {
+	gap: 0.75rem;
+}
+.repeat-field__col {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	min-width: 0;
+}
+@media (min-width: 768px) {
+	.repeat-field--when {
+		flex-direction: row;
+	}
+	.repeat-field__col {
+		flex: 1 1 0;
+	}
+}
+/* `syncRepeatVisibility` hides these with the `hidden` property, and BOTH set
+   `display` — an author `display` beats the UA's `[hidden]` rule whatever the
+   specificity. That works today only because `design-system/base/reset.css`
+   carries `[hidden] { display: none !important }`, which arrived in the 2.0.1
+   sync on 2026-08-13. Restated locally so a future re-sync cannot silently leave
+   hidden repeat controls visible AND keyboard-focusable inside a modal. The
+   attribute selector outranks the class rule, so no !important is needed. */
+.repeat-field[hidden],
+.repeat-fieldset[hidden] {
+	display: none;
+}
 .repeat-field label {
 	font-size: 0.85rem;
 	color: var(--color-text-muted);

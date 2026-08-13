@@ -274,7 +274,7 @@ function renderTaskRowWithMenu(
 			${moveDownItem}
 			${moveToItem}
 			<button class="task-menu__item" type="button" data-action="open-repeat"
-				role="menuitem" tabindex="-1" aria-haspopup="dialog">Repeat…</button>
+				role="menuitem" tabindex="-1" aria-haspopup="dialog">Schedule…</button>
 			<button class="task-menu__item" type="button" data-action="delete-task"
 				role="menuitem" tabindex="-1">Delete</button>
 		</div></li>`,

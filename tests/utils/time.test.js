@@ -4,6 +4,7 @@ import {
 	formatTimeLabel,
 	groupTasksForToday,
 	pickNextTask,
+	sortByDueThenUntimed,
 } from "../../src/utils/time.js";
 
 const NOW = new Date("2026-04-28T14:00:00");
@@ -17,6 +18,7 @@ const task = (overrides) => ({
 	starred: false,
 	critical: false,
 	dueAt: null,
+	hasTime: false,
 	recurrence: null,
 	leadTime: 0,
 	scheduledTags: [],
@@ -101,9 +103,11 @@ describe("groupTasksForToday", () => {
 	});
 
 	it("sorts today by dueAt ascending and starred by order ascending", () => {
+		// Both dated tasks are TIMED: sorting by clock time is only meaningful
+		// for tasks that carry one. Untimed peers sort by createdAt instead.
 		const tasks = [
-			task({ id: "b", dueAt: "2026-04-28T18:00:00.000Z" }),
-			task({ id: "a", dueAt: "2026-04-28T16:00:00.000Z" }),
+			task({ id: "b", dueAt: "2026-04-28T18:00:00.000Z", hasTime: true }),
+			task({ id: "a", dueAt: "2026-04-28T16:00:00.000Z", hasTime: true }),
 			task({ id: "z", starred: true, order: 2 }),
 			task({ id: "y", starred: true, order: 0 }),
 		];
@@ -169,5 +173,114 @@ describe("formatOccurrenceLabel", () => {
 
 	it("returns 'Mon D' for a week or more out", () => {
 		expect(formatOccurrenceLabel("2026-07-06T00:00:00", NOW)).toBe("Jul 6");
+	});
+});
+
+describe("sortByDueThenUntimed", () => {
+	const at = (iso, overrides) =>
+		task({ dueAt: new Date(iso).toISOString(), hasTime: true, ...overrides });
+
+	it("orders timed tasks ascending by time", () => {
+		const list = [
+			at("2026-04-28T16:00:00", { id: "late" }),
+			at("2026-04-28T09:00:00", { id: "early" }),
+		];
+		expect(sortByDueThenUntimed(list).map((t) => t.id)).toEqual([
+			"early",
+			"late",
+		]);
+	});
+
+	it("puts untimed tasks after every timed task, whatever the clock says", () => {
+		// The untimed task is stored at 00:00 — earlier than both timed tasks.
+		// It must still sort last: untimed means "sometime today", not midnight.
+		const list = [
+			at("2026-04-28T00:00:00", { id: "untimed", hasTime: false }),
+			at("2026-04-28T16:00:00", { id: "late" }),
+			at("2026-04-28T09:00:00", { id: "early" }),
+		];
+		expect(sortByDueThenUntimed(list).map((t) => t.id)).toEqual([
+			"early",
+			"late",
+			"untimed",
+		]);
+	});
+
+	it("breaks ties between untimed peers by createdAt ascending", () => {
+		const list = [
+			at("2026-04-28T00:00:00", {
+				id: "newer",
+				hasTime: false,
+				createdAt: "2026-04-28T11:00:00.000Z",
+			}),
+			at("2026-04-28T00:00:00", {
+				id: "older",
+				hasTime: false,
+				createdAt: "2026-04-28T08:00:00.000Z",
+			}),
+		];
+		expect(sortByDueThenUntimed(list).map((t) => t.id)).toEqual([
+			"older",
+			"newer",
+		]);
+	});
+
+	it("breaks ties between timed peers at the same minute by createdAt", () => {
+		const list = [
+			at("2026-04-28T09:00:00", {
+				id: "newer",
+				createdAt: "2026-04-28T11:00:00.000Z",
+			}),
+			at("2026-04-28T09:00:00", {
+				id: "older",
+				createdAt: "2026-04-28T08:00:00.000Z",
+			}),
+		];
+		expect(sortByDueThenUntimed(list).map((t) => t.id)).toEqual([
+			"older",
+			"newer",
+		]);
+	});
+
+	it("orders by calendar day before applying the untimed rule", () => {
+		// The untimed-last rule is scoped to a single day. Across days, an older
+		// untimed task must still sort above a newer timed one — otherwise the
+		// oldest thing you have missed sits at the bottom of Overdue.
+		const list = [
+			at("2026-04-28T09:00:00", { id: "today-timed" }),
+			at("2026-04-07T00:00:00", { id: "three-weeks-ago", hasTime: false }),
+		];
+		expect(sortByDueThenUntimed(list).map((t) => t.id)).toEqual([
+			"three-weeks-ago",
+			"today-timed",
+		]);
+	});
+
+	it("does not mutate its argument", () => {
+		const list = [at("2026-04-28T16:00:00"), at("2026-04-28T09:00:00")];
+		const before = [...list];
+		sortByDueThenUntimed(list);
+		expect(list).toEqual(before);
+	});
+});
+
+describe("groupTasksForToday — untimed ordering", () => {
+	it("sorts today's untimed tasks after its timed ones", () => {
+		const tasks = [
+			task({
+				id: "untimed",
+				dueAt: new Date("2026-04-28T00:00:00").toISOString(),
+				hasTime: false,
+			}),
+			task({
+				id: "timed",
+				dueAt: new Date("2026-04-28T18:00:00").toISOString(),
+				hasTime: true,
+			}),
+		];
+		expect(groupTasksForToday(tasks, NOW).today.map((t) => t.id)).toEqual([
+			"timed",
+			"untimed",
+		]);
 	});
 });

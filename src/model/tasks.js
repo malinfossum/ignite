@@ -26,7 +26,7 @@ import { nextOccurrence } from "./recurrence.js";
 // `starred`, and `critical` as 0/1 and convert at the model boundary, so the
 // public API always uses true/false.
 
-const BOOL_FIELDS = ["completed", "starred", "critical"];
+const BOOL_FIELDS = ["completed", "starred", "critical", "hasTime"];
 
 export async function createTaskModel(db) {
 	const listeners = new Set();
@@ -68,6 +68,7 @@ export async function createTaskModel(db) {
 			starred = false,
 			critical = false,
 			dueAt = null,
+			hasTime = false,
 			recurrence = null,
 			leadTime = 0,
 		}) {
@@ -84,6 +85,7 @@ export async function createTaskModel(db) {
 				starred,
 				critical,
 				dueAt,
+				hasTime,
 				recurrence,
 				lastCompletedAt: null,
 				completedCount: 0,

@@ -39,8 +39,14 @@ export function renderTaskRow(
 	const recurring = task.recurrence
 		? `<span class="task__recurring" role="img" aria-label="${escapeHtml(recurrenceBadgeLabel(task, now))}">⟲</span>`
 		: "";
+	// `hasTime` is what separates "due sometime today" from "due at 00:00" —
+	// without it a dateless-but-dated task reads "was 00:00" all afternoon.
 	const timeLabel = task.dueAt
-		? `<span class="task__time-label">${escapeHtml(formatTimeLabel(task.dueAt, now))}</span>`
+		? `<span class="task__time-label">${escapeHtml(
+				task.hasTime
+					? formatTimeLabel(task.dueAt, now)
+					: formatOccurrenceLabel(task.dueAt, now),
+			)}</span>`
 		: "";
 	// One-tap filing for notepad rows. Named per task, because a column of
 	// buttons all called "File" is unusable by voice or screen reader.

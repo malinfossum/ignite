@@ -36,7 +36,8 @@ Built to replace a cluttered subscription task app with something minimal, free,
 - **Areas & sections** — organize with a two-level hierarchy; create, rename, reorder, and delete
 - **Add in place** — every section has its own add row, so a run of tasks goes in without leaving the keyboard
 - **Tasks** — complete, star, reorder, rename in place, and move between sections; tasks in Focus file into any section in one tap
-- **Recurring tasks** — repeat daily, weekly, monthly, or yearly (every N); completing one advances it to the next date and records when you last did it
+- **Scheduling** — give any task a date, and a time of day if it needs one; a task with no time reads as due that day rather than at midnight, and sorts after the day's timed tasks
+- **Recurring tasks** — repeat daily, weekly, monthly, or yearly (every N); completing one advances it to the next date, keeping its time of day, and records when you last did it
 - **Undo everything** — deletes (including a whole area and its contents) are undoable from the toast
 - **Keyboard & screen reader** — ARIA menu navigation and full keyboard paths throughout
 - **Install & offline** — installable PWA; works fully offline once loaded, including airplane mode
@@ -87,7 +88,7 @@ Once installed it runs offline, and your data stays on the device.
 Planned, not yet shipped:
 
 - Reminders and scheduled notifications
-- Drag-to-reorder, editable due dates, and richer task metadata
+- Drag-to-reorder and richer task metadata
 - A custom install prompt
 
 Design specs and implementation plans live in `docs/superpowers/`.

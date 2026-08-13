@@ -511,7 +511,7 @@ function renderTaskRowWithMenu(
 		`<div class="task-menu" role="menu">
 			<button class="task-menu__item" type="button" data-action="rename-task" role="menuitem" tabindex="-1">Rename</button>
 			${moveToItem}
-			<button class="task-menu__item" type="button" data-action="open-repeat" role="menuitem" tabindex="-1" aria-haspopup="dialog">Repeat…</button>
+			<button class="task-menu__item" type="button" data-action="open-repeat" role="menuitem" tabindex="-1" aria-haspopup="dialog">Schedule…</button>
 			<button class="task-menu__item" type="button" data-action="delete-task" role="menuitem" tabindex="-1">Delete</button>
 		</div></li>`,
 	);
