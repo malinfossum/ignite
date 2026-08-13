@@ -1,10 +1,11 @@
 // createFocusView(rootEl, { onToggleComplete, onToggleStar, onDelete })
-//   → { render(state), destroy() }
+//   → { render, focusTaskMenu, selectTab, getActiveTab, destroy }
 //
 // state expected: { tasks, sections, areas, settings, now }
 // onDelete receives the full task object so the controller can restore it.
 
 import { FOCUS_ID } from "../model/areas.js";
+import { areaForTask } from "../utils/areas.js";
 import { bindActions, bindKeys } from "../utils/dom.js";
 import {
 	firstEnabledIndex,
@@ -263,16 +264,43 @@ export function createFocusView(rootEl, callbacks) {
 			doRender();
 		},
 
+		// File is a shortcut, not a new mechanism: it opens this task's own ⋯ menu
+		// already switched to picker mode, so pick-move-target, the move undo
+		// toast and the picker's a11y all apply unchanged.
+		//
+		// stopPropagation is REQUIRED. The synchronous doRender below detaches
+		// this button, after which the document click handler would see a detached
+		// target as "outside" and close the menu it just opened — the same trap
+		// documented for move-task-to.
+		"file-task": (event, actionEl) => {
+			event.stopPropagation();
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			openMenuTaskId = t.id;
+			taskMenuMode = "picker";
+			pendingMenuFocusTaskId = t.id; // §4.2: the picker opens on its first item
+			doRender();
+		},
+
 		"pick-move-target": (_event, actionEl) => {
 			const t = taskFromEvent(actionEl);
 			const targetSectionId = actionEl?.dataset?.targetSectionId;
 			if (!t || !targetSectionId) return;
 			openMenuTaskId = null;
 			taskMenuMode = "actions"; // reset for next open
-			pendingFocusTaskId = t.id; // the task stays in Today; refocus its ⋯
+			if (activeTab === "focus") {
+				// Filing is precisely what takes the row off this tab, so the ⋯ we
+				// would return to will not exist after the render. The Focus tab
+				// button always does.
+				pendingFocusTab = "focus";
+			} else {
+				// A move changes neither dueAt nor starred, so the task stays on
+				// this tab; refocus its ⋯.
+				pendingFocusTaskId = t.id;
+			}
 			callbacks.onMoveTaskToSection({ taskId: t.id, targetSectionId });
-			// No doRender() — the model-notify re-render consumes the focus flag
-			// (same as the area view). Toast is the only visible feedback here.
+			// No doRender() — the model-notify re-render consumes the focus flag.
+			// Toast is the only visible feedback here.
 		},
 
 		"move-picker-back": (event, actionEl) => {
@@ -427,8 +455,13 @@ export function createFocusView(rootEl, callbacks) {
 			pendingMenuFocusTaskId = null;
 		}
 
-		// Last flag consumed, cleared unconditionally. It is mutually exclusive
-		// with the two above — selectTab nulls both before setting this one.
+		// Last flag consumed, cleared unconditionally. selectTab nulls the two
+		// above before setting this one, so it is mutually exclusive with them
+		// THERE — but the pre-rewrite capture at the top of this function (the
+		// `if (!pendingFocusTab)` fallback that reads document.activeElement
+		// before the rewrite) sets this flag directly without touching
+		// pendingFocusTaskId or pendingMenuFocusTaskId, so that exclusivity is
+		// not a property of every path that sets it.
 		if (pendingFocusTab) {
 			rootEl
 				.querySelector(`.focus-tab[data-tab="${CSS.escape(pendingFocusTab)}"]`)
@@ -527,6 +560,19 @@ function template(
 		taskMenuMode,
 		movePickerHtml,
 		hasMoveTargets,
+		areas: state.areas,
+		sections: state.sections,
+		// The notepad is entirely Focus-area tasks, so a badge there would say
+		// "Focus" on every row. File is the notepad's own affordance: one tap to
+		// move a captured thought out, so it never rots for costing two levels of
+		// menu to file. Spec D7.
+		//
+		// File is gated on hasMoveTargets for the same reason "Move to…" is. With
+		// only the Focus area and its one section there is nowhere to file to, and
+		// an ungated button would render on every row purely to open a picker
+		// holding nothing but the disabled "No other sections" hint and Back.
+		showBadge: activeTab !== "focus",
+		showFile: activeTab === "focus" && hasMoveTargets,
 	};
 
 	return `
@@ -538,49 +584,86 @@ function template(
 // One panel at a time — the other three are not in the DOM, which is what keeps
 // aria-controls honest and stops four lists of rows from competing for ids.
 function renderPanel(activeTab, groups, state, rowOpts) {
-	const body = panelBody(activeTab, groups, state, rowOpts);
+	// isEmpty comes back as a flag rather than being sniffed out of the HTML.
+	// Testing `body.includes('class="empty"')` would work today — escapeHtml
+	// turns a `"` in a task title into `&quot;`, so no row can forge it — but it
+	// couples this decision to a class name inside a string and breaks silently
+	// the first time someone adds a class or reorders an attribute.
+	const { html, isEmpty } = panelBody(activeTab, groups, state, rowOpts);
+	// A panel full of rows already holds checkboxes and buttons, so adding a tab
+	// stop would just be one more thing to Tab past. An EMPTY panel holds nothing
+	// at all, and without tabindex the message is unreachable from the keyboard.
+	const focusable = isEmpty ? ' tabindex="0"' : "";
 	return `
 		<div class="focus-panel" id="focus-panel-${activeTab}" role="tabpanel"
-			aria-labelledby="focus-tab-${activeTab}">${body}</div>
+			aria-labelledby="focus-tab-${activeTab}"${focusable}>${html}</div>
 	`;
 }
 
+// Every tab needs an empty state. A blank surface with no message is
+// indistinguishable from a broken render, and one of these four (Focus) is the
+// very first thing a new user sees.
+//
+// The Focus copy deliberately does NOT say where the capture bar is. The bar is
+// pinned to the BOTTOM on phones and sits at the top from 768px up (decision
+// D9), so any directional word is wrong on one of the two — and wrong on the
+// primary form factor if it says "above".
+const EMPTY_STATE = {
+	today: "Nothing due today.",
+	tomorrow: "Nothing scheduled for tomorrow.",
+	starred: "Star a task to pull it into your day.",
+	focus: "Anything you capture lands here.",
+};
+
+// Returns { html, isEmpty }. The caller needs the flag, not a guess at it — see
+// renderPanel above.
 function panelBody(activeTab, groups, state, rowOpts) {
 	if (activeTab === "tomorrow") {
-		return renderGroup(
+		const html = renderGroup(
 			"Tomorrow",
 			"group--tomorrow",
 			groups.tomorrow,
 			true,
 			rowOpts,
 		);
+		return html ? { html, isEmpty: false } : renderEmpty("tomorrow");
 	}
 	if (activeTab === "starred") {
-		return renderGroup(
+		const html = renderGroup(
 			"Starred",
 			"group--starred",
 			groups.starred,
 			false,
 			rowOpts,
 		);
+		return html ? { html, isEmpty: false } : renderEmpty("starred");
 	}
 	if (activeTab === "focus") {
-		return renderGroup(
+		const html = renderGroup(
 			"Focus",
 			"group--notepad",
 			groups.notepad,
 			false,
 			rowOpts,
 		);
+		return html ? { html, isEmpty: false } : renderEmpty("focus");
 	}
 
 	const next = pickNextTask(groups, state.now);
-	const visible = (list) => list.filter((t) => t.id !== next?.id);
-	return `
-		${next ? renderNextCard(next, rowOpts) : ""}
-		${renderGroup("Overdue", "group--overdue", visible(groups.overdue), true, rowOpts)}
-		${renderGroup("Today", "group--today", visible(groups.today), true, rowOpts)}
-	`;
+	if (!next) return renderEmpty("today");
+	const visible = (list) => list.filter((t) => t.id !== next.id);
+	return {
+		html: `
+			${renderNextCard(next, rowOpts)}
+			${renderGroup("Overdue", "group--overdue", visible(groups.overdue), true, rowOpts)}
+			${renderGroup("Today", "group--today", visible(groups.today), true, rowOpts)}
+		`,
+		isEmpty: false,
+	};
+}
+
+function renderEmpty(tab) {
+	return { html: `<p class="empty">${EMPTY_STATE[tab]}</p>`, isEmpty: true };
 }
 
 function renderNextCard(task, rowOpts) {
@@ -620,6 +703,10 @@ function renderTaskRowWithMenu(task, rowOpts) {
 		taskMenuMode,
 		movePickerHtml,
 		hasMoveTargets,
+		areas,
+		sections,
+		showBadge,
+		showFile,
 	} = rowOpts;
 
 	const isRenaming = renamingTaskId === task.id;
@@ -634,7 +721,10 @@ function renderTaskRowWithMenu(task, rowOpts) {
 	}
 
 	const isOpen = openMenuTaskId === task.id;
-	const row = renderTaskRow(task, { now, isOpen });
+	const areaName = showBadge
+		? (areaForTask(task, sections, areas)?.name ?? null)
+		: null;
+	const row = renderTaskRow(task, { now, isOpen, areaName, showFile });
 	if (!isOpen) return row;
 
 	// Picker face: replace the action menu with the pre-rendered picker.

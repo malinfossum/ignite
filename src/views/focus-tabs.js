@@ -33,7 +33,7 @@ export function renderTabStrip({ activeTab, counts }) {
 				data-action="select-tab"
 				data-tab="${tab.id}"
 				aria-selected="${selected}"${controls}
-				tabindex="${selected ? "0" : "-1"}">${tab.label}<span class="focus-tab__count">${counts?.[tab.id] ?? 0}</span></button>
+				tabindex="${selected ? "0" : "-1"}">${tab.label} <span class="focus-tab__count">${counts?.[tab.id] ?? 0}</span></button>
 		`;
 	}).join("");
 
