@@ -15,7 +15,7 @@ import {
 	nextThemeChoice,
 	resolveTheme,
 } from "./utils/theme.js";
-import { formatOccurrenceLabel } from "./utils/time.js";
+import { formatOccurrenceLabel, formatTimeLabel } from "./utils/time.js";
 import { createAreaView } from "./views/area.js";
 import { createCaptureView } from "./views/capture.js";
 import { createRecurrenceDialog } from "./views/recurrence-dialog.js";
@@ -688,18 +688,22 @@ export function createController({ models, els }) {
 		if (rerender) applyState();
 	}
 
-	async function onSaveRecurrence({ taskId, recurrence, dueAt }) {
+	async function onSaveRecurrence({ taskId, recurrence, dueAt, hasTime }) {
 		closeRecurrenceEditor({ rerender: false }); // clears inert + sets focus flag
 		try {
-			await tasks.update(taskId, { recurrence, dueAt }); // notify → render consumes flag
+			// notify → render consumes flag
+			await tasks.update(taskId, { recurrence, dueAt, hasTime });
 		} catch (err) {
 			if (/not found/i.test(err.message)) return; // cascade race
 			throw err;
 		}
-		toast.show({
-			message: `Repeats ${describeRecurrence(recurrence)}`,
-			durationMs: COMPLETE_TOAST_MS,
-		});
+		// A schedule without a repeat is now a valid save, so the toast can no
+		// longer assume there is a cadence to describe.
+		const now = new Date();
+		const message = recurrence
+			? `Repeats ${describeRecurrence(recurrence)}`
+			: `Due ${hasTime ? formatTimeLabel(dueAt, now) : formatOccurrenceLabel(dueAt, now)}`;
+		toast.show({ message, durationMs: COMPLETE_TOAST_MS });
 	}
 
 	async function onRemoveRecurrence({ taskId }) {
