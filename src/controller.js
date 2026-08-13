@@ -15,7 +15,13 @@ import {
 	nextThemeChoice,
 	resolveTheme,
 } from "./utils/theme.js";
-import { formatDueSummary, formatOccurrenceLabel } from "./utils/time.js";
+import {
+	formatDayGreeting,
+	formatDueSummary,
+	formatOccurrenceLabel,
+	groupTasksForFocus,
+	summariseDay,
+} from "./utils/time.js";
 import { createAreaView } from "./views/area.js";
 import { createCaptureView } from "./views/capture.js";
 import { createFocusView } from "./views/focus.js";
@@ -125,14 +131,38 @@ export function createController({ models, els }) {
 			}</h1>`;
 			return;
 		}
-		const date = state.now.toLocaleDateString(undefined, {
-			weekday: "long",
-			day: "numeric",
-			month: "long",
-		});
+		// The <h1> says "Focus", not the date. A heading names WHERE YOU ARE, and
+		// a screen-reader user navigating by heading needs a landmark that is the
+		// same every day. The date is the greeting beneath it. Spec §3.1.
+		const focusSectionIds = state.sections
+			.filter((s) => s.areaId === FOCUS_ID)
+			.map((s) => s.id);
+		// Computed here as well as in the view. Both calls take the same `state`,
+		// including the same `now`, so the summary and the tab counts agree by
+		// construction — which is the property worth paying one extra O(n) pass
+		// for. Threading groups through `state` would make the view depend on the
+		// controller having computed them first.
+		const groups = groupTasksForFocus(state.tasks, state.now, focusSectionIds);
+		const { overdue, dueToday } = summariseDay(groups);
+		// The overdue count is emphasised, and omitted entirely at zero — "0
+		// overdue" is a reassurance nobody asked for. The Overdue group keeps its
+		// own heading and count, so this line is never the only route to the
+		// number (§8).
+		const summary = [
+			overdue > 0
+				? `<strong class="page-header__overdue">${overdue} overdue</strong>`
+				: "",
+			`${dueToday} due today`,
+		]
+			.filter(Boolean)
+			.join(" · ");
+
+		// No escapeHtml on the greeting: formatDayGreeting composes it from two
+		// constant arrays and a number, with no user-authored input anywhere.
 		pageHeaderRoot.innerHTML = `
-			<h1 class="page-header__title">Today</h1>
-			<p class="page-header__date">${date}</p>
+			<h1 class="page-header__title">Focus</h1>
+			<p class="page-header__greeting">${formatDayGreeting(state.now)}</p>
+			<p class="page-header__summary">${summary}</p>
 		`;
 	}
 
