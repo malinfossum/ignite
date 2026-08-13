@@ -1,4 +1,4 @@
-// createTodayView(rootEl, { onToggleComplete, onToggleStar, onDelete })
+// createFocusView(rootEl, { onToggleComplete, onToggleStar, onDelete })
 //   → { render(state), destroy() }
 //
 // state expected: { tasks, sections, areas, settings, now }
@@ -15,7 +15,7 @@ import { groupTasksForFocus, pickNextTask } from "../utils/time.js";
 import { renderMovePicker } from "./move-picker.js";
 import { renderTaskRow } from "./task.js";
 
-export function createTodayView(rootEl, callbacks) {
+export function createFocusView(rootEl, callbacks) {
 	let lastState = null;
 	let openMenuTaskId = null;
 	let pendingFocusTaskId = null;
@@ -75,7 +75,7 @@ export function createTodayView(rootEl, callbacks) {
 		closeMenu(false);
 	};
 
-	function findOpenMenuInToday(target) {
+	function findOpenMenuInFocus(target) {
 		if (!openMenuTaskId) return null;
 		const menu = rootEl.querySelector(
 			`[data-id="${CSS.escape(openMenuTaskId)}"] [role="menu"]`,
@@ -93,7 +93,7 @@ export function createTodayView(rootEl, callbacks) {
 			return;
 		}
 
-		const menuEl = findOpenMenuInToday(event.target);
+		const menuEl = findOpenMenuInFocus(event.target);
 		if (!menuEl) return;
 
 		const menuItems = Array.from(menuEl.querySelectorAll('[role="menuitem"]'));
@@ -184,7 +184,7 @@ export function createTodayView(rootEl, callbacks) {
 			event.stopPropagation();
 			const t = taskFromEvent(actionEl);
 			if (!t) return;
-			openMenuTaskId = null; // today.js names it openMenuTaskId
+			openMenuTaskId = null; // focus.js names it openMenuTaskId
 			taskMenuMode = "actions";
 			doRender();
 			callbacks.onOpenRepeatEditor?.(t.id);

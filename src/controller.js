@@ -18,10 +18,10 @@ import {
 import { formatDueSummary, formatOccurrenceLabel } from "./utils/time.js";
 import { createAreaView } from "./views/area.js";
 import { createCaptureView } from "./views/capture.js";
+import { createFocusView } from "./views/focus.js";
 import { createRecurrenceDialog } from "./views/recurrence-dialog.js";
 import { createSidebarView } from "./views/sidebar.js";
 import { createToastView, TASK_DELETE_BATCH_KEY } from "./views/toast.js";
-import { createTodayView } from "./views/today.js";
 import { createTopbarView } from "./views/topbar.js";
 
 const TICK_MS = 60_000;
@@ -317,7 +317,7 @@ export function createController({ models, els }) {
 		currentMainView = null;
 
 		if (route.name === "focus") {
-			currentMainView = createTodayView(mainRoot, {
+			currentMainView = createFocusView(mainRoot, {
 				onToggleComplete: handleToggleComplete,
 				onToggleStar: (id, currentStarred) =>
 					tasks.update(id, { starred: !currentStarred }),

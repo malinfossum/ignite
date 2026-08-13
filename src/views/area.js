@@ -194,7 +194,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	// Esc lives on document, not rootEl. After doRender() rewrites innerHTML
 	// the previously-focused element is detached and focus drops to <body>,
 	// which is outside rootEl. A keydown on body bubbles up to document only —
-	// it never visits rootEl. Matches the today.js pattern.
+	// it never visits rootEl. Matches the focus.js pattern.
 	function findOpenMenuInArea(target) {
 		if (openMenuId) {
 			const menu = rootEl.querySelector(

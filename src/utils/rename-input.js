@@ -1,5 +1,5 @@
 // Shared wiring for an inline-rename <input> that is recreated on every
-// innerHTML rewrite. area.js, today.js and sidebar.js each carried a verbatim
+// innerHTML rewrite. area.js, focus.js and sidebar.js each carried a verbatim
 // copy of this — it's the trickiest focus code in the app, so it lives once here.
 //
 // The VIEW still owns its rename STATE (which id is editing, the pending text,
