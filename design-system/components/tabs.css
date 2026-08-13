@@ -27,6 +27,3 @@
 	color: var(--text);
 	border-bottom-color: var(--accent);
 }
-.tab-panel[hidden] {
-	display: none;
-}
