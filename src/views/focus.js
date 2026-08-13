@@ -391,14 +391,14 @@ export function createFocusView(rootEl, callbacks) {
 		// the whole surface's navigation, so that is not a small loss.
 		//
 		// An EMPTY panel is the only focusable panel (it carries tabindex="0" so a
-		// keyboard user arrowing off the strip is not stranded) — so a focused
-		// element inside rootEl is either a tab or that panel. Capture both here,
-		// before the rewrite detaches whichever one held focus; refocusPanel is
-		// read after the rewrite below.
-		//
-		// Only ever re-asserts focus that was ALREADY on one of the two, and the
-		// guard means it never overrides a tab switch that has explicitly asked
-		// for focus.
+		// keyboard user arrowing off the strip is not stranded). Capture the
+		// currently-focused element (before the rewrite detaches it) to check if
+		// it is a tab or anywhere inside a panel. When closest(".focus-panel")
+		// matches for a focused descendant of a panel, refocusPanel is set true;
+		// the restore below uses [tabindex] to no-op if the panel re-renders as
+		// non-empty (e.g. a task row remains). This fires and helps when a render
+		// empties the panel entirely — deleting the last row — where focus would
+		// otherwise drop to <body>.
 		const activeInRoot = pendingFocusTab
 			? null
 			: (document.activeElement?.closest?.(".focus-tab, .focus-panel") ?? null);
@@ -486,9 +486,9 @@ export function createFocusView(rootEl, callbacks) {
 
 		// The empty panel is the only focusable panel (it carries tabindex="0" so
 		// a keyboard user arrowing off the strip is not stranded). Restore it only
-		// when it actually held focus and no tab switch is asking for the strip
-		// instead; the [tabindex] guard makes this a no-op if the new panel is
-		// non-empty.
+		// when it actually held focus. By this point pendingFocusTab is always null
+		// (cleared at line 484), so the guard is belt-and-braces; the [tabindex]
+		// selector is the actual safeguard — it matches only an empty panel.
 		if (refocusPanel && !pendingFocusTab) {
 			rootEl.querySelector(".focus-panel[tabindex]")?.focus();
 		}

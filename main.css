@@ -330,7 +330,10 @@ body {
 /* The strip's own overflow-x: auto forces overflow-y to compute to auto too,
    which clips painting to the padding box. A positive outline-offset (the
    design system's default :focus-visible) draws 2px outside that box and gets
-   cut off on the first/last tab. Negative offset keeps the ring inside. */
+   cut off on the first/last tab. Negative offset keeps the outline inside, but
+   the design system's box-shadow: var(--shadow-focus) glow is not offset, so it
+   still clips at the strip's edge on first/last tabs. The outline is the
+   WCAG-relevant indicator and is fully visible; this is accepted. */
 .focus-tab:focus-visible {
 	outline-offset: -2px;
 }
@@ -344,9 +347,9 @@ body {
    same palette — `--text-xs` (12px) would make this the smallest text anywhere
    in the app, below even the 13.6px time label. `--text-muted` (not
    `--text-faint`, which measures 4.21:1 against --surface-1 at 14px — under
-   WCAG AA's 4.5:1) — measured 6.70:1 light / 10.11:1 dark. The active tab
-   already reads --text at full contrast via .focus-tab.is-active above, so no
-   separate active-state override is needed. */
+   WCAG AA's 4.5:1) — measured 6.70:1 light / 10.11:1 dark. The element-level
+   rule beats inheritance, so even in the active tab (which inherits --text), the
+   count renders --text-muted. No separate active-state override needed. */
 .focus-tab__count {
 	color: var(--text-muted);
 	font-size: var(--text-sm);
