@@ -107,11 +107,45 @@ export function groupTasksForToday(tasks, now) {
 		}
 	}
 
-	overdue.sort(byDueAtAsc);
-	today.sort(byDueAtAsc);
 	starred.sort((a, b) => a.order - b.order);
 
-	return { overdue, today, starred };
+	return {
+		overdue: sortByDueThenUntimed(overdue),
+		today: sortByDueThenUntimed(today),
+		starred,
+	};
+}
+
+// Day ascending; within a day, timed tasks first by clock time, then untimed.
+// An untimed task means "sometime that day", not 00:00, so it must not squat at
+// the top of its day just because that is where its stored midnight puts it.
+//
+// The DAY comparison has to come first. This sorts `overdue` as well as `today`,
+// and overdue spans many days — without it, an untimed task from three weeks ago
+// would sort below this morning's 09:00.
+export function sortByDueThenUntimed(tasks) {
+	return [...tasks].sort(byDueThenUntimed);
+}
+
+function byDueThenUntimed(a, b) {
+	const dayDelta =
+		startOfDay(new Date(a.dueAt)).getTime() -
+		startOfDay(new Date(b.dueAt)).getTime();
+	if (dayDelta !== 0) return dayDelta;
+
+	if (a.hasTime !== b.hasTime) return a.hasTime ? -1 : 1;
+	if (a.hasTime) {
+		const delta = new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
+		if (delta !== 0) return delta;
+	}
+
+	// Explicit tie-break rather than relying on sort stability, which is engine
+	// behaviour and not a guarantee — without it the order shuffles between
+	// renders as unrelated tasks change. A STRING compare is correct here only
+	// because `createdAt` is always `new Date().toISOString()`: UTC, fixed width,
+	// so lexicographic order IS chronological. Store a local-format date in that
+	// field and this breaks silently.
+	return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0;
 }
 
 export function pickNextTask(tasks, now) {
