@@ -14,6 +14,10 @@
 //                        or null. Falls back to task.title when null.
 //                        MUST be ??, not || — a typed "" renders empty +
 //                        placeholder.
+//   areaName           - the task's area name, or null. Renders the area badge
+//                        that appears at >=768px on the dated tabs. Escaped —
+//                        area names are user-authored and this is a new
+//                        interpolation site.
 
 import { escapeHtml } from "../utils/dom.js";
 import { describeRecurrence } from "../utils/text.js";
@@ -27,6 +31,7 @@ export function renderTaskRow(
 		renaming = false,
 		pendingRenameValue = null,
 		showFile = false,
+		areaName = null,
 	} = { now: new Date() },
 ) {
 	if (renaming) return renderRenameRow(task, pendingRenameValue);
@@ -55,16 +60,22 @@ export function renderTaskRow(
 				aria-haspopup="menu"
 				aria-label="File ${escapeHtml(task.title)}">File</button>`
 		: "";
+	// The badge is a plain <span>, not a link or a button: it says where the task
+	// lives, it does not navigate. main.css hides it below 768px.
+	const areaBadge = areaName
+		? `<span class="task__area-badge">${escapeHtml(areaName)}</span>`
+		: "";
 
 	return `
 		<li class="task" data-id="${escapeHtml(task.id)}">
 			<input type="checkbox" class="task__check" data-action="toggle-complete" ${checked}
 				aria-label="Mark complete: ${escapeHtml(task.title)}" />
 			<span class="task__title">${escapeHtml(task.title)}</span>
+			${recurring}
+			${areaBadge}
+			${timeLabel}
 			<button class="task__star" type="button" data-action="toggle-star" ${starredAttr}
 				aria-label="Star: ${escapeHtml(task.title)}">${starGlyph}</button>
-			${recurring}
-			${timeLabel}
 			${fileBtn}
 			<button class="task__menu-btn" type="button" data-action="open-menu"
 				aria-haspopup="menu"
