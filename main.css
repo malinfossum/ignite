@@ -106,6 +106,12 @@ body {
 
 #main {
 	width: 100%;
+	/* #main is a grid item in body's 1fr column. Without this, its automatic
+	   minimum size is its content's min-content width — and the task row's
+	   non-shrinking badge/time columns plus a nowrap title push that past
+	   600px, forcing the column wider than the viewport between 768px and
+	   ~911px and causing horizontal page scroll. */
+	min-width: 0;
 	max-width: var(--main-max-width);
 	margin-inline: auto;
 	padding: var(--main-padding);
@@ -321,6 +327,13 @@ body {
 .focus-tab:hover {
 	color: var(--text);
 }
+/* The strip's own overflow-x: auto forces overflow-y to compute to auto too,
+   which clips painting to the padding box. A positive outline-offset (the
+   design system's default :focus-visible) draws 2px outside that box and gets
+   cut off on the first/last tab. Negative offset keeps the ring inside. */
+.focus-tab:focus-visible {
+	outline-offset: -2px;
+}
 .focus-tab.is-active {
 	color: var(--text);
 	border-bottom-color: var(--accent);
@@ -329,13 +342,14 @@ body {
    behind it, so a value that passes contrast on one surface fails on another.
    Spec §8.2. `--text-sm` matches `.group__count`, which is the same idea in the
    same palette — `--text-xs` (12px) would make this the smallest text anywhere
-   in the app, below even the 13.6px time label. */
+   in the app, below even the 13.6px time label. `--text-muted` (not
+   `--text-faint`, which measures 4.21:1 against --surface-1 at 14px — under
+   WCAG AA's 4.5:1) — measured 6.70:1 light / 10.11:1 dark. The active tab
+   already reads --text at full contrast via .focus-tab.is-active above, so no
+   separate active-state override is needed. */
 .focus-tab__count {
-	color: var(--text-faint);
-	font-size: var(--text-sm);
-}
-.focus-tab.is-active .focus-tab__count {
 	color: var(--text-muted);
+	font-size: var(--text-sm);
 }
 .focus-panel:focus-visible {
 	outline: 2px solid var(--accent);
@@ -497,6 +511,9 @@ body {
 	.task__time-label {
 		flex: 0 0 6rem;
 		text-align: right;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 }
 .task__file {
