@@ -37,7 +37,7 @@
 	--sidebar-width: 240px;
 	--sidebar-rail-width: 48px;
 	--main-max-width: var(--reading-width);
-	--main-padding: var(--space-5);
+	--main-padding: var(--space-4);
 	--radius: var(--radius-sm);
 }
 
@@ -289,6 +289,59 @@ body {
 	position: static;
 }
 
+/* --- Focus tabs --- */
+.focus-tabs {
+	display: flex;
+	gap: var(--space-1);
+	margin: 0 0 var(--space-4);
+	border-bottom: 1px solid var(--border);
+	/* Four 44px targets plus their counts do not fit 375px. The strip scrolls;
+	   the targets do NOT shrink (spec §8.1).
+	   Deliberately NOT `scrollbar-width: none`: at 375px the fourth tab sits off
+	   screen, and the scrollbar is the only cue that it is there at all. Mobile
+	   browsers auto-hide overlay scrollbars anyway, and the strip does not
+	   overflow on desktop, so hiding it buys nothing and costs the affordance. */
+	overflow-x: auto;
+}
+.focus-tab {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	min-height: 44px;
+	padding: 0 var(--space-3);
+	background: none;
+	border: none;
+	border-bottom: 2px solid transparent;
+	color: var(--text-muted);
+	font: inherit;
+	font-size: var(--text-sm);
+	cursor: pointer;
+}
+.focus-tab:hover {
+	color: var(--text);
+}
+.focus-tab.is-active {
+	color: var(--text);
+	border-bottom-color: var(--accent);
+}
+/* A real token colour, never opacity: opacity compounds against whatever is
+   behind it, so a value that passes contrast on one surface fails on another.
+   Spec §8.2. `--text-sm` matches `.group__count`, which is the same idea in the
+   same palette — `--text-xs` (12px) would make this the smallest text anywhere
+   in the app, below even the 13.6px time label. */
+.focus-tab__count {
+	color: var(--text-faint);
+	font-size: var(--text-sm);
+}
+.focus-tab.is-active .focus-tab__count {
+	color: var(--text-muted);
+}
+.focus-panel:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
 /* --- NEXT card --- */
 .next-card {
 	margin: 0 0 var(--space-5);
@@ -345,7 +398,7 @@ body {
 	border-top: 1px solid var(--border-soft);
 }
 /* Round the end rows individually. Do NOT reach for `overflow: hidden` here — the
-   task ⋯ menu injects INSIDE the <li> as its last child (see today.js), so a
+   task ⋯ menu injects INSIDE the <li> as its last child (see focus.js), so a
    clipping ancestor cuts the menu off. It bites worst on the last row of a group,
    which is exactly where a menu most needs to overflow. */
 .group__list > .task:first-child {
@@ -410,6 +463,41 @@ body {
 .task__recurring {
 	color: var(--color-text-muted);
 	font-size: 0.85rem;
+}
+/* Phone: the row is title-first, so the badge drops out entirely (spec §7).
+   display:none takes it out of the accessibility tree too — accepted, because
+   the area is not conveyed to the sighted phone user either. */
+.task__area-badge {
+	display: none;
+	color: var(--text-muted);
+	font-size: var(--text-sm);
+}
+/* Fixed bases so the columns line up across every group. `.task__title` is the
+   only flex:1 child, which is what absorbs the conditional ⟲ glyph; every OTHER
+   child must refuse to shrink or the alignment drifts row to row.
+   `.task__check` and `.task__recurring` are in this list on purpose: both
+   default to `flex: 0 1 auto`, so under pressure they compress by a fraction and
+   every column to their right moves with them. A partially-pinned row is the
+   version that looks right on seeded data and wrong on a real list, and §7 calls
+   this alignment the work. */
+.task__check,
+.task__recurring,
+.task__star,
+.task__menu-btn {
+	flex: 0 0 auto;
+}
+@media (min-width: 768px) {
+	.task__area-badge {
+		display: block;
+		flex: 0 0 8rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.task__time-label {
+		flex: 0 0 6rem;
+		text-align: right;
+	}
 }
 .task__file {
 	flex: 0 0 auto;
@@ -1392,10 +1480,19 @@ body.is-drawer-open #scrim {
    design system's reset.css already zeroes every margin globally. The area
    route's default h1 weight/color already match what `.area__title` used to
    set explicitly, so there's nothing left to fold in. */
-.page-header__date {
+.page-header__greeting {
 	margin: var(--space-1) 0 0;
-	color: var(--text-faint);
+	color: var(--text-muted);
 	font-size: var(--text-sm);
+}
+.page-header__summary {
+	margin: var(--space-1) 0 0;
+	color: var(--text-muted);
+	font-size: var(--text-sm);
+}
+.page-header__overdue {
+	color: var(--color-overdue);
+	font-weight: 600;
 }
 
 /* --- Area icon picker --- */
