@@ -31,6 +31,19 @@ describe("createTaskModel — create", () => {
 		expect(typeof t.createdAt).toBe("string");
 	});
 
+	it("defaults hasTime to false", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({ sectionId: "s1", title: "Call mom" });
+		expect(t.hasTime).toBe(false);
+	});
+
+	it("accepts hasTime on create and round-trips it as a boolean", async () => {
+		const { model } = await freshModel();
+		await model.create({ sectionId: "s1", title: "Standup", hasTime: true });
+		const [stored] = await model.list();
+		expect(stored.hasTime).toBe(true);
+	});
+
 	it("requires sectionId and title", async () => {
 		const { model } = await freshModel();
 		await expect(model.create({ title: "X" })).rejects.toThrow(/sectionId/i);
@@ -554,5 +567,31 @@ describe("createTaskModel — moveToSection", () => {
 		expect(moved.leadTime).toBe(15);
 		expect(moved.notes).toBe("bring laptop");
 		expect(moved.createdAt).toBe(t.createdAt);
+	});
+});
+
+describe("createTaskModel — hasTime migration", () => {
+	it("reads a row written before hasTime existed as false", async () => {
+		const { db, model } = await freshModel();
+		const t = await model.create({ sectionId: "s1", title: "Legacy" });
+		// Simulate a pre-hasTime row: the field simply is not there.
+		const row = await db.get("tasks", t.id);
+		delete row.hasTime;
+		await db.put("tasks", row);
+
+		const [read] = await model.list();
+		expect(read.hasTime).toBe(false);
+	});
+
+	it("survives an update that does not mention hasTime", async () => {
+		const { model } = await freshModel();
+		const t = await model.create({
+			sectionId: "s1",
+			title: "Standup",
+			hasTime: true,
+		});
+		await model.rename(t.id, "Standup, moved");
+		const [read] = await model.list();
+		expect(read.hasTime).toBe(true);
 	});
 });
