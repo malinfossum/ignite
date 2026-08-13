@@ -4,6 +4,7 @@
 // state expected: { tasks, sections, areas, settings, now }
 // onDelete receives the full task object so the controller can restore it.
 
+import { FOCUS_ID } from "../model/areas.js";
 import { bindActions, bindKeys } from "../utils/dom.js";
 import {
 	firstEnabledIndex,
@@ -12,6 +13,7 @@ import {
 } from "../utils/menu-keyboard.js";
 import { attachRenameInput, readRenameCaret } from "../utils/rename-input.js";
 import { groupTasksForFocus, pickNextTask } from "../utils/time.js";
+import { renderTabStrip, TABS } from "./focus-tabs.js";
 import { renderMovePicker } from "./move-picker.js";
 import { renderTaskRow } from "./task.js";
 
@@ -37,6 +39,16 @@ export function createFocusView(rootEl, callbacks) {
 	// Sub-face of the open task menu: 'actions' (default) | 'picker'.
 	// RESET to 'actions' on every open-menu; destroy resets it too.
 	let taskMenuMode = "actions";
+	// Which tab is showing. VIEW-owned, not a model field and not controller
+	// state: every step of a tab switch acts on state that lives in this closure
+	// (the open menu, the live rename), and "always resets to Today on mount"
+	// then comes for free — leaving Focus for an area destroys the view, so
+	// coming back always lands here again. Spec §3.3.
+	let activeTab = "today";
+	// After the next render, focus this tab's button. Consumed last in doRender,
+	// cleared unconditionally, reset in destroy() — same contract as every other
+	// pending-focus flag in this file.
+	let pendingFocusTab = null;
 
 	// returnFocus=false on click-outside dismiss: focus follows the click
 	// (e.g. into the capture input), not back to the ⋯. Esc / menu-action /
@@ -67,6 +79,49 @@ export function createFocusView(rootEl, callbacks) {
 		pendingRenameTaskSelect = true;
 		pendingRenameTaskValue = null; // prefill the committed title
 		doRender();
+	};
+
+	// Switching tab is a lifecycle event, not just a re-render: the panel is
+	// rewritten, which detaches everything inside it. In order (spec §3.3):
+	//   1. close any open task menu
+	//   2. resolve a live rename by COMMITTING it, matching Enter — never
+	//      discard what the user typed
+	//   3. render the new tab
+	//   4. move focus to the newly-selected tab button
+	//
+	// Step 3 is deliberately conditional. When a rename commit fires, the model
+	// write's own notify-render is the render that must consume pendingFocusTab.
+	// Rendering here as well would focus the tab button and then let that queued
+	// render rewrite innerHTML underneath it, dropping focus to <body> — the trap
+	// the cascade-focus drain exists to prevent, and a view cannot drain, only
+	// the controller can await applyState(). commitTaskRenameFromInput below
+	// renders in exactly one branch for exactly this reason.
+	const selectTab = (next) => {
+		if (!TABS.some((t) => t.id === next)) return;
+
+		openMenuTaskId = null;
+		taskMenuMode = "actions";
+		pendingMenuFocusTaskId = null;
+		// Never route focus back to a ⋯ button that is about to be detached.
+		pendingFocusTaskId = null;
+
+		let renameCommitted = false;
+		if (renamingTaskId) {
+			const input = rootEl.querySelector(".task__rename-input");
+			const value = (input?.value ?? "").trim();
+			const id = renamingTaskId;
+			renamingTaskId = null;
+			pendingRenameTaskValue = null;
+			pendingRenameTaskSelect = false;
+			if (value) {
+				callbacks.onCommitTaskRename({ taskId: id, name: value });
+				renameCommitted = true;
+			}
+		}
+
+		activeTab = next;
+		pendingFocusTab = next;
+		if (!renameCommitted) doRender();
 	};
 
 	const docClickHandler = (event) => {
@@ -145,6 +200,10 @@ export function createFocusView(rootEl, callbacks) {
 	rootEl.addEventListener("dblclick", dblclickHandler);
 
 	const unbind = bindActions(rootEl, {
+		"select-tab": (_event, actionEl) => {
+			const next = actionEl?.dataset?.tab;
+			if (next) selectTab(next);
+		},
 		"toggle-complete": (_event, actionEl) => {
 			const t = taskFromEvent(actionEl);
 			if (t) callbacks.onToggleComplete(t.id);
@@ -244,7 +303,31 @@ export function createFocusView(rootEl, callbacks) {
 			const t = taskFromEvent(event.target);
 			if (t) enterTaskRename(t);
 		},
+		ArrowRight: (event) => moveTabFocus(event, 1),
+		ArrowLeft: (event) => moveTabFocus(event, -1),
+		Home: (event) => moveTabFocus(event, 0, firstEnabledIndex),
+		End: (event) => moveTabFocus(event, 0, lastEnabledIndex),
 	});
+
+	// Roving-tabindex traversal for the tab strip, mirroring the icon picker.
+	// Guarded on the event target actually being a tab, so it never competes with
+	// the ⋯ menu's own Home/End handling (which is guarded on being inside an
+	// open menu) or with a caret moving inside a rename input.
+	//
+	// Activation is automatic: arrowing to a tab selects it, per the APG pattern
+	// for cheap panels. selectTab moves the focus, so nothing is needed here
+	// beyond choosing the target.
+	function moveTabFocus(event, direction, pick) {
+		if (!event.target.closest('[role="tab"]')) return;
+		const items = TABS.map(() => ({ disabled: false }));
+		const currentIndex = TABS.findIndex((t) => t.id === activeTab);
+		const nextIdx = pick
+			? pick(items)
+			: nextEnabledIndex(items, currentIndex, direction);
+		if (nextIdx < 0) return;
+		event.preventDefault();
+		selectTab(TABS[nextIdx].id);
+	}
 
 	function commitTaskRenameFromInput(inputEl) {
 		const id = inputEl?.dataset?.taskId ?? renamingTaskId;
@@ -269,6 +352,18 @@ export function createFocusView(rootEl, callbacks) {
 		// helper re-focuses and restores it after re-render. See utils/rename-input.js.
 		const taskCaret = readRenameCaret(rootEl, ".task__rename-input");
 
+		// The 60s tick and every model notify rewrite this subtree with no user
+		// action behind them, detaching whatever held focus. Without this, focus
+		// parked on a tab drops to <body> once a minute — and the tab strip is now
+		// the whole surface's navigation, so that is not a small loss.
+		//
+		// Only ever re-asserts focus that was ALREADY on a tab, and the guard means
+		// it never overrides a tab switch that has explicitly asked for focus.
+		if (!pendingFocusTab) {
+			pendingFocusTab =
+				document.activeElement?.closest?.(".focus-tab")?.dataset?.tab ?? null;
+		}
+
 		isRendering = true;
 		try {
 			rootEl.innerHTML = template(
@@ -277,6 +372,7 @@ export function createFocusView(rootEl, callbacks) {
 				renamingTaskId,
 				pendingRenameTaskValue,
 				taskMenuMode,
+				activeTab,
 			);
 		} finally {
 			// try/finally so a defensive template throw can't strand
@@ -300,13 +396,22 @@ export function createFocusView(rootEl, callbacks) {
 		if (attached) pendingRenameTaskSelect = false;
 
 		// Post-render lookup: focus the task's ⋯ button by data-attribute.
-		// Captured element refs go stale across innerHTML rewrites, so we
-		// query the freshly-rendered DOM. Mirrors area.js's pendingFocusTaskId.
+		// Captured element refs go stale across innerHTML rewrites, so we query
+		// the freshly-rendered DOM.
 		if (pendingFocusTaskId) {
 			const trigger = rootEl.querySelector(
 				`[data-id="${CSS.escape(pendingFocusTaskId)}"] .task__menu-btn`,
 			);
-			trigger?.focus();
+			// The task may have left this tab entirely between the flag being set
+			// and this render — rescheduling it to next week from the Schedule
+			// dialog is enough, and that is now the ordinary outcome rather than an
+			// edge case. Without the fallback, `?.focus()` silently no-ops and focus
+			// stays wherever the closed dialog left it: <body>.
+			if (trigger) trigger.focus();
+			else
+				rootEl
+					.querySelector(`.focus-tab[data-tab="${CSS.escape(activeTab)}"]`)
+					?.focus();
 			pendingFocusTaskId = null;
 		}
 
@@ -321,6 +426,15 @@ export function createFocusView(rootEl, callbacks) {
 			firstItem?.focus();
 			pendingMenuFocusTaskId = null;
 		}
+
+		// Last flag consumed, cleared unconditionally. It is mutually exclusive
+		// with the two above — selectTab nulls both before setting this one.
+		if (pendingFocusTab) {
+			rootEl
+				.querySelector(`.focus-tab[data-tab="${CSS.escape(pendingFocusTab)}"]`)
+				?.focus();
+			pendingFocusTab = null;
+		}
 	}
 
 	return {
@@ -331,6 +445,8 @@ export function createFocusView(rootEl, callbacks) {
 		focusTaskMenu(taskId) {
 			pendingFocusTaskId = taskId;
 		},
+		selectTab,
+		getActiveTab: () => activeTab,
 		destroy() {
 			// Destroy-commit: if a task rename is in flight and the input has
 			// a non-empty trimmed value, commit it BEFORE listener unbinding so
@@ -357,6 +473,8 @@ export function createFocusView(rootEl, callbacks) {
 			pendingRenameTaskSelect = false;
 			isRendering = false;
 			taskMenuMode = "actions";
+			activeTab = "today";
+			pendingFocusTab = null;
 		},
 	};
 }
@@ -367,26 +485,25 @@ function template(
 	renamingTaskId,
 	pendingRenameTaskValue,
 	taskMenuMode,
+	activeTab,
 ) {
-	// Temporary []: this view has no notepad yet, and an empty focusSectionIds
-	// yields an empty notepad bucket, which nothing here reads. Task 10 replaces
-	// the whole template and supplies the real list.
-	const groups = groupTasksForFocus(state.tasks, state.now, []);
-	const next = pickNextTask(groups, state.now);
-	const visible = (list) => list.filter((t) => t.id !== next?.id);
+	// Which sections belong to Focus. Resolved here, then passed as data, because
+	// utils/time.js must stay ignorant of FOCUS_ID. Every Focus section counts,
+	// not just focus-default — §12.4 keeps pre-merge extra sections from
+	// orphaning their tasks now that the surface has no section headings.
+	const focusSectionIds = state.sections
+		.filter((s) => s.areaId === FOCUS_ID)
+		.map((s) => s.id);
 
-	const overdue = visible(groups.overdue);
-	const today = visible(groups.today);
-	const starred = visible(groups.starred);
+	const groups = groupTasksForFocus(state.tasks, state.now, focusSectionIds);
+	const counts = {
+		today: groups.overdue.length + groups.today.length,
+		tomorrow: groups.tomorrow.length,
+		starred: groups.starred.length,
+		focus: groups.notepad.length,
+	};
 
-	const allEmpty =
-		!next && overdue.length === 0 && today.length === 0 && starred.length === 0;
-
-	if (allEmpty) {
-		return `<p class="empty">You're clear. Nice.</p>`;
-	}
-
-	// ≥1 section other than any task's own ⇒ a valid move target exists.
+	// >=1 section other than any task's own ⇒ a valid move target exists.
 	const hasMoveTargets = state.sections.length > 1;
 
 	// Compute the picker only for the open task in picker mode.
@@ -402,47 +519,82 @@ function template(
 		}
 	}
 
+	const rowOpts = {
+		now: state.now,
+		openMenuTaskId,
+		renamingTaskId,
+		pendingRenameTaskValue,
+		taskMenuMode,
+		movePickerHtml,
+		hasMoveTargets,
+	};
+
 	return `
-		${next ? renderNextCard(next, state.now, openMenuTaskId, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets) : ""}
-		${renderGroup("Overdue", "group--overdue", overdue, state.now, openMenuTaskId, true, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets)}
-		${renderGroup("Today", "group--today", today, state.now, openMenuTaskId, true, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets)}
-		${renderGroup("Starred", "group--starred", starred, state.now, openMenuTaskId, false, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets)}
+		${renderTabStrip({ activeTab, counts })}
+		${renderPanel(activeTab, groups, state, rowOpts)}
 	`;
 }
 
-function renderNextCard(
-	task,
-	now,
-	openMenuTaskId,
-	renamingTaskId,
-	pendingRenameTaskValue,
-	taskMenuMode,
-	movePickerHtml,
-	hasMoveTargets,
-) {
+// One panel at a time — the other three are not in the DOM, which is what keeps
+// aria-controls honest and stops four lists of rows from competing for ids.
+function renderPanel(activeTab, groups, state, rowOpts) {
+	const body = panelBody(activeTab, groups, state, rowOpts);
+	return `
+		<div class="focus-panel" id="focus-panel-${activeTab}" role="tabpanel"
+			aria-labelledby="focus-tab-${activeTab}">${body}</div>
+	`;
+}
+
+function panelBody(activeTab, groups, state, rowOpts) {
+	if (activeTab === "tomorrow") {
+		return renderGroup(
+			"Tomorrow",
+			"group--tomorrow",
+			groups.tomorrow,
+			true,
+			rowOpts,
+		);
+	}
+	if (activeTab === "starred") {
+		return renderGroup(
+			"Starred",
+			"group--starred",
+			groups.starred,
+			false,
+			rowOpts,
+		);
+	}
+	if (activeTab === "focus") {
+		return renderGroup(
+			"Focus",
+			"group--notepad",
+			groups.notepad,
+			false,
+			rowOpts,
+		);
+	}
+
+	const next = pickNextTask(groups, state.now);
+	const visible = (list) => list.filter((t) => t.id !== next?.id);
+	return `
+		${next ? renderNextCard(next, rowOpts) : ""}
+		${renderGroup("Overdue", "group--overdue", visible(groups.overdue), true, rowOpts)}
+		${renderGroup("Today", "group--today", visible(groups.today), true, rowOpts)}
+	`;
+}
+
+function renderNextCard(task, rowOpts) {
 	return `
 		<article class="next-card">
 			<h2 class="next-card__label">Next</h2>
 			<ul class="next-card__list">
-				${renderTaskRowWithMenu(task, now, openMenuTaskId, renamingTaskId, pendingRenameTaskValue, taskMenuMode, movePickerHtml, hasMoveTargets)}
+				${renderTaskRowWithMenu(task, rowOpts)}
 			</ul>
 		</article>
 	`;
 }
 
-function renderGroup(
-	heading,
-	modifierClass,
-	tasks,
-	now,
-	openMenuTaskId,
-	showCount,
-	renamingTaskId,
-	pendingRenameTaskValue,
-	taskMenuMode,
-	movePickerHtml,
-	hasMoveTargets,
-) {
+function renderGroup(heading, modifierClass, tasks, showCount, rowOpts) {
 	if (tasks.length === 0) return "";
 	// The count is a separate element, not part of the heading string: it is
 	// metadata, and styling it as such is what lets the heading itself read as a
@@ -450,20 +602,7 @@ function renderGroup(
 	const countHtml = showCount
 		? `<span class="group__count">${tasks.length}</span>`
 		: "";
-	const rows = tasks
-		.map((t) =>
-			renderTaskRowWithMenu(
-				t,
-				now,
-				openMenuTaskId,
-				renamingTaskId,
-				pendingRenameTaskValue,
-				taskMenuMode,
-				movePickerHtml,
-				hasMoveTargets,
-			),
-		)
-		.join("");
+	const rows = tasks.map((t) => renderTaskRowWithMenu(t, rowOpts)).join("");
 	return `
 		<section class="group ${modifierClass}">
 			<h3 class="group__heading">${heading}${countHtml}</h3>
@@ -472,16 +611,17 @@ function renderGroup(
 	`;
 }
 
-function renderTaskRowWithMenu(
-	task,
-	now,
-	openMenuTaskId,
-	renamingTaskId,
-	pendingRenameTaskValue,
-	taskMenuMode,
-	movePickerHtml,
-	hasMoveTargets,
-) {
+function renderTaskRowWithMenu(task, rowOpts) {
+	const {
+		now,
+		openMenuTaskId,
+		renamingTaskId,
+		pendingRenameTaskValue,
+		taskMenuMode,
+		movePickerHtml,
+		hasMoveTargets,
+	} = rowOpts;
+
 	const isRenaming = renamingTaskId === task.id;
 	if (isRenaming) {
 		// Rename input replaces the row's children — no menu injection,
@@ -500,18 +640,28 @@ function renderTaskRowWithMenu(
 	// Picker face: replace the action menu with the pre-rendered picker.
 	// The menu injects inside the <li> as its last child (the <li> is
 	// position: relative so the absolute menu anchors to the row).
+	//
+	// The replacement is a FUNCTION, not a string. A string replacement treats
+	// `$&`, `$'` and "$`" as substitution patterns, and escapeHtml does not touch
+	// `$` — so an area or section named `$&` reaches here through the picker
+	// markup and expands to the matched `</li>`, injecting a stray closing tag.
+	// Not script execution (the match is always the literal `</li>`), but real
+	// DOM corruption. A function replacement never interprets `$`.
 	if (taskMenuMode === "picker" && movePickerHtml) {
-		return row.replace("</li>", `${movePickerHtml}</li>`);
+		return row.replace("</li>", () => `${movePickerHtml}</li>`);
 	}
 
-	// Actions face. Today menu: [Rename, Move to…, Delete]. No Move up/down —
-	// today is a sorted view, not a manual order.
+	// Actions face. Focus menu: [Rename, Move to…, Schedule…, Delete]. No Move
+	// up/down — every tab here is a sorted view, not a manual order.
 	const moveToItem = hasMoveTargets
 		? `<button class="task-menu__item" type="button" data-action="move-task-to" role="menuitem" tabindex="-1" aria-haspopup="menu">Move to…</button>`
 		: "";
+	// Function replacement here too — same `$&` reasoning as the picker face
+	// above. Nothing user-authored is in this string today, but the two call
+	// sites must not drift apart.
 	return row.replace(
 		"</li>",
-		`<div class="task-menu" role="menu">
+		() => `<div class="task-menu" role="menu">
 			<button class="task-menu__item" type="button" data-action="rename-task" role="menuitem" tabindex="-1">Rename</button>
 			${moveToItem}
 			<button class="task-menu__item" type="button" data-action="open-repeat" role="menuitem" tabindex="-1" aria-haspopup="dialog">Schedule…</button>
