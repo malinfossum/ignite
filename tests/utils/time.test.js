@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+	formatDayGreeting,
 	formatDueSummary,
 	formatOccurrenceLabel,
 	formatTimeLabel,
 	groupTasksForFocus,
 	pickNextTask,
 	sortByDueThenUntimed,
+	summariseDay,
 } from "../../src/utils/time.js";
 
 const NOW = new Date("2026-04-28T14:00:00");
@@ -457,5 +459,52 @@ describe("formatDueSummary", () => {
 		expect(formatDueSummary(dueAt, true, NOW, "12h")).toBe(
 			"Tomorrow at 6:30 PM",
 		);
+	});
+});
+
+describe("formatDayGreeting", () => {
+	it("renders weekday, day-of-month and month in full", () => {
+		expect(formatDayGreeting(NOW)).toBe("Tuesday 28 April");
+	});
+
+	it("does not pad a single-digit day", () => {
+		expect(formatDayGreeting(new Date("2026-04-05T12:00:00"))).toBe(
+			"Sunday 5 April",
+		);
+	});
+
+	it("handles the last month of the year", () => {
+		expect(formatDayGreeting(new Date("2026-12-31T12:00:00"))).toBe(
+			"Thursday 31 December",
+		);
+	});
+});
+
+describe("summariseDay", () => {
+	it("counts overdue and due-today items", () => {
+		const result = summariseDay({
+			overdue: [task({ id: "a" }), task({ id: "b" })],
+			today: [task({ id: "c" })],
+			tomorrow: [task({ id: "d" })],
+			starred: [task({ id: "e" })],
+			notepad: [task({ id: "f" })],
+		});
+		expect(result).toEqual({ overdue: 2, dueToday: 1 });
+	});
+
+	it("counts zeroes rather than omitting them", () => {
+		expect(
+			summariseDay({
+				overdue: [],
+				today: [],
+				tomorrow: [],
+				starred: [],
+				notepad: [],
+			}),
+		).toEqual({ overdue: 0, dueToday: 0 });
+	});
+
+	it("survives a missing or partial groups object", () => {
+		expect(summariseDay()).toEqual({ overdue: 0, dueToday: 0 });
 	});
 });

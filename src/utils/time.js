@@ -18,6 +18,29 @@ const SHORT_MONTH = [
 	"Nov",
 	"Dec",
 ];
+const LONG_WEEKDAY = [
+	"Sunday",
+	"Monday",
+	"Tuesday",
+	"Wednesday",
+	"Thursday",
+	"Friday",
+	"Saturday",
+];
+const LONG_MONTH = [
+	"January",
+	"February",
+	"March",
+	"April",
+	"May",
+	"June",
+	"July",
+	"August",
+	"September",
+	"October",
+	"November",
+	"December",
+];
 
 function startOfDay(date) {
 	const d = new Date(date);
@@ -206,4 +229,25 @@ export function pickNextTask(groups, now) {
 	if (untimed) return untimed;
 
 	return today[0] ?? groups?.overdue?.[0] ?? null;
+}
+
+// "Tuesday 28 April" — the Focus page's greeting line.
+//
+// Built from constant arrays rather than toLocaleDateString on purpose: the
+// locale-driven version returns a different string per machine, which makes it
+// untestable without pinning a locale, and the rest of this surface ("Today",
+// "Overdue", "Starred", "Next") is English regardless. Matches how
+// formatTimeLabel and formatOccurrenceLabel already work in this file.
+export function formatDayGreeting(now) {
+	return `${LONG_WEEKDAY[now.getDay()]} ${now.getDate()} ${LONG_MONTH[now.getMonth()]}`;
+}
+
+// Counts for the page-header summary. Takes the grouped output, not the raw
+// task list, so the summary can never disagree with what the Today tab renders
+// — both are derived from one groupTasksForFocus call over one `state`.
+export function summariseDay(groups) {
+	return {
+		overdue: groups?.overdue?.length ?? 0,
+		dueToday: groups?.today?.length ?? 0,
+	};
 }
