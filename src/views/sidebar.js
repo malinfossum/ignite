@@ -1,12 +1,12 @@
 // createSidebarView(rootEl, {
-//   onToggleCollapse, onGoToday, onOpenArea,
+//   onToggleCollapse, onGoFocus, onOpenArea,
 //   onAddArea, onCommitAreaRename, onMoveAreaUp, onMoveAreaDown, onDeleteArea,
 //   onCloseDrawer, onCycleTheme, onPickAreaIcon,
 // }) → { render(state), enterRename(areaId), destroy() }
 //
 // state expected: { areas, sections, tasks, settings, route, now, themeChoice, theme }
 // route:
-//   { name: "today" }            → wordmark gets aria-current="page"
+//   { name: "focus" }            → wordmark gets aria-current="page"
 //   { name: "area", id: "..." }  → matching area row gets aria-current="page"
 //
 // Closure state (all reset to initial values in destroy()):
@@ -41,7 +41,7 @@ export function createSidebarView(
 	rootEl,
 	{
 		onToggleCollapse,
-		onGoToday,
+		onGoFocus,
 		onOpenArea,
 		onAddArea,
 		onCommitAreaRename,
@@ -182,7 +182,7 @@ export function createSidebarView(
 
 	const unbindClick = bindActions(rootEl, {
 		"toggle-sidebar": () => onToggleCollapse(),
-		"go-today": () => onGoToday(),
+		"go-focus": () => onGoFocus(),
 
 		"open-area": (_event, actionEl) => {
 			const id = actionEl.dataset.id;
@@ -475,10 +475,10 @@ function template(
 	state,
 	{ openAreaMenuId, renamingAreaId, pendingRenameValue },
 ) {
-	const route = state.route ?? { name: "today" };
-	const todayActive = route.name === "today";
-	const wordmarkAria = todayActive ? 'aria-current="page"' : "";
-	const wordmarkActive = todayActive ? "is-active" : "";
+	const route = state.route ?? { name: "focus" };
+	const focusActive = route.name === "focus";
+	const wordmarkAria = focusActive ? 'aria-current="page"' : "";
+	const wordmarkActive = focusActive ? "is-active" : "";
 
 	const sorted = state.areas.slice().sort((a, b) => a.order - b.order);
 	// Focus is pinned to the top; only user areas reorder among themselves.
@@ -503,7 +503,7 @@ function template(
 
 	return `
 		<button class="sidebar__home ${wordmarkActive}" type="button"
-			data-action="go-today" ${wordmarkAria}>Ignite</button>
+			data-action="go-focus" ${wordmarkAria}>Ignite</button>
 		<button class="sidebar__toggle" type="button"
 			data-action="toggle-sidebar" aria-label="Toggle sidebar">
 			<span class="sidebar__toggle-glyph" aria-hidden="true">≡</span>

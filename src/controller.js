@@ -35,10 +35,11 @@ const COMPLETE_TOAST_MS = 5_000;
 
 export function parseHash(hash) {
 	const raw = (hash || "").replace(/^#/, "");
-	if (raw === "" || raw === "today") return { name: "today" };
+	if (raw === "" || raw === "focus" || raw === "today")
+		return { name: "focus" };
 	const areaMatch = raw.match(/^area\/(.+)$/);
 	if (areaMatch) return { name: "area", id: areaMatch[1] };
-	return { name: "today" };
+	return { name: "focus" };
 }
 
 export function createController({ models, els }) {
@@ -60,7 +61,7 @@ export function createController({ models, els }) {
 	let capture = null;
 	let toast = null;
 	let currentMainView = null;
-	let currentRoute = { name: "today" };
+	let currentRoute = { name: "focus" };
 	let tickHandle = null;
 	let unsubs = [];
 	let taskDeleteBatch = null; // null | { tasks: Array<TaskSnapshot> }
@@ -292,11 +293,30 @@ export function createController({ models, els }) {
 		});
 	}
 
+	// #area/focus is a dead duplicate of the landing route: Focus is no longer a
+	// listed area, it IS the landing surface. Redirect rather than render it, so
+	// neither a bookmark nor the back button can land on a second copy of the
+	// same tasks.
+	//
+	// replaceState, NOT an assignment to location.hash. Assigning PUSHES a
+	// history entry, so Back would land on #area/focus and be redirected straight
+	// forward again — a loop the user cannot walk out of. replaceState rewrites
+	// the URL in place, fires no hashchange, and therefore also mounts once
+	// instead of twice.
+	function routeFromHash() {
+		const route = parseHash(window.location.hash);
+		if (route.name === "area" && route.id === FOCUS_ID) {
+			window.history.replaceState(null, "", "#focus");
+			return { name: "focus" };
+		}
+		return route;
+	}
+
 	function mountMainView(route) {
 		currentMainView?.destroy();
 		currentMainView = null;
 
-		if (route.name === "today") {
+		if (route.name === "focus") {
 			currentMainView = createTodayView(mainRoot, {
 				onToggleComplete: handleToggleComplete,
 				onToggleStar: (id, currentStarred) =>
@@ -720,7 +740,7 @@ export function createController({ models, els }) {
 		closeDrawer(); // close on ALL route changes incl. browser back/forward
 		closeRecurrenceEditor({ rerender: false }); // route change closes the dialog
 		capture?.closePicker();
-		currentRoute = parseHash(window.location.hash);
+		currentRoute = routeFromHash();
 		mountMainView(currentRoute);
 		applyState();
 	}
@@ -736,9 +756,9 @@ export function createController({ models, els }) {
 
 		topbar = createTopbarView(topbarRoot, {
 			onToggleDrawer: () => (drawerOpen ? closeDrawer() : openDrawer()),
-			onGoToday: () => {
-				window.location.hash = "#today";
-				closeDrawer(); // same-hash tap of "Ignite" on #today fires no hashchange
+			onGoFocus: () => {
+				window.location.hash = "#focus";
+				closeDrawer(); // same-hash tap of "Ignite" on #focus fires no hashchange
 			},
 		});
 
@@ -749,8 +769,8 @@ export function createController({ models, els }) {
 					!(current.sidebarCollapsed ?? false),
 				);
 			},
-			onGoToday: () => {
-				window.location.hash = "#today";
+			onGoFocus: () => {
+				window.location.hash = "#focus";
 				closeDrawer();
 			},
 			onOpenArea: (id) => {
@@ -778,7 +798,7 @@ export function createController({ models, els }) {
 			settings.subscribe(applyState),
 		);
 
-		currentRoute = parseHash(window.location.hash);
+		currentRoute = routeFromHash();
 		mountMainView(currentRoute);
 		applyState();
 
