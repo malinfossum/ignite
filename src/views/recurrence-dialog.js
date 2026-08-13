@@ -17,6 +17,7 @@
 import { escapeHtml } from "../utils/dom.js";
 
 const CADENCES = [
+	{ value: "none", label: "Does not repeat" },
 	{ value: "daily", label: "Daily" },
 	{ value: "weekly", label: "Weekly" },
 	{ value: "monthly", label: "Monthly" },
@@ -52,6 +53,7 @@ export function createRecurrenceDialog(rootEl, { onSave, onRemove, onClose }) {
 	let interval = 1;
 	let weekdays = new Set();
 	let dateStr = ""; // YYYY-MM-DD
+	let timeStr = ""; // HH:MM, "" = no time of day
 
 	let formHandler = null;
 	let keyHandler = null;
@@ -63,9 +65,18 @@ export function createRecurrenceDialog(rootEl, { onSave, onRemove, onClose }) {
 
 		const seed = task.dueAt ? new Date(task.dueAt) : new Date();
 		dateStr = `${seed.getFullYear()}-${pad2(seed.getMonth() + 1)}-${pad2(seed.getDate())}`;
+		// Only a task that actually carries a time seeds one. A task stored at
+		// local midnight with hasTime false must open with an EMPTY time field,
+		// or every save would silently pin it to 00:00.
+		timeStr = task.hasTime
+			? `${pad2(seed.getHours())}:${pad2(seed.getMinutes())}`
+			: "";
 
 		const rule = task.recurrence;
-		cadence = rule?.type ?? "daily";
+		// A task with no rule opens as non-repeating. Pre-selecting Daily made
+		// sense when this dialog only created repeats; in a schedule dialog it
+		// would hand every one-off task a repeat it never asked for.
+		cadence = rule?.type ?? "none";
 		interval =
 			Number.isInteger(rule?.interval) && rule.interval >= 1
 				? rule.interval
@@ -80,10 +91,14 @@ export function createRecurrenceDialog(rootEl, { onSave, onRemove, onClose }) {
 
 		rootEl.innerHTML = render();
 		wire();
-		syncWeekdayVisibility();
+		syncRepeatVisibility();
 		syncValidity();
-		// Open focus → the cadence control (first radio).
-		rootEl.querySelector(".repeat-cadence__input")?.focus();
+		// Open focus → the date field. It is now the first control in the panel
+		// and the reason the dialog was opened. The old `.repeat-cadence__input`
+		// target sat third after this restructure, and that selector takes the
+		// FIRST radio regardless of which is checked — so a weekly task opened
+		// with focus parked on "Does not repeat".
+		rootEl.querySelector("#repeat-date")?.focus();
 	}
 
 	function close() {
@@ -97,6 +112,7 @@ export function createRecurrenceDialog(rootEl, { onSave, onRemove, onClose }) {
 		keyHandler = null;
 		rootEl.innerHTML = ""; // detaches the panel
 		taskId = null;
+		timeStr = "";
 	}
 
 	function render() {
@@ -123,14 +139,25 @@ export function createRecurrenceDialog(rootEl, { onSave, onRemove, onClose }) {
 		return `
 			<div class="repeat-backdrop" data-action="repeat-backdrop">
 				<div class="repeat-panel" role="dialog" aria-modal="true" aria-labelledby="repeat-heading">
-					<h2 class="repeat-panel__heading" id="repeat-heading">Repeat — ${escapeHtml(taskTitle)}</h2>
+					<h2 class="repeat-panel__heading" id="repeat-heading">Schedule — ${escapeHtml(taskTitle)}</h2>
+
+					<div class="repeat-field repeat-field--when">
+						<div class="repeat-field__col">
+							<label for="repeat-date" data-role="date-label">${dateLabel()}</label>
+							<input class="repeat-input" id="repeat-date" type="date" value="${escapeHtml(dateStr)}" />
+						</div>
+						<div class="repeat-field__col">
+							<label for="repeat-time">Time</label>
+							<input class="repeat-input" id="repeat-time" type="time" value="${escapeHtml(timeStr)}" />
+						</div>
+					</div>
 
 					<fieldset class="repeat-fieldset">
 						<legend class="repeat-fieldset__legend">Repeats</legend>
 						<div class="repeat-cadence" role="radiogroup" aria-label="Cadence">${cadenceInputs}</div>
 					</fieldset>
 
-					<div class="repeat-field repeat-field--interval">
+					<div class="repeat-field repeat-field--interval" data-role="interval">
 						<label for="repeat-interval">Every</label>
 						<input class="repeat-input repeat-input--interval" id="repeat-interval"
 							type="number" min="1" step="1" inputmode="numeric" value="${interval}" />
@@ -141,11 +168,6 @@ export function createRecurrenceDialog(rootEl, { onSave, onRemove, onClose }) {
 						<legend class="repeat-fieldset__legend">Days of the week</legend>
 						<div class="repeat-weekdays">${chips}</div>
 					</fieldset>
-
-					<div class="repeat-field">
-						<label for="repeat-date" data-role="date-label">${dateLabel()}</label>
-						<input class="repeat-input" id="repeat-date" type="date" value="${escapeHtml(dateStr)}" />
-					</div>
 
 					<footer class="repeat-footer">
 						${removeBtn}
@@ -162,6 +184,7 @@ export function createRecurrenceDialog(rootEl, { onSave, onRemove, onClose }) {
 		return interval > 1 ? `${u}s` : u;
 	}
 	function dateLabel() {
+		if (cadence === "none") return "Date";
 		return cadence === "weekly" ? "Starting" : "Next date";
 	}
 
@@ -191,7 +214,12 @@ export function createRecurrenceDialog(rootEl, { onSave, onRemove, onClose }) {
 				}
 				if (action === "repeat-save") {
 					if (isValid()) {
-						onSave({ taskId, recurrence: buildRule(), dueAt: buildDueAt() });
+						onSave({
+							taskId,
+							recurrence: buildRule(),
+							dueAt: buildDueAt(),
+							hasTime: parseTime(timeStr) !== null,
+						});
 					}
 					return;
 				}
@@ -206,7 +234,7 @@ export function createRecurrenceDialog(rootEl, { onSave, onRemove, onClose }) {
 			// change / input
 			if (t.name === "repeat-cadence") {
 				cadence = t.value;
-				syncWeekdayVisibility();
+				syncRepeatVisibility();
 				syncUnit();
 				syncDateLabel();
 				syncValidity();
@@ -223,6 +251,9 @@ export function createRecurrenceDialog(rootEl, { onSave, onRemove, onClose }) {
 			} else if (t.id === "repeat-date") {
 				dateStr = t.value;
 				syncValidity();
+			} else if (t.id === "repeat-time") {
+				timeStr = t.value;
+				syncValidity(); // a malformed time must not reach buildDueAt
 			}
 		};
 		rootEl.addEventListener("change", formHandler);
@@ -239,9 +270,14 @@ export function createRecurrenceDialog(rootEl, { onSave, onRemove, onClose }) {
 		document.addEventListener("keydown", keyHandler);
 	}
 
-	function syncWeekdayVisibility() {
-		const field = rootEl.querySelector('[data-role="weekdays"]');
-		if (field) field.hidden = cadence !== "weekly";
+	function syncRepeatVisibility() {
+		const repeating = cadence !== "none";
+		const intervalField = rootEl.querySelector('[data-role="interval"]');
+		if (intervalField) intervalField.hidden = !repeating;
+		const weekdayField = rootEl.querySelector('[data-role="weekdays"]');
+		if (weekdayField) {
+			weekdayField.hidden = !(repeating && cadence === "weekly");
+		}
 	}
 	function syncUnit() {
 		const el = rootEl.querySelector('[data-role="interval-unit"]');
@@ -256,21 +292,47 @@ export function createRecurrenceDialog(rootEl, { onSave, onRemove, onClose }) {
 		if (saveBtn) saveBtn.disabled = !isValid();
 	}
 
+	// `input[type=date]` and `[type=time]` constrain their own values, but both
+	// degrade to a TEXT input where unsupported — and then `new Date(NaN)` throws
+	// RangeError out of `toISOString()`, inside the Save handler, BEFORE
+	// `closeRecurrenceEditor` clears `inert`. That wedges the app behind an open
+	// dialog. Parse defensively and let `isValid()` gate Save instead.
+	function parseDate(value) {
+		const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? "");
+		if (!m) return null;
+		const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+		const date = new Date(y, mo - 1, d);
+		// Also rejects 2026-02-31, which Date silently rolls forward into March.
+		return date.getMonth() === mo - 1 && date.getDate() === d ? date : null;
+	}
+
+	function parseTime(value) {
+		const m = /^(\d{2}):(\d{2})/.exec(value ?? "");
+		if (!m) return null;
+		const hh = Number(m[1]);
+		const mm = Number(m[2]);
+		return hh <= 23 && mm <= 59 ? { hh, mm } : null;
+	}
+
 	function isValid() {
-		if (!dateStr) return false;
+		if (!parseDate(dateStr)) return false;
+		if (timeStr && !parseTime(timeStr)) return false;
+		if (cadence === "none") return true;
 		if (interval < 1) return false;
 		if (cadence === "weekly" && weekdays.size === 0) return false;
 		return true;
 	}
 
 	function buildDueAt() {
-		const [y, m, d] = dateStr.split("-").map(Number);
-		return new Date(y, m - 1, d).toISOString(); // local midnight
+		const date = parseDate(dateStr); // non-null: isValid() gates Save
+		const time = parseTime(timeStr);
+		if (time) date.setHours(time.hh, time.mm, 0, 0);
+		return date.toISOString(); // untimed → local midnight, as before
 	}
 
 	function buildRule() {
-		const [y, m, d] = dateStr.split("-").map(Number);
-		const date = new Date(y, m - 1, d);
+		if (cadence === "none") return null;
+		const date = parseDate(dateStr); // non-null: isValid() gates Save
 		if (cadence === "daily") return { type: "daily", interval };
 		if (cadence === "weekly") {
 			return {
