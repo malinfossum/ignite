@@ -11,7 +11,7 @@ import {
 	nextEnabledIndex,
 } from "../utils/menu-keyboard.js";
 import { attachRenameInput, readRenameCaret } from "../utils/rename-input.js";
-import { groupTasksForToday, pickNextTask } from "../utils/time.js";
+import { groupTasksForFocus, pickNextTask } from "../utils/time.js";
 import { renderMovePicker } from "./move-picker.js";
 import { renderTaskRow } from "./task.js";
 
@@ -369,7 +369,10 @@ function template(
 	taskMenuMode,
 ) {
 	const next = pickNextTask(state.tasks, state.now);
-	const groups = groupTasksForToday(state.tasks, state.now);
+	// Temporary []: this view has no notepad yet, and an empty focusSectionIds
+	// yields an empty notepad bucket, which nothing here reads. Task 10 replaces
+	// the whole template and supplies the real list.
+	const groups = groupTasksForFocus(state.tasks, state.now, []);
 	const visible = (list) => list.filter((t) => t.id !== next?.id);
 
 	const overdue = visible(groups.overdue);

@@ -98,13 +98,27 @@ export function formatDueSummary(dueAtIso, hasTime, now, format = "24h") {
 	return `${day} at ${formatHM(new Date(dueAtIso), format)}`;
 }
 
-export function groupTasksForToday(tasks, now) {
+// The four Focus tabs, in one pass. Precedence is a cascade — a date beats a
+// star, a star beats the notepad — so each task lands in at most one bucket and
+// the tab counts sum to something meaningful.
+//
+// A dated task outside today/tomorrow deliberately falls off every tab rather
+// than dropping through to Starred: the date is the strongest statement the
+// user has made about it, and it is still visible in its own area.
+//
+// `focusSectionIds` arrives as a parameter because utils/ must never import
+// FOCUS_ID from model/. The controller resolves it from the section list.
+export function groupTasksForFocus(tasks, now, focusSectionIds) {
 	const startToday = startOfDay(now).getTime();
 	const startTomorrow = startToday + ONE_DAY_MS;
+	const startDayAfter = startTomorrow + ONE_DAY_MS;
+	const inFocus = new Set(focusSectionIds ?? []);
 
 	const overdue = [];
 	const today = [];
+	const tomorrow = [];
 	const starred = [];
+	const notepad = [];
 
 	for (const t of tasks) {
 		if (t.completed) continue;
@@ -112,17 +126,30 @@ export function groupTasksForToday(tasks, now) {
 			const due = new Date(t.dueAt).getTime();
 			if (due < startToday) overdue.push(t);
 			else if (due < startTomorrow) today.push(t);
-		} else if (t.starred) {
-			starred.push(t);
+			else if (due < startDayAfter) tomorrow.push(t);
+			continue;
 		}
+		if (t.starred) {
+			starred.push(t);
+			continue;
+		}
+		if (inFocus.has(t.sectionId)) notepad.push(t);
 	}
 
 	starred.sort((a, b) => a.order - b.order);
+	// Newest first: the notepad is a capture stream, so what you just typed goes
+	// on top. Sorting in the view keeps `order` semantics — and the M4 reorder
+	// invariants that rest on them — untouched. Spec §12.2.
+	notepad.sort((a, b) =>
+		a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0,
+	);
 
 	return {
 		overdue: sortByDueThenUntimed(overdue),
 		today: sortByDueThenUntimed(today),
+		tomorrow: sortByDueThenUntimed(tomorrow),
 		starred,
+		notepad,
 	};
 }
 
