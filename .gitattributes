@@ -1,0 +1,13 @@
+# Every text file is LF, both in the repository and on checkout.
+#
+# The repository was already all-LF; the problem was the checkout side. With
+# Windows' core.autocrlf=true and no rules here, Git rewrites files to CRLF as
+# it writes them, while Biome's formatter expects LF — so `npm run check` fails
+# on files nobody edited, and 15 files sit permanently "modified" with an empty
+# content diff. `eol=lf` overrides autocrlf for this repo and stops both.
+* text=auto eol=lf
+
+# Binary assets: never inspected, never converted.
+*.woff2 binary
+*.png binary
+*.svg text eol=lf
