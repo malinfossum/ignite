@@ -88,6 +88,16 @@ export function formatOccurrenceLabel(dueAtIso, now) {
 	return `${SHORT_MONTH[due.getMonth()]} ${due.getDate()}`;
 }
 
+// Absolute summary of when a task is due, for confirming a schedule the user
+// just saved. Deliberately NOT relative: `formatTimeLabel` is the row label and
+// its job is to tick live ("in 40 min", "was 09:00"), which does not compose
+// with a prefix — scheduling something for earlier today read "Due was 09:00".
+export function formatDueSummary(dueAtIso, hasTime, now, format = "24h") {
+	const day = formatOccurrenceLabel(dueAtIso, now);
+	if (!hasTime) return day;
+	return `${day} at ${formatHM(new Date(dueAtIso), format)}`;
+}
+
 export function groupTasksForToday(tasks, now) {
 	const startToday = startOfDay(now).getTime();
 	const startTomorrow = startToday + ONE_DAY_MS;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	formatDueSummary,
 	formatOccurrenceLabel,
 	formatTimeLabel,
 	groupTasksForToday,
@@ -282,5 +283,48 @@ describe("groupTasksForToday — untimed ordering", () => {
 			"timed",
 			"untimed",
 		]);
+	});
+});
+
+describe("formatDueSummary", () => {
+	const NOW = new Date("2026-04-28T14:00:00"); // Tue
+
+	it("returns the day alone when the task has no time", () => {
+		const dueAt = new Date("2026-04-28T00:00:00").toISOString();
+		expect(formatDueSummary(dueAt, false, NOW)).toBe("Today");
+	});
+
+	it("appends the clock time when the task has one", () => {
+		const dueAt = new Date("2026-04-28T09:00:00").toISOString();
+		expect(formatDueSummary(dueAt, true, NOW)).toBe("Today at 09:00");
+	});
+
+	it("stays absolute for a time earlier today", () => {
+		// The row label says "was 09:00" and ticks live. A confirmation of what
+		// you just saved must not, or it reads "Due was 09:00".
+		const dueAt = new Date("2026-04-28T09:00:00").toISOString();
+		expect(formatDueSummary(dueAt, true, NOW)).not.toMatch(/was/);
+	});
+
+	it("stays absolute for a time in the next hour", () => {
+		const dueAt = new Date(NOW.getTime() + 40 * 60_000).toISOString();
+		expect(formatDueSummary(dueAt, true, NOW)).toBe("Today at 14:40");
+	});
+
+	it("uses the weekday for a date later this week", () => {
+		const dueAt = new Date("2026-05-01T09:00:00").toISOString();
+		expect(formatDueSummary(dueAt, true, NOW)).toBe("Fri at 09:00");
+	});
+
+	it("uses the short date beyond a week", () => {
+		const dueAt = new Date("2026-07-06T09:00:00").toISOString();
+		expect(formatDueSummary(dueAt, true, NOW)).toBe("Jul 6 at 09:00");
+	});
+
+	it("respects 12-hour format when requested", () => {
+		const dueAt = new Date("2026-04-29T18:30:00").toISOString();
+		expect(formatDueSummary(dueAt, true, NOW, "12h")).toBe(
+			"Tomorrow at 6:30 PM",
+		);
 	});
 });
