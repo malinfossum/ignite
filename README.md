@@ -4,7 +4,7 @@
 
 An ADHD-friendly task app — open source, local-first, zero bloat.
 
-**Status:** v0.4.0 — 198 tests passing. **Live:** [malinfossum.github.io/ignite](https://malinfossum.github.io/ignite/)
+**Status:** v0.4.0 — 228 tests passing. **Live:** [malinfossum.github.io/ignite](https://malinfossum.github.io/ignite/)
 
 ![Ignite in dark mode — the Today view showing a Next card and a Starred group, with the area sidebar and theme control on the left](docs/desktop_preview.png)
 
@@ -53,7 +53,7 @@ Vanilla HTML, CSS, and JavaScript — no frameworks. Strict MVC with a `subscrib
 - **Build:** Vite
 - **Persistence:** IndexedDB (hand-rolled wrapper)
 - **Offline:** hand-rolled service worker + web app manifest
-- **Test:** Vitest + fake-indexeddb (198 tests)
+- **Test:** Vitest + fake-indexeddb (228 tests)
 - **Format / lint:** Biome
 - **Deploy:** GitHub Pages via GitHub Actions
 

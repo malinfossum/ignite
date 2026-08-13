@@ -15,7 +15,7 @@ import {
 	nextThemeChoice,
 	resolveTheme,
 } from "./utils/theme.js";
-import { formatOccurrenceLabel, formatTimeLabel } from "./utils/time.js";
+import { formatDueSummary, formatOccurrenceLabel } from "./utils/time.js";
 import { createAreaView } from "./views/area.js";
 import { createCaptureView } from "./views/capture.js";
 import { createRecurrenceDialog } from "./views/recurrence-dialog.js";
@@ -699,10 +699,9 @@ export function createController({ models, els }) {
 		}
 		// A schedule without a repeat is now a valid save, so the toast can no
 		// longer assume there is a cadence to describe.
-		const now = new Date();
 		const message = recurrence
 			? `Repeats ${describeRecurrence(recurrence)}`
-			: `Due ${hasTime ? formatTimeLabel(dueAt, now) : formatOccurrenceLabel(dueAt, now)}`;
+			: `Due ${formatDueSummary(dueAt, hasTime, new Date())}`;
 		toast.show({ message, durationMs: COMPLETE_TOAST_MS });
 	}
 
