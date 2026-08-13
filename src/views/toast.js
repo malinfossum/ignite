@@ -18,6 +18,11 @@
 // outside the live region), update() textContent changes still announce
 // to screen readers. (Per W3C: focus INSIDE a live region suppresses
 // change announcements in some SRs.)
+//
+// Action button: one per toast, labelled "Undo" unless the caller passes
+// actionLabel. The label is user-visible copy, so it goes through escapeHtml
+// like every other interpolated string — even though every current caller
+// passes a literal.
 
 import { escapeHtml } from "../utils/dom.js";
 
@@ -34,7 +39,7 @@ export function createToastView(rootEl) {
 	let elapsedAtPause = 0;
 	let durationMs = null;
 	let activeKey = null;
-	let activeUndoHandler = null;
+	let activeActionHandler = null;
 	let activeOnDismiss = null;
 	let isHovered = false;
 	let isFocused = false;
@@ -46,7 +51,7 @@ export function createToastView(rootEl) {
 		elapsedAtPause = 0;
 		durationMs = null;
 		activeKey = null;
-		activeUndoHandler = null;
+		activeActionHandler = null;
 		activeOnDismiss = null;
 		isHovered = false;
 		isFocused = false;
@@ -94,7 +99,14 @@ export function createToastView(rootEl) {
 		});
 	}
 
-	function show({ message, onUndo, onDismiss, durationMs: d, key } = {}) {
+	function show({
+		message,
+		onAction,
+		onDismiss,
+		durationMs: d,
+		key,
+		actionLabel,
+	} = {}) {
 		// Fire prior toast's onDismiss before replacing (so its closure state
 		// is committed — e.g. taskDeleteBatch in controller clears).
 		const priorOnDismiss = activeOnDismiss;
@@ -109,18 +121,18 @@ export function createToastView(rootEl) {
 		rootEl.innerHTML = `
 			<div class="toast">
 				<span class="toast__message" role="status" aria-live="polite">${escapeHtml(message ?? "")}</span>
-				<button class="toast__undo" type="button">Undo</button>
+				<button class="toast__action" type="button">${escapeHtml(actionLabel ?? "Undo")}</button>
 			</div>
 		`;
 
 		const toastEl = rootEl.querySelector(".toast");
-		const undoBtn = rootEl.querySelector(".toast__undo");
+		const actionBtn = rootEl.querySelector(".toast__action");
 
-		activeUndoHandler = () => {
+		activeActionHandler = () => {
 			clearActive();
-			if (onUndo) onUndo();
+			if (onAction) onAction();
 		};
-		undoBtn.addEventListener("click", activeUndoHandler, { once: true });
+		actionBtn.addEventListener("click", activeActionHandler, { once: true });
 
 		attachInteractionListeners(toastEl);
 

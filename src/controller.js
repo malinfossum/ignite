@@ -200,7 +200,7 @@ export function createController({ models, els }) {
 			toast.show({
 				message: `Done · next ${formatOccurrenceLabel(updated.dueAt, new Date())}`,
 				durationMs: COMPLETE_TOAST_MS,
-				onUndo: async () => {
+				onAction: async () => {
 					try {
 						await tasks.update(id, snapshot); // restore date, stamp, count
 					} catch (err) {
@@ -229,7 +229,7 @@ export function createController({ models, els }) {
 				message: formatTaskDeleteMessage(1),
 				key: TASK_DELETE_BATCH_KEY,
 				durationMs: 5000,
-				onUndo: () => {
+				onAction: () => {
 					const batch = taskDeleteBatch;
 					taskDeleteBatch = null;
 					for (const t of [...batch.tasks].reverse()) {
@@ -277,7 +277,7 @@ export function createController({ models, els }) {
 		toast.show({
 			message: `Moved to ${label}`,
 			durationMs: MOVE_TOAST_MS,
-			onUndo: async () => {
+			onAction: async () => {
 				// Exact restore — the move touched only this task (append left
 				// peers untouched; the source kept the gap this task vacated).
 				try {
@@ -445,7 +445,7 @@ export function createController({ models, els }) {
 				toast.show({
 					message: cascadeMessage(sectionSnapshot.name, taskSnapshots.length),
 					durationMs: CASCADE_TOAST_MS,
-					onUndo: async () => {
+					onAction: async () => {
 						await sections.restore(sectionSnapshot);
 						await tasks.restoreMany(taskSnapshots);
 					},
@@ -551,7 +551,7 @@ export function createController({ models, els }) {
 				taskSnapshots.length,
 			),
 			durationMs: CASCADE_TOAST_MS,
-			onUndo: async () => {
+			onAction: async () => {
 				// Reverse-cascade restore (parents before children); same
 				// empty-layer guard as the delete above.
 				await areas.restore(areaSnapshot);
