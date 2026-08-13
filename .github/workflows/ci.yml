@@ -1,0 +1,36 @@
+name: CI
+
+# Verify every pull request into main. deploy.yml covers pushes to main, so
+# this deliberately does not run there — it would duplicate that work.
+# One job on purpose: the ruleset's "Require status checks to pass" then has a
+# single check to require, rather than four that must each be enabled.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Nothing here writes; checkout is all we need.
+permissions:
+  contents: read
+
+# A new push to the same PR makes the previous run irrelevant — cancel it.
+# (deploy.yml does the opposite, because a half-finished deploy is worse.)
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Cheapest first, so an obvious formatting or lint failure reports in
+      # seconds instead of after the suite and the build.
+      - run: npm run check
+      - run: npm run test:run
+      - run: npm run build
