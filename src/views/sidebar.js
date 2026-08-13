@@ -481,24 +481,24 @@ function template(
 	const wordmarkActive = focusActive ? "is-active" : "";
 
 	const sorted = state.areas.slice().sort((a, b) => a.order - b.order);
-	// Focus is pinned to the top; only user areas reorder among themselves.
+	// Focus is no longer a listed area — it IS the landing surface, reached by
+	// the wordmark above. Listing it as well would be a second door onto the same
+	// tasks, and its rename and icon controls belong to a surface that no longer
+	// exists here. Spec D1.
 	const userAreas = sorted.filter((a) => a.id !== FOCUS_ID);
 	const firstUserAreaId = userAreas[0]?.id ?? null;
 	const lastUserAreaId = userAreas[userAreas.length - 1]?.id ?? null;
-	const items = sorted
-		.map((area) => {
-			const isFocus = area.id === FOCUS_ID;
-			return renderAreaRow(area, state, route, {
-				// Focus is pinned (no moves). A user area can move up unless it's
-				// directly below Focus, and down unless it's the last row.
-				canMoveUp: !isFocus && area.id !== firstUserAreaId,
-				canMoveDown: !isFocus && area.id !== lastUserAreaId,
-				isUndeletable: isFocus,
+	const items = userAreas
+		.map((area) =>
+			renderAreaRow(area, state, route, {
+				canMoveUp: area.id !== firstUserAreaId,
+				canMoveDown: area.id !== lastUserAreaId,
+				isUndeletable: false,
 				openAreaMenuId,
 				renamingAreaId,
 				pendingRenameValue,
-			});
-		})
+			}),
+		)
 		.join("");
 
 	return `

@@ -76,6 +76,7 @@ export function createController({ models, els }) {
 	let drawerMqHandler = null;
 	let recurrenceDialog = null;
 	let repeatEditorTaskId = null; // transient UI state — NOT a model field
+	let pendingTabSelection = null; // transient UI state — NOT a model field
 	const completing = new Set(); // task ids mid-completion (re-entry guard)
 	let currentChoice = null; // "system" | "dark" | "light" — mirrors the model
 	let currentTheme = null; // resolved "dark" | "light" — what is on the document
@@ -367,6 +368,15 @@ export function createController({ models, els }) {
 				onMoveTaskToSection: handleMoveTaskToSection,
 				onOpenRepeatEditor: openRecurrenceEditor,
 			});
+			// Something asked for a specific tab on the next Focus view — today
+			// only the capture toast's View action, fired after a route change.
+			// selectTab before the first render(state) is safe: doRender early-
+			// returns on a null lastState, activeTab is already set, and the
+			// applyState below renders the right tab.
+			if (pendingTabSelection) {
+				currentMainView.selectTab(pendingTabSelection);
+				pendingTabSelection = null;
+			}
 			return;
 		}
 
@@ -817,7 +827,40 @@ export function createController({ models, els }) {
 		capture = createCaptureView(captureRoot, {
 			// No `starred` — a star means "I chose this for today", and capture
 			// setting it on everything made the signal worthless. Spec D2.
-			onSubmit: (title, sectionId) => tasks.create({ sectionId, title }),
+			onSubmit: async (title, sectionId) => {
+				// SNAPSHOT BOTH BEFORE THE WRITE. Each of these can change while the
+				// IndexedDB write is in flight — one sidebar click during the await is
+				// enough — and reading them afterwards makes the toast announce
+				// "Added to Focus" for a task that went into an area. Same trap as
+				// wasDrawerOpen in deleteAreaCascade, and the lesson recorded there
+				// is that a race like this usually has more than one late read.
+				const wasFocusRoute = currentRoute.name === "focus";
+				const tabBefore = currentMainView?.getActiveTab?.();
+
+				await tasks.create({ sectionId, title });
+
+				// Capture on Focus writes into the notepad, which is usually not the
+				// tab on screen — so say where it went and offer one tap to look.
+				// Skipped when the notepad WAS on screen: the row is right there, and
+				// a toast about something visible is noise. Spec §3.4.
+				if (!wasFocusRoute || tabBefore === "focus") return;
+				toast.show({
+					message: "Added to Focus",
+					actionLabel: "View",
+					durationMs: MOVE_TOAST_MS,
+					onAction: () => {
+						// The user may have left Focus since the toast appeared. Route
+						// there first and let mountMainView apply the tab; the direct
+						// call covers the ordinary case where we never left.
+						if (currentRoute.name !== "focus") {
+							pendingTabSelection = "focus";
+							window.location.hash = "#focus";
+							return;
+						}
+						currentMainView?.selectTab?.("focus");
+					},
+				});
+			},
 			focusSectionId: FOCUS_DEFAULT_SECTION_ID,
 		});
 
