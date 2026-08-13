@@ -347,6 +347,14 @@ export function createController({ models, els }) {
 		currentMainView?.destroy();
 		currentMainView = null;
 
+		// Read and clear in one place, before either branch. Every pending-focus
+		// flag in this codebase is consumed once and cleared unconditionally; this
+		// one used to be cleared only on the focus path, so a hashchange that
+		// routed to an area in between would leave it set and force-select the
+		// Focus tab on some later, unrelated mount.
+		const wantedTab = pendingTabSelection;
+		pendingTabSelection = null;
+
 		if (route.name === "focus") {
 			currentMainView = createFocusView(mainRoot, {
 				onToggleComplete: handleToggleComplete,
@@ -368,15 +376,12 @@ export function createController({ models, els }) {
 				onMoveTaskToSection: handleMoveTaskToSection,
 				onOpenRepeatEditor: openRecurrenceEditor,
 			});
-			// Something asked for a specific tab on the next Focus view — today
-			// only the capture toast's View action, fired after a route change.
-			// selectTab before the first render(state) is safe: doRender early-
-			// returns on a null lastState, activeTab is already set, and the
-			// applyState below renders the right tab.
-			if (pendingTabSelection) {
-				currentMainView.selectTab(pendingTabSelection);
-				pendingTabSelection = null;
-			}
+			// Something asked for a specific tab on this mount — today only the
+			// capture toast's View action, fired after a route change. selectTab
+			// before the first render(state) is safe: doRender early-returns on a
+			// null lastState, activeTab is already set, and the applyState that
+			// follows renders the right tab.
+			if (wantedTab) currentMainView.selectTab(wantedTab);
 			return;
 		}
 
