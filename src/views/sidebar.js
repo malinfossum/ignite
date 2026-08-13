@@ -362,7 +362,7 @@ export function createSidebarView(
 		}
 
 		// Post-render lookup: an area cascade delete removed the row whose ⋯
-		// had focus and redirected to #today, so focus would fall to <body>.
+		// had focus and redirected to #focus, so focus would fall to <body>.
 		// The wordmark IS the Today nav item — focusing it lands the user
 		// where the redirect took them.
 		//

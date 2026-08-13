@@ -565,7 +565,7 @@ export function createController({ models, els }) {
 		// Without this, applyState fires between areas.remove and the redirect
 		// and the user sees an "Area not found" flash.
 		if (currentRoute.name === "area" && currentRoute.id === areaId) {
-			window.location.hash = "#today";
+			window.location.hash = "#focus";
 		}
 
 		// 3. Cascade: tasks → sections → area. Guard empty layers —

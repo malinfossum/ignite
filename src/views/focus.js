@@ -1,4 +1,5 @@
-// createFocusView(rootEl, { onToggleComplete, onToggleStar, onDelete })
+// createFocusView(rootEl, { onToggleComplete, onToggleStar, onDelete,
+//   onCommitTaskRename, onMoveTaskToSection, onOpenRepeatEditor })
 //   → { render, focusTaskMenu, selectTab, getActiveTab, destroy }
 //
 // state expected: { tasks, sections, areas, settings, now }
@@ -108,8 +109,12 @@ export function createFocusView(rootEl, callbacks) {
 
 		let renameCommitted = false;
 		if (renamingTaskId) {
+			// The task may have crossed a bucket boundary (e.g. a Tomorrow-tab task
+			// rolling into Today at midnight) between typing and this tab switch —
+			// its row, and the rename input inside it, may already be gone from THIS
+			// tab's rendered DOM. pendingRenameTaskValue still holds what was typed.
 			const input = rootEl.querySelector(".task__rename-input");
-			const value = (input?.value ?? "").trim();
+			const value = (input?.value ?? pendingRenameTaskValue ?? "").trim();
 			const id = renamingTaskId;
 			renamingTaskId = null;
 			pendingRenameTaskValue = null;
@@ -385,12 +390,23 @@ export function createFocusView(rootEl, callbacks) {
 		// parked on a tab drops to <body> once a minute — and the tab strip is now
 		// the whole surface's navigation, so that is not a small loss.
 		//
-		// Only ever re-asserts focus that was ALREADY on a tab, and the guard means
-		// it never overrides a tab switch that has explicitly asked for focus.
-		if (!pendingFocusTab) {
-			pendingFocusTab =
-				document.activeElement?.closest?.(".focus-tab")?.dataset?.tab ?? null;
+		// An EMPTY panel is the only focusable panel (it carries tabindex="0" so a
+		// keyboard user arrowing off the strip is not stranded) — so a focused
+		// element inside rootEl is either a tab or that panel. Capture both here,
+		// before the rewrite detaches whichever one held focus; refocusPanel is
+		// read after the rewrite below.
+		//
+		// Only ever re-asserts focus that was ALREADY on one of the two, and the
+		// guard means it never overrides a tab switch that has explicitly asked
+		// for focus.
+		const activeInRoot = pendingFocusTab
+			? null
+			: (document.activeElement?.closest?.(".focus-tab, .focus-panel") ?? null);
+		if (activeInRoot?.classList.contains("focus-tab")) {
+			pendingFocusTab = activeInRoot.dataset.tab;
 		}
+		const refocusPanel =
+			activeInRoot?.classList.contains("focus-panel") ?? false;
 
 		isRendering = true;
 		try {
@@ -455,10 +471,9 @@ export function createFocusView(rootEl, callbacks) {
 			pendingMenuFocusTaskId = null;
 		}
 
-		// Last flag consumed, cleared unconditionally. selectTab nulls the two
-		// above before setting this one, so it is mutually exclusive with them
-		// THERE — but the pre-rewrite capture at the top of this function (the
-		// `if (!pendingFocusTab)` fallback that reads document.activeElement
+		// selectTab nulls the two flags above before setting this one, so it is
+		// mutually exclusive with them THERE — but the pre-rewrite capture at the
+		// top of this function (the `activeInRoot` read of document.activeElement
 		// before the rewrite) sets this flag directly without touching
 		// pendingFocusTaskId or pendingMenuFocusTaskId, so that exclusivity is
 		// not a property of every path that sets it.
@@ -467,6 +482,15 @@ export function createFocusView(rootEl, callbacks) {
 				.querySelector(`.focus-tab[data-tab="${CSS.escape(pendingFocusTab)}"]`)
 				?.focus();
 			pendingFocusTab = null;
+		}
+
+		// The empty panel is the only focusable panel (it carries tabindex="0" so
+		// a keyboard user arrowing off the strip is not stranded). Restore it only
+		// when it actually held focus and no tab switch is asking for the strip
+		// instead; the [tabindex] guard makes this a no-op if the new panel is
+		// non-empty.
+		if (refocusPanel && !pendingFocusTab) {
+			rootEl.querySelector(".focus-panel[tabindex]")?.focus();
 		}
 	}
 
@@ -485,8 +509,10 @@ export function createFocusView(rootEl, callbacks) {
 			// a non-empty trimmed value, commit it BEFORE listener unbinding so
 			// the typed value isn't silently lost on route change.
 			if (renamingTaskId) {
+				// Same cross-bucket fallback as selectTab: the row may already be
+				// gone from the DOM, but pendingRenameTaskValue still holds the text.
 				const input = rootEl.querySelector(".task__rename-input");
-				const value = (input?.value ?? "").trim();
+				const value = (input?.value ?? pendingRenameTaskValue ?? "").trim();
 				if (value) {
 					callbacks.onCommitTaskRename({ taskId: renamingTaskId, name: value });
 				}

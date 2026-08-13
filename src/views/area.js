@@ -864,7 +864,7 @@ function template(
 		return `
 			<section class="area area--not-found">
 				<p class="area__not-found-help">
-					<a href="#today" class="area__back-link">Back to Today</a>
+					<a href="#focus" class="area__back-link">Back to Focus</a>
 				</p>
 			</section>
 		`;

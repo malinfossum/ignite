@@ -18,6 +18,10 @@
 //                        that appears at >=768px on the dated tabs. Escaped —
 //                        area names are user-authored and this is a new
 //                        interpolation site.
+//   showFile           - true to render a "File" button (data-action="file-task")
+//                        that opens the move picker directly. Used on the Focus
+//                        tab's notepad, where filing is the row's one-tap
+//                        affordance out of the notepad.
 
 import { escapeHtml } from "../utils/dom.js";
 import { describeRecurrence } from "../utils/text.js";
