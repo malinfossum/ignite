@@ -1766,7 +1766,7 @@ Start the dev server and open `http://localhost:5173/ignite/#focus` (the bare ro
 1. At **1280px**: assert `window.innerWidth`, then that `[role="tablist"]` exists with four `[role="tab"]`, exactly one with `aria-selected="true"` and `tabindex="0"`, and the other three `tabindex="-1"`.
 2. Click each tab in turn (via a synthetic `MouseEvent` with `detail: 1` if a real click no-ops) and assert the panel's `id` changes to `focus-panel-<tab>` and `document.activeElement` is the newly-selected tab button — in the same call as the click.
 3. Focus the selected tab, dispatch `ArrowRight`, and assert selection moved one tab right and focus followed.
-4. At **375px** (`resize_window`): assert `window.innerWidth === 375`, then `getBoundingClientRect()` on every tab shows `height >= 44`, and `.focus-tabs` has `scrollWidth >= clientWidth` — the strip scrolls, the targets do not shrink.
+4. At **375px** (`resize_window`): assert `window.innerWidth === 375`, then that all four tabs render, the correct one is selected, and switching still works. **Do NOT assert the ≥44px target height or the strip's scroll behaviour here** — `.focus-tab` has no CSS until Task 14, so the tabs render at the browser's default button height and the assertion cannot pass. That check has been moved to Task 14 Step 6, where the CSS it tests actually exists. (Recorded 2026-08-13: this was a sequencing defect in the plan, caught by the Task 10 implementer.)
 
 - [ ] **Step 12: Commit**
 
@@ -2417,7 +2417,8 @@ This is the check the project has skipped twice, at a cost of two Criticals. Mea
 3. At **375px**: assert `window.innerWidth === 375`, that every `.task__area-badge` computes `display: none`, that `.task__time-label` is still visible (the *column* drops on phones, not the time — losing it would undo Plan 2 on the surface that exists to show it), and that no `.task` row's `getBoundingClientRect().right` exceeds `window.innerWidth`.
 4. Same call at 375px: assert the capture bar still clears the last row — the last `.task`'s `bottom` is above `#capture-root`'s `top`.
 5. **The area view at 375px**, because `--main-padding` reaches it too. Navigate to a user area and assert no `.section` or `.task` row's `right` exceeds `window.innerWidth`, and that the capture bar's left edge still lines up with the rows above it (`#capture-root`'s content-box `left` equals a `.task`'s `left` within a pixel). The tightened padding nests — `.area` sits inside `#main` and both read the variable — so this is where a wrong value shows up, not on Focus.
-6. Toggle to light theme and re-assert the tab strip and count colours render (a screenshot is fine here; a DOM read is better evidence for the geometry above).
+6. **The tab strip's touch targets, moved here from Task 10** because this is the task that gives `.focus-tab` its CSS. At 375px, in one call: assert `window.innerWidth === 375`, then `getBoundingClientRect()` on every one of the four tabs shows `height >= 44`, and `.focus-tabs` has `scrollWidth >= clientWidth` — **the strip scrolls, the targets do not shrink** (§8.1). Also assert the strip is genuinely scrollable rather than clipped: `getComputedStyle(strip).overflowX` is `auto`, and no tab's `right` is unreachable by scrolling.
+7. Toggle to light theme and re-assert the tab strip and count colours render (a screenshot is fine here; a DOM read is better evidence for the geometry above).
 
 - [ ] **Step 7: Commit**
 
