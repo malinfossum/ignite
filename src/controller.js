@@ -211,9 +211,31 @@ export function createController({ models, els }) {
 		try {
 			const task = (await tasks.list()).find((t) => t.id === id);
 			if (!task) return; // race: already gone
-			// Non-recurring, or un-checking a (defensively) completed one → unchanged.
+			// Non-recurring, or un-checking a (defensively) completed one.
 			if (!task.recurrence || task.completed) {
+				const wasCompleted = task.completed;
 				await tasks.toggleCompleted(id);
+				// Undo is offered in the completing direction ONLY: un-checking a
+				// task IS the undo, so a toast there would offer to redo the thing
+				// the user just reversed.
+				if (!wasCompleted) {
+					toast.show({
+						message: "Task completed",
+						durationMs: COMPLETE_TOAST_MS,
+						onAction: async () => {
+							try {
+								// Set completed:false explicitly rather than toggling
+								// again — the user can un-check the box manually while
+								// the toast is still up, and a second toggle would then
+								// RE-complete the task instead of undoing anything.
+								await tasks.update(id, { completed: false });
+							} catch (err) {
+								if (/not found/i.test(err.message)) return; // deleted meanwhile
+								throw err;
+							}
+						},
+					});
+				}
 				return;
 			}
 			const snapshot = {
