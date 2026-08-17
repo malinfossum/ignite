@@ -83,6 +83,10 @@ export function createController({ models, els }) {
 	let pendingTabSelection = null; // transient UI state — NOT a model field
 	const completing = new Set(); // task ids mid-completion (re-entry guard)
 	let currentChoice = null; // "system" | "dark" | "light" — mirrors the model
+	// Optimistic cursor for the theme cycle, ahead of currentChoice while a
+	// setTheme write is in flight. Re-synced to the model in applyTheme, so any
+	// other route to a theme change (system flip, another tab) resets it.
+	let pendingThemeChoice = null;
 	let currentTheme = null; // resolved "dark" | "light" — what is on the document
 	let themeMq = null; // matchMedia("(prefers-color-scheme: dark)")
 	let themeMqHandler = null;
@@ -96,6 +100,9 @@ export function createController({ models, els }) {
 		const themeChanged = theme !== currentTheme;
 		currentChoice = choice;
 		currentTheme = theme;
+		// The model has spoken — drop the optimistic cycle cursor back in step,
+		// so a system flip or a change from another tab can't leave it stale.
+		pendingThemeChoice = choice;
 		// localStorage can throw (e.g. Firefox with cookies blocked) even though
 		// IndexedDB — the model's real store — still works. This write is a
 		// disposable paint-time cache, not the source of truth, so losing it is
@@ -904,7 +911,15 @@ export function createController({ models, els }) {
 			},
 			onCloseDrawer: () => closeDrawer(),
 			onCycleTheme: async () => {
-				await settings.setTheme(nextThemeChoice(currentChoice));
+				// currentChoice is only updated by applyState AFTER the write
+				// round-trips, so two fast clicks both read the same value and
+				// compute the same next choice — the second click is swallowed and
+				// the cycle skips a step. Advance from a local cursor instead, and
+				// keep it in step with the model on every other path.
+				pendingThemeChoice = nextThemeChoice(
+					pendingThemeChoice ?? currentChoice,
+				);
+				await settings.setTheme(pendingThemeChoice);
 			},
 			...sidebarCallbacks(),
 		});

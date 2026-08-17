@@ -38,6 +38,8 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 	const pickerRoot = rootEl.querySelector(".capture__picker-root");
 	let pickerOpen = false;
 	let docClickHandler = null;
+	// True while a capture write is in flight — see commit().
+	let committing = false;
 	// Declared HERE, not in Task 3: this is the first task that reads it.
 	let destination = { kind: "focus" };
 
@@ -91,6 +93,12 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 	async function commit(sectionId) {
 		const value = input.value.trim();
 		if (!value) return;
+		// Re-entry guard, same shape as the controller's `completing` Set. The
+		// input is deliberately NOT cleared until the write resolves (see the
+		// catch), so a second Enter arriving mid-write would read the same text
+		// and create a duplicate task.
+		if (committing) return;
+		committing = true;
 		try {
 			await onSubmit(value, sectionId);
 			input.value = "";
@@ -99,6 +107,8 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 			// place. Clearing it here would be exactly the data loss this
 			// whole feature exists to prevent. No toast: out of scope.
 			console.error("Ignite: capture failed to save", err);
+		} finally {
+			committing = false;
 		}
 		closePicker();
 		input.focus();

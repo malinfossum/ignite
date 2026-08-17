@@ -98,6 +98,8 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	// Map<sectionId, string> — in-flight "Add task" text per section. See
 	// the closure-state doc comment above.
 	let pendingAddValue = new Map();
+	// Section ids with an "Add task" write in flight — see commit-section-add.
+	const addingSections = new Set();
 	let pendingMenuFocusSectionId = null;
 	let pendingRenameSelect = false;
 	let pendingFocusTaskId = null;
@@ -524,6 +526,12 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 				const title = actionEl.value.trim();
 				const sectionId = actionEl.dataset.sectionId;
 				if (!title || !sectionId) return;
+				// Re-entry guard, keyed by section so two different add rows can
+				// still commit concurrently. The input is deliberately not cleared
+				// until the write resolves (see below), so a second Enter arriving
+				// mid-write would read the same text and create a duplicate task.
+				if (addingSections.has(sectionId)) return;
+				addingSections.add(sectionId);
 				// Await and clear only on success — mirrors capture.js's commit().
 				// Clearing eagerly (the old behaviour) ate the typed text on any
 				// rejected write; the held pendingAddValue must survive a failure
@@ -537,6 +545,8 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 				} catch {
 					// Write failed (quota, private mode, …) — leave the typed
 					// text and the held value in place. No toast: out of scope.
+				} finally {
+					addingSections.delete(sectionId);
 				}
 				return;
 			}
