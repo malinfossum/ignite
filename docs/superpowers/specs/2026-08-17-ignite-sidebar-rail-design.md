@@ -138,7 +138,7 @@ It becomes a rail tile like any other — same 36px painted surface, same 44px h
 
 ### 3.7 New area
 
-`.sidebar__add-area-row` becomes a ＋ tile at the end of the list rather than being hidden. Its accessible name stays "New area" via the same clipping treatment.
+`.sidebar__add-area-row` becomes a ＋ tile at the end of the list rather than being hidden. Its accessible name stays "New area" via the same `aria-label` mechanism as D3.
 
 ---
 
@@ -202,7 +202,7 @@ Every one of these must hold in the rail, and each is a regression the current c
 
 | Requirement | Today | After |
 |---|---|---|
-| Area buttons have an accessible name | ✗ none | ✓ clipped label |
+| Area buttons have an accessible name | ✗ none | ✓ `aria-label` on the button |
 | Rename is operable when collapsed | ✗ no field | ✓ popover |
 | Rename does not drop focus to `<body>` | ✗ drops | ✓ field is focusable |
 | ⋯ reachable by keyboard | ✗ `display: none` | ✓ always in tab order |
@@ -211,7 +211,7 @@ Every one of these must hold in the rail, and each is a regression the current c
 | ⋯ reachable without hover (touchscreen laptop) | ✗ `display: none` | ✓ `@media (hover: none)` |
 | Toggle reachable and correctly placed in the rail | ~ unstyled | ✓ specified (§3.6) |
 | Collapse respects `prefers-reduced-motion` | ✗ animates | ✓ `body` added to the block |
-| Count reads with a unit, not as a bare integer | ✗ | ✓ clipped label carries the phrase |
+| Count reads with a unit, not as a bare integer | ✗ | ✓ `aria-label` carries the phrase |
 
 An **axe pass on the sidebar in both states and both themes** is part of this work. Scope axe to `#sidebar`; `page-has-heading-one` and `landmark-one-main` fire on the inert background whenever a dialog is open and are known artifacts.
 
@@ -225,7 +225,7 @@ This does **not** discharge the two axe passes already owed on the schedule dial
 - **Drag-to-reorder.** Move up / move down stay as they are.
 - **Focus gaining a ⋯ menu, rename, or icon.** See §5.
 - **Changing what an area count counts.** Same derivation, new presentation.
-- **Tooltips on rail tiles.** The clipped label serves assistive tech; a visual tooltip is a separate hover-panel design with its own WCAG 1.4.13 obligations.
+- **Tooltips on rail tiles.** The `aria-label` serves assistive tech; a visual tooltip is a separate hover-panel design with its own WCAG 1.4.13 obligations.
 - **Section titles (follow-up item 3).** Deliberately not folded in — it is a type pass across `.section__title` and `.group__heading` on the main surface, unrelated to the sidebar, and mixing them would make both harder to review.
 
 ---

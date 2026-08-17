@@ -1191,10 +1191,10 @@ body {
 	body.is-sidebar-collapsed .sidebar__icon {
 		inline-size: 36px;
 		block-size: 36px;
-		/* Load-bearing. .sidebar__count is still a visible flex sibling inside the
-		   44px button until Task 5 turns it into an absolutely-positioned badge,
-		   and flex children default to flex-shrink: 1 — without this the tile is
-		   squeezed to ~28px and the declared 36px is a lie. */
+		/* Load-bearing. The icon must hold 36px regardless of what else ever ends
+		   up in the button's flex flow — flex children default to flex-shrink: 1,
+		   and a sibling left in flow is exactly what squeezed this tile to ~28px
+		   during development, before .sidebar__count moved out of flow. */
 		flex-shrink: 0;
 		display: grid;
 		place-items: center;
@@ -1314,7 +1314,10 @@ body {
 		padding: 0 0.25rem;
 		border-radius: 999px;
 		background: var(--accent);
-		color: var(--surface-1);
+		/* Same pairing as .sidebar__area.is-active .sidebar__count above, and the
+		   same reason: --surface-1 on --accent is 4.38:1 in light theme, under the
+		   4.5:1 AA floor. --surface-2 clears it (4.66:1 light, 6.43:1 dark). */
+		color: var(--surface-2);
 		font-size: 0.6875rem;
 		line-height: 1.45;
 		font-weight: 500;
@@ -1355,23 +1358,18 @@ body {
 /* Collapsed state — desktop-only. The ＋ row is rendered by the rail now (see
    the collapsed block above), so it is no longer hidden.
 
-   The ⋯ button stays hidden HERE and only HERE: it carries min-inline-size:44px,
-   so while it is still in flow the row would centre two 44px children inside a
-   48px rail and both would bleed off the edges. Tasks 5 and 7 each override this
-   hide with `display: block` in the very rule that gives the element `position:
-   absolute` — never separately. The override is a source-order cascade tie-break
-   on an identical selector, not a specificity win, so those blocks must stay
-   BELOW this one. Biome's noDescendingSpecificity and this file's ascending-order
-   convention are what keep that true.
+   The ⋯ button is taken out of flow by the rule below, which sets `position:
+   absolute` in the same declaration that sets `display: block` — it carries
+   min-inline-size:44px, and left in flow the row would centre two 44px
+   children inside a 48px rail with both bleeding off the edges. It must never
+   be revealed with `display` or `visibility`: either would strip it from the
+   tab order and re-create the dead keyboard path this rail exists to fix.
+   `opacity` alone toggles it between the rest state and :hover/:focus-within.
 
    The rename input no longer needs hiding here: Task 8 positions it (and the
    icon picker it owns) beside the tile instead, so it is dropped from this
    rule and rendered like everything else. */
 @media (min-width: 768px) {
-	body.is-sidebar-collapsed .sidebar__menu-btn {
-		display: none;
-	}
-
 	/* Same ⋯ as the expanded sidebar, moved to the tile's corner. Painted small,
 	   but the TARGET is 24x24 per WCAG 2.5.8. Revealed with opacity only — never
 	   display or visibility, both of which would take it out of the tab order and
