@@ -16,7 +16,6 @@
 //   pendingMenuFocusAreaId  - after the next render, focus first menu item
 //   pendingRenameSelect     - true → next render focuses + selects rename input
 //   pendingRenameValue      - last typed value of rename input, or null
-//   prevSidebarCollapsed    - tracks settings.sidebarCollapsed across renders
 //   isRendering             - true during innerHTML rewrite (blur-listener re-entrancy guard)
 //
 // We do NOT capture element references for focus return. Across an innerHTML
@@ -64,7 +63,6 @@ export function createSidebarView(
 	let pendingFocusHome = false; // → focus the "Ignite" wordmark (the Today nav item)
 	let pendingRenameSelect = false;
 	let pendingRenameValue = null;
-	let prevSidebarCollapsed = null;
 	let isRendering = false;
 
 	function areaFromEvent(actionEl) {
@@ -393,25 +391,6 @@ export function createSidebarView(
 	return {
 		render(state) {
 			lastState = state;
-
-			// Sidebar collapse force-close: when sidebar transitions from
-			// expanded → collapsed, close any open menu and commit-or-cancel
-			// any active rename. Without this, closure state desyncs and
-			// re-expanding shows a stale menu or orphaned input.
-			const nextCollapsed = !!state.settings.sidebarCollapsed;
-			if (prevSidebarCollapsed === false && nextCollapsed === true) {
-				openAreaMenuId = null;
-				if (renamingAreaId) {
-					const input = rootEl.querySelector(".sidebar__rename-input");
-					const value = (input?.value ?? "").trim();
-					if (value)
-						onCommitAreaRename({ areaId: renamingAreaId, name: value });
-					renamingAreaId = null;
-					pendingRenameValue = null;
-				}
-			}
-			prevSidebarCollapsed = nextCollapsed;
-
 			doRender();
 		},
 
@@ -466,7 +445,6 @@ export function createSidebarView(
 			pendingFocusAreaIcon = null;
 			pendingRenameSelect = false;
 			pendingRenameValue = null;
-			prevSidebarCollapsed = null;
 			isRendering = false;
 		},
 	};

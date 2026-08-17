@@ -1158,9 +1158,11 @@ body {
 
 	/* .sidebar__count is hidden HERE and only HERE. It is a flex sibling of the
 	   icon inside the 44px button, and its min-content width squeezes or overflows
-	   the tile for as long as it stays in flow. Task 5 removes it from this rule in
-	   the same change that gives it `position: absolute` — the two must land
-	   together, exactly as the ⋯ button's hide pairs with Task 7. */
+	   the tile for as long as it stays in flow. Tasks 5 and 7 each override this
+	   hide with `display: block` in the very rule that gives the element
+	   `position: absolute` — never separately. The override is a source-order
+	   cascade tie-break on an identical selector, not a specificity win, so
+	   those blocks must stay BELOW this one. */
 	body.is-sidebar-collapsed .sidebar__name,
 	body.is-sidebar-collapsed .sidebar__count,
 	body.is-sidebar-collapsed .sidebar__add-text {
@@ -1321,6 +1323,33 @@ body {
 	body.is-sidebar-collapsed .sidebar__home-badge.is-zero {
 		display: none;
 	}
+
+	/* Rename at 48px: the editing row keeps its tile, and its two children are
+	   positioned beside the rail as a stacked pair. The DOM is unchanged, so
+	   every closure flag in sidebar.js — pendingRenameSelect, the caret restore,
+	   the isRendering blur guard — keeps working untouched.
+	   The picker's offset is derived from .sidebar__rename-input's pinned
+	   min-block-size (44px). CHANGE ONE AND YOU MUST CHANGE THE OTHER. */
+	body.is-sidebar-collapsed .sidebar__area-row--editing {
+		justify-content: center;
+		padding: 0;
+	}
+	body.is-sidebar-collapsed .sidebar__area-row--editing .sidebar__icon {
+		inline-size: 36px;
+		block-size: 36px;
+		display: grid;
+		place-items: center;
+		border-radius: 10px;
+		background: var(--accent-soft);
+	}
+	body.is-sidebar-collapsed .sidebar__rename-input {
+		position: absolute;
+		inset-block-start: 0;
+		inset-inline-start: calc(100% + var(--space-1));
+		inline-size: 13.75rem;
+		flex: none;
+		z-index: 110;
+	}
 }
 
 /* Collapsed state — desktop-only. The ＋ row is rendered by the rail now (see
@@ -1335,11 +1364,11 @@ body {
    BELOW this one. Biome's noDescendingSpecificity and this file's ascending-order
    convention are what keep that true.
 
-   The rename input likewise stays hidden until it becomes a popover in Task 8,
-   which removes it from this rule. */
+   The rename input no longer needs hiding here: Task 8 positions it (and the
+   icon picker it owns) beside the tile instead, so it is dropped from this
+   rule and rendered like everything else. */
 @media (min-width: 768px) {
-	body.is-sidebar-collapsed .sidebar__menu-btn,
-	body.is-sidebar-collapsed .sidebar__rename-input {
+	body.is-sidebar-collapsed .sidebar__menu-btn {
 		display: none;
 	}
 
@@ -1854,11 +1883,21 @@ body.is-drawer-open #scrim {
 	color: var(--text-faint);
 }
 
-/* Collapsed rail: the rename input that owns this picker is hidden too (see
-   the collapsed-state rule above) — hide the picker itself so it cannot
-   render across the 48px rail into the main content. */
+/* Collapsed rail: stacked beneath the rename input (see the collapsed rail's
+   .sidebar__rename-input rule earlier in the file) rather than beside it, in
+   its own @media block so this override's higher specificity stays in
+   ascending source order after .icon-picker's base rule above
+   (Biome noDescendingSpecificity). The offset is derived from
+   .sidebar__rename-input's pinned min-block-size (44px). CHANGE ONE AND YOU
+   MUST CHANGE THE OTHER. */
 @media (min-width: 768px) {
 	body.is-sidebar-collapsed .icon-picker {
-		display: none;
+		position: absolute;
+		inset-block-start: calc(44px + var(--space-1));
+		inset-inline-start: calc(100% + var(--space-1));
+		inline-size: 13.75rem;
+		margin-top: 0;
+		flex: none;
+		z-index: 110;
 	}
 }
