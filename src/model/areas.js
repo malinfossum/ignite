@@ -58,7 +58,10 @@ export async function createAreaModel(db) {
 
 		async create({ name, icon = "", critical = false }) {
 			const all = await db.getAll("areas");
-			const order = all.length;
+			// max(order)+1, NOT the count — a delete leaves a hole, so the count
+			// can equal an order still in use, and two areas sharing an order make
+			// swapOrder a silent no-op (see tasks.create for the full note).
+			const order = all.reduce((max, a) => Math.max(max, a.order), -1) + 1;
 			const area = {
 				id: uuid(),
 				name: capitalizeFirst(name),

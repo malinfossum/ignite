@@ -38,6 +38,10 @@ const MOVE_TOAST_MS = 5_000;
 // Completing a recurring task is reversible (Undo restores the prior schedule)
 // — same 5s urgency as a move/single-delete.
 const COMPLETE_TOAST_MS = 5_000;
+// Name given to a section created from the move picker's "＋ New section…".
+// Matches onAddArea's "New area" so the two creation paths read the same; the
+// user renames it from the area view.
+const NEW_SECTION_NAME = "New section";
 
 export function parseHash(hash) {
 	const raw = (hash || "").replace(/^#/, "");
@@ -79,6 +83,10 @@ export function createController({ models, els }) {
 	let pendingTabSelection = null; // transient UI state — NOT a model field
 	const completing = new Set(); // task ids mid-completion (re-entry guard)
 	let currentChoice = null; // "system" | "dark" | "light" — mirrors the model
+	// Optimistic cursor for the theme cycle, ahead of currentChoice while a
+	// setTheme write is in flight. Re-synced to the model in applyTheme, so any
+	// other route to a theme change (system flip, another tab) resets it.
+	let pendingThemeChoice = null;
 	let currentTheme = null; // resolved "dark" | "light" — what is on the document
 	let themeMq = null; // matchMedia("(prefers-color-scheme: dark)")
 	let themeMqHandler = null;
@@ -92,6 +100,9 @@ export function createController({ models, els }) {
 		const themeChanged = theme !== currentTheme;
 		currentChoice = choice;
 		currentTheme = theme;
+		// The model has spoken — drop the optimistic cycle cursor back in step,
+		// so a system flip or a change from another tab can't leave it stale.
+		pendingThemeChoice = choice;
 		// localStorage can throw (e.g. Firefox with cookies blocked) even though
 		// IndexedDB — the model's real store — still works. This write is a
 		// disposable paint-time cache, not the source of truth, so losing it is
@@ -211,9 +222,31 @@ export function createController({ models, els }) {
 		try {
 			const task = (await tasks.list()).find((t) => t.id === id);
 			if (!task) return; // race: already gone
-			// Non-recurring, or un-checking a (defensively) completed one → unchanged.
+			// Non-recurring, or un-checking a (defensively) completed one.
 			if (!task.recurrence || task.completed) {
+				const wasCompleted = task.completed;
 				await tasks.toggleCompleted(id);
+				// Undo is offered in the completing direction ONLY: un-checking a
+				// task IS the undo, so a toast there would offer to redo the thing
+				// the user just reversed.
+				if (!wasCompleted) {
+					toast.show({
+						message: "Task completed",
+						durationMs: COMPLETE_TOAST_MS,
+						onAction: async () => {
+							try {
+								// Set completed:false explicitly rather than toggling
+								// again — the user can un-check the box manually while
+								// the toast is still up, and a second toggle would then
+								// RE-complete the task instead of undoing anything.
+								await tasks.update(id, { completed: false });
+							} catch (err) {
+								if (/not found/i.test(err.message)) return; // deleted meanwhile
+								throw err;
+							}
+						},
+					});
+				}
 				return;
 			}
 			const snapshot = {
@@ -324,6 +357,58 @@ export function createController({ models, els }) {
 		});
 	}
 
+	// "＋ New section…" in the move picker. Creates a section alongside the
+	// task's current one — same area, so the user never has to pick one — then
+	// hands off to the ordinary move path so the toast, the undo and the
+	// cascade-race swallows are all the ones already proven for a normal move.
+	//
+	// Undo removes the section this created as well as moving the task back:
+	// the section exists only because of this action, so leaving an empty
+	// stray behind would make undo a partial reversal. It is removed AFTER the
+	// task has moved out, so the delete can never take a task with it.
+	async function handleCreateSectionAndMove({ taskId }) {
+		const task = (await tasks.list()).find((t) => t.id === taskId);
+		if (!task) return; // race: task already gone
+		const currentSection = (await sections.list()).find(
+			(s) => s.id === task.sectionId,
+		);
+		if (!currentSection) return; // race: section cascade-deleted
+		const fromSectionId = task.sectionId;
+		const fromOrder = task.order;
+
+		const created = await sections.create({
+			areaId: currentSection.areaId,
+			name: NEW_SECTION_NAME,
+		});
+
+		try {
+			await tasks.moveToSection(taskId, created.id);
+		} catch (err) {
+			if (!/not found/i.test(err.message)) throw err;
+			// The move failed, so the section we just made is an orphan nobody
+			// asked for. Take it back out rather than leaving it behind.
+			await sections.remove(created.id).catch(() => {});
+			return;
+		}
+
+		toast.show({
+			message: `Moved to ${created.name}`,
+			durationMs: MOVE_TOAST_MS,
+			onAction: async () => {
+				try {
+					await tasks.update(taskId, {
+						sectionId: fromSectionId,
+						order: fromOrder,
+					});
+				} catch (err) {
+					if (!/not found/i.test(err.message)) throw err;
+					// Task is gone; the section is still ours to clean up.
+				}
+				await sections.remove(created.id).catch(() => {});
+			},
+		});
+	}
+
 	// #area/focus is a dead duplicate of the landing route: Focus is no longer a
 	// listed area, it IS the landing surface. Redirect rather than render it, so
 	// neither a bookmark nor the back button can land on a second copy of the
@@ -374,6 +459,7 @@ export function createController({ models, els }) {
 					}
 				},
 				onMoveTaskToSection: handleMoveTaskToSection,
+				onCreateSectionAndMove: handleCreateSectionAndMove,
 				onOpenRepeatEditor: openRecurrenceEditor,
 			});
 			// Something asked for a specific tab on this mount — today only the
@@ -434,6 +520,7 @@ export function createController({ models, els }) {
 				}
 			},
 			onMoveTaskToSection: handleMoveTaskToSection,
+			onCreateSectionAndMove: handleCreateSectionAndMove,
 
 			onMoveUp: async ({ sectionId }) => {
 				await moveSection(sectionId, "up");
@@ -759,7 +846,14 @@ export function createController({ models, els }) {
 			// notify → render consumes flag
 			await tasks.update(taskId, { recurrence, dueAt, hasTime });
 		} catch (err) {
-			if (/not found/i.test(err.message)) return; // cascade race
+			if (/not found/i.test(err.message)) {
+				// Cascade race. No write ⇒ no notify ⇒ no render, so the focus
+				// flag closeRecurrenceEditor just set is never consumed. It would
+				// sit until the next 60s tick and then pull focus out of whatever
+				// the user had moved on to. Render now to spend it.
+				await applyState();
+				return;
+			}
 			throw err;
 		}
 		// A schedule without a repeat is now a valid save, so the toast can no
@@ -775,7 +869,11 @@ export function createController({ models, els }) {
 		try {
 			await tasks.update(taskId, { recurrence: null }); // dueAt kept
 		} catch (err) {
-			if (/not found/i.test(err.message)) return;
+			if (/not found/i.test(err.message)) {
+				// Same stranded-focus-flag race as onSaveRecurrence — see there.
+				await applyState();
+				return;
+			}
 			throw err;
 		}
 		toast.show({ message: "Repeat removed", durationMs: COMPLETE_TOAST_MS });
@@ -824,7 +922,15 @@ export function createController({ models, els }) {
 			},
 			onCloseDrawer: () => closeDrawer(),
 			onCycleTheme: async () => {
-				await settings.setTheme(nextThemeChoice(currentChoice));
+				// currentChoice is only updated by applyState AFTER the write
+				// round-trips, so two fast clicks both read the same value and
+				// compute the same next choice — the second click is swallowed and
+				// the cycle skips a step. Advance from a local cursor instead, and
+				// keep it in step with the model on every other path.
+				pendingThemeChoice = nextThemeChoice(
+					pendingThemeChoice ?? currentChoice,
+				);
+				await settings.setTheme(pendingThemeChoice);
 			},
 			...sidebarCallbacks(),
 		});

@@ -308,6 +308,22 @@ export function createFocusView(rootEl, callbacks) {
 			// Toast is the only visible feedback here.
 		},
 
+		// Same close-and-hand-off shape as pick-move-target: the controller
+		// creates the section, so this only has to decide where focus lands.
+		"create-move-target": (_event, actionEl) => {
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			openMenuTaskId = null;
+			taskMenuMode = "actions"; // reset for next open
+			if (activeTab === "focus") {
+				pendingFocusTab = "focus"; // filing takes the row off this tab
+			} else {
+				pendingFocusTaskId = t.id;
+			}
+			callbacks.onCreateSectionAndMove({ taskId: t.id });
+			// No doRender() — the model-notify re-render consumes the focus flag.
+		},
+
 		"move-picker-back": (event, actionEl) => {
 			event.stopPropagation();
 			const t = taskFromEvent(actionEl);
@@ -562,9 +578,6 @@ function template(
 		focus: groups.notepad.length,
 	};
 
-	// >=1 section other than any task's own ⇒ a valid move target exists.
-	const hasMoveTargets = state.sections.length > 1;
-
 	// Compute the picker only for the open task in picker mode.
 	let movePickerHtml = null;
 	if (openMenuTaskId && taskMenuMode === "picker") {
@@ -585,7 +598,6 @@ function template(
 		pendingRenameTaskValue,
 		taskMenuMode,
 		movePickerHtml,
-		hasMoveTargets,
 		areas: state.areas,
 		sections: state.sections,
 		// The notepad is entirely Focus-area tasks, so a badge there would say
@@ -593,12 +605,11 @@ function template(
 		// move a captured thought out, so it never rots for costing two levels of
 		// menu to file. Spec D7.
 		//
-		// File is gated on hasMoveTargets for the same reason "Move to…" is. With
-		// only the Focus area and its one section there is nowhere to file to, and
-		// an ungated button would render on every row purely to open a picker
-		// holding nothing but the disabled "No other sections" hint and Back.
+		// No longer gated on having somewhere to file to: the picker now offers
+		// "＋ New section…", so File opens something useful even on a fresh
+		// install. Gating it was what left a new user with no route out at all.
 		showBadge: activeTab !== "focus",
-		showFile: activeTab === "focus" && hasMoveTargets,
+		showFile: activeTab === "focus",
 	};
 
 	return `
@@ -714,7 +725,7 @@ function renderGroup(heading, modifierClass, tasks, showCount, rowOpts) {
 	const rows = tasks.map((t) => renderTaskRowWithMenu(t, rowOpts)).join("");
 	return `
 		<section class="group ${modifierClass}">
-			<h3 class="group__heading">${heading}${countHtml}</h3>
+			<h2 class="group__heading">${heading}${countHtml}</h2>
 			<ul class="group__list">${rows}</ul>
 		</section>
 	`;
@@ -728,7 +739,6 @@ function renderTaskRowWithMenu(task, rowOpts) {
 		pendingRenameTaskValue,
 		taskMenuMode,
 		movePickerHtml,
-		hasMoveTargets,
 		areas,
 		sections,
 		showBadge,
@@ -769,9 +779,13 @@ function renderTaskRowWithMenu(task, rowOpts) {
 
 	// Actions face. Focus menu: [Rename, Move to…, Schedule…, Delete]. No Move
 	// up/down — every tab here is a sorted view, not a manual order.
-	const moveToItem = hasMoveTargets
-		? `<button class="task-menu__item" type="button" data-action="move-task-to" role="menuitem" tabindex="-1" aria-haspopup="menu">Move to…</button>`
-		: "";
+	//
+	// "Move to…" is ALWAYS shown. It used to be gated on hasMoveTargets, which
+	// meant a fresh install — one area, one section — never saw it, so there
+	// was no route from a task to anywhere else and no hint that one existed.
+	// The picker now carries "＋ New section…", so it always has something to
+	// offer.
+	const moveToItem = `<button class="task-menu__item" type="button" data-action="move-task-to" role="menuitem" tabindex="-1" aria-haspopup="menu">Move to…</button>`;
 	// Function replacement here too — same `$&` reasoning as the picker face
 	// above. Nothing user-authored is in this string today, but the two call
 	// sites must not drift apart.

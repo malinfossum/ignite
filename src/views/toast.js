@@ -19,7 +19,9 @@
 // to screen readers. (Per W3C: focus INSIDE a live region suppresses
 // change announcements in some SRs.)
 //
-// Action button: one per toast, labelled "Undo" unless the caller passes
+// Action button: at most one per toast, and rendered ONLY when the caller
+// passes onAction. A toast without onAction is message-only — it must not grow
+// an "Undo" that just dismisses it. Labelled "Undo" unless the caller passes
 // actionLabel. The label is user-visible copy, so it goes through escapeHtml
 // like every other interpolated string — even though every current caller
 // passes a literal.
@@ -118,21 +120,30 @@ export function createToastView(rootEl) {
 		activeKey = key ?? null;
 		activeOnDismiss = onDismiss ?? null;
 
+		// The action button is rendered ONLY when the caller supplies onAction.
+		// Without this gate every toast showed a live "Undo" that merely
+		// dismissed it — a button that names a reversal and performs none is
+		// worse than no button, because the user believes the action was undone.
+		const actionHtml = onAction
+			? `<button class="toast__action" type="button">${escapeHtml(actionLabel ?? "Undo")}</button>`
+			: "";
 		rootEl.innerHTML = `
 			<div class="toast">
 				<span class="toast__message" role="status" aria-live="polite">${escapeHtml(message ?? "")}</span>
-				<button class="toast__action" type="button">${escapeHtml(actionLabel ?? "Undo")}</button>
+				${actionHtml}
 			</div>
 		`;
 
 		const toastEl = rootEl.querySelector(".toast");
 		const actionBtn = rootEl.querySelector(".toast__action");
 
-		activeActionHandler = () => {
-			clearActive();
-			if (onAction) onAction();
-		};
-		actionBtn.addEventListener("click", activeActionHandler, { once: true });
+		if (actionBtn) {
+			activeActionHandler = () => {
+				clearActive();
+				onAction();
+			};
+			actionBtn.addEventListener("click", activeActionHandler, { once: true });
+		}
 
 		attachInteractionListeners(toastEl);
 

@@ -98,6 +98,8 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 	// Map<sectionId, string> — in-flight "Add task" text per section. See
 	// the closure-state doc comment above.
 	let pendingAddValue = new Map();
+	// Section ids with an "Add task" write in flight — see commit-section-add.
+	const addingSections = new Set();
 	let pendingMenuFocusSectionId = null;
 	let pendingRenameSelect = false;
 	let pendingFocusTaskId = null;
@@ -472,6 +474,20 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			// notify → re-render → the (already-null) menu closes.
 		},
 
+		// Same close-and-hand-off shape as pick-move-target, including the
+		// cross-area focus fallback: the new section is created in this task's
+		// own area, so the row stays on this route and its ⋯ can be refocused.
+		"create-move-target": (_event, actionEl) => {
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			openTaskMenuId = null;
+			taskMenuMode = "actions"; // reset for next open
+			pendingFocusTaskId = t.id;
+			pendingFocusMoveSourceSectionId = t.sectionId;
+			callbacks.onCreateSectionAndMove({ taskId: t.id });
+			// No doRender() — the model-notify re-render consumes the focus flags.
+		},
+
 		"move-picker-back": (event, actionEl) => {
 			event.stopPropagation();
 			const t = taskFromEvent(actionEl);
@@ -510,6 +526,12 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 				const title = actionEl.value.trim();
 				const sectionId = actionEl.dataset.sectionId;
 				if (!title || !sectionId) return;
+				// Re-entry guard, keyed by section so two different add rows can
+				// still commit concurrently. The input is deliberately not cleared
+				// until the write resolves (see below), so a second Enter arriving
+				// mid-write would read the same text and create a duplicate task.
+				if (addingSections.has(sectionId)) return;
+				addingSections.add(sectionId);
 				// Await and clear only on success — mirrors capture.js's commit().
 				// Clearing eagerly (the old behaviour) ate the typed text on any
 				// rejected write; the held pendingAddValue must survive a failure
@@ -523,6 +545,8 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 				} catch {
 					// Write failed (quota, private mode, …) — leave the typed
 					// text and the held value in place. No toast: out of scope.
+				} finally {
+					addingSections.delete(sectionId);
 				}
 				return;
 			}
@@ -887,7 +911,6 @@ function template(
 	}
 
 	// ≥1 section other than any task's own ⇒ a valid move target exists.
-	const hasMoveTargets = state.sections.length > 1;
 
 	// Compute the picker only for the open task in picker mode — guarded so
 	// it's skipped on every normal render.
@@ -920,7 +943,6 @@ function template(
 				pendingRenameTaskValue,
 				taskMenuMode,
 				movePickerHtml,
-				hasMoveTargets,
 				now: state.now,
 				pendingAddValue: pendingAddValue.get(s.id),
 			}),

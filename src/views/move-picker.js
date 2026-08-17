@@ -14,11 +14,12 @@
 // Back is LAST so the "focus first [role=menuitem]" machinery lands on the
 // first TARGET when the picker opens, not on Back.
 //
-// Empty-picker race: "Move to…" is gated upstream by hasMoveTargets, but the
-// other sections can be deleted between opening the picker and its re-render.
-// If zero target groups remain, render a single DISABLED "No other sections"
-// menuitem before Back so the picker is never a bare Back-only dead-end
-// (nextEnabledIndex + the :not([disabled]) focus guard skip it).
+// Empty picker: there may be no other section, either because the user has
+// only the default one or because the others were deleted between opening the
+// picker and its re-render. A DISABLED "No other sections" menuitem explains
+// the absence (nextEnabledIndex + the :not([disabled]) focus guard skip it),
+// and "＋ New section…" below it gives the user a way out — so the picker is
+// never a Back-only dead-end.
 //
 // escapeHtml is applied to area names (group aria-label + visible label),
 // section names, AND data-target-section-id — names are user-controlled and
@@ -59,10 +60,20 @@ export function renderMovePicker({ task, areas, sections }) {
 			? `<button class="task-menu__item" type="button" role="menuitem" tabindex="-1" disabled>No other sections</button>`
 			: "";
 
+	// Always offered, including when there are no targets at all — that is the
+	// case where it matters most. A fresh install has exactly one section, so
+	// without this the picker is a dead end and there is no route from a task
+	// to "somewhere to file it". Placed after the targets and before Back, so
+	// Back stays LAST and the focus-first-menuitem machinery still lands on a
+	// real target when one exists.
+	const createItem = `<button class="task-menu__item task-menu__item--create" type="button" role="menuitem" tabindex="-1"
+			data-action="create-move-target">＋ New section…</button>`;
+
 	return `
 		<div class="task-menu task-menu--picker" role="menu" aria-label="Move to section">
 			${groups}
 			${emptyHint}
+			${createItem}
 			<button class="task-menu__item task-menu__item--back" type="button" role="menuitem" tabindex="-1"
 				data-action="move-picker-back">← Back</button>
 		</div>
