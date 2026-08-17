@@ -426,7 +426,7 @@ The structural fix. After this task nothing overflows, but badges, the hero card
 
 **Files:**
 - Modify: `main.css:196-202` (the label/count collapsed rule), `:1119-1126` (the collapsed display-none rule)
-- Modify: `main.css` — add a new rail block after the existing collapsed rules
+- Modify: `main.css` — add a new rail block **after the base `.sidebar__*` rules it overrides**, not near the top of the file. Biome's `noDescendingSpecificity` fires if the block precedes them, and this file's existing convention is to keep specificity ascending in source order (see the comments at `main.css:181` and `:1251`). In the shipped result the block lives at roughly line 1111.
 
 **Interfaces:**
 - Consumes: `.sidebar__add-glyph` / `.sidebar__add-text` from Task 2.
@@ -476,6 +476,11 @@ In `main.css`, replace the collapsed label/count rule at lines 196-202 with:
 	body.is-sidebar-collapsed .sidebar__icon {
 		inline-size: 36px;
 		block-size: 36px;
+		/* Load-bearing. .sidebar__count is still a visible flex sibling inside the
+		   44px button until Task 5 turns it into an absolutely-positioned badge,
+		   and flex children default to flex-shrink: 1 — without this the tile is
+		   squeezed to ~28px and the declared 36px is a lie. */
+		flex-shrink: 0;
 		display: grid;
 		place-items: center;
 		border-radius: 10px;

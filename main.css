@@ -1150,6 +1150,11 @@ body {
 	body.is-sidebar-collapsed .sidebar__icon {
 		inline-size: 36px;
 		block-size: 36px;
+		/* Load-bearing. .sidebar__count is still a visible flex sibling inside the
+		   44px button until Task 5 turns it into an absolutely-positioned badge,
+		   and flex children default to flex-shrink: 1 — without this the tile is
+		   squeezed to ~28px and the declared 36px is a lie. */
+		flex-shrink: 0;
 		display: grid;
 		place-items: center;
 		border-radius: 10px;
