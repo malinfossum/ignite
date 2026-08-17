@@ -1,7 +1,7 @@
 # Ignite — the collapsed sidebar rail, and Focus's front door
 
 **Date:** 2026-08-17
-**Status:** design agreed · stress-tested 2026-08-17 (11 findings folded in)
+**Status:** design agreed · stress-tested 2026-08-17 (11 findings folded in) · verification sweep run 2026-08-17 (see §10 "Verified" — 10 of 12 manual steps PASS, plus the light-theme repeat of 1/2/7; steps 10 and 11 NOT VERIFIED for tooling reasons, neither blocking; axe-core itself could not be run, substituted with a manual DOM/ARIA + contrast check)
 **Supersedes:** nothing. Amends decision D1 of `2026-08-11-ignite-v3-focus-design.md` (see §5).
 **Covers:** items 5 and 6 of the 2026-08-14 follow-up list. Item 3 is a named non-goal (§9).
 
@@ -254,6 +254,20 @@ Note the consequence of §7's orchestration decision: because the seeding moves 
 12. Open an area's rail menu, then click into the capture bar. The menu closes rather than being painted under anything.
 
 **Owed and not dischargeable here:** a real-device pass. Every "device" check available in this environment is desktop Chromium at a resized viewport, which cannot confirm touch targets or the on-screen keyboard. The rail is desktop-only so it is largely out of that risk, but step 8 in particular deserves a real phone.
+
+### Verified (2026-08-17)
+
+Run via the preview dev server, desktop Chromium at 1280×800, driven through `javascript_tool` (dispatched synthetic events + `getBoundingClientRect`/computed-style measurement — no real Tab/Enter/Arrow keypresses were available in this pane; every keyboard interaction below was a dispatched `KeyboardEvent`, not a physical key). `npm run check` and `npm run test:run` both green (0 Biome warnings; 258 tests / 17 files). Full detail, every measurement, and the test data used and restored: `.superpowers/sdd/task-9-report.md`.
+
+**§10 steps 1-9, 12 — PASS**, each confirmed with `getBoundingClientRect()` or computed-style evidence (no overflow past the 48px rail, 36px tiles, 44px hit targets, correct tint scoping, correct focus targets after rename-commit/cancel/delete, section present immediately on area creation, drawer showing full labels below 768px with no rail rule leaking, toggle round-tripping visibly/centred/reachable, and the rail menu closing on an outside click into the capture bar).
+
+**Light-theme repeat of steps 1, 2, 7 — PASS.** Badge contrast measured by hand (relative-luminance formula, not axe): **6.43:1 in dark, 4.66:1 in light** — both clear the 4.5:1 AA floor for the badge's 11px text and match the ratios already documented in §3.3's code comment.
+
+**§10 step 10 (reduced motion) and step 11 (coarse-pointer emulation at desktop width) — NOT VERIFIED.** Neither `prefers-reduced-motion` nor a coarse pointer combined with a ≥768px viewport can be forced through the available browser tooling in this environment (the resize tool exposes only width/height/color-scheme). Confirmed instead by static reading of `main.css`: the reduced-motion block (~line 1555) lists `body`, `#sidebar`, `#scrim`, `.sidebar__menu-btn`; the `@media (hover: none)` block (~line 1424) sets the ⋯ trigger's opacity to 1. Neither claim was exercised at runtime.
+
+**Axe — NOT RUN.** axe-core is not a project dependency and was not added; no remote script was injected. No devtools accessibility-audit panel was reachable through the available tools. Substituted with a manual pass in all four combinations (collapsed/expanded × dark/light): zero unnamed buttons inside `#sidebar` in any combination, `aria-haspopup="menu"`/`aria-expanded` correct on the ⋯ trigger, no duplicate ids, plus the contrast measurement above. This is **not** equivalent to an axe audit — it does not check landmark structure, full focus-order rules, or the rest of axe's ruleset.
+
+**Owed axe passes confirmed still owed, untouched by this sweep:** the schedule dialog and the Focus surface.
 
 ---
 
