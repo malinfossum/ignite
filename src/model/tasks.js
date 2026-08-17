@@ -75,7 +75,14 @@ export async function createTaskModel(db) {
 			if (!sectionId) throw new Error("create(task): sectionId is required");
 			if (!title) throw new Error("create(task): title is required");
 			const siblings = await db.getByIndex("tasks", "sectionId", sectionId);
-			const order = siblings.length;
+			// max(order)+1, NOT siblings.length — the same gap-robustness
+			// moveToSection already applies. A delete leaves a hole, so the count
+			// can equal an order still in use: create three tasks (0,1,2), delete
+			// the middle one, and the next create would take order 2 again. Two
+			// tasks sharing an order make swapOrder a SILENT no-op (swapping equal
+			// values changes nothing), which surfaces as a "Move down" that does
+			// nothing, and it makes the sort order between the pair arbitrary.
+			const order = siblings.reduce((max, t) => Math.max(max, t.order), -1) + 1;
 			const task = {
 				id: uuid(),
 				sectionId,

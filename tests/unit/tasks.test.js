@@ -211,6 +211,41 @@ describe("createTaskModel — title capitalization", () => {
 	});
 });
 
+describe("createTaskModel — order collisions", () => {
+	// `moveToSection` is already gap-robust (see its own test below). `create`
+	// must be too: a duplicated `order` makes swapOrder a silent no-op, because
+	// swapping two equal values changes nothing — which surfaces as a "Move
+	// down" menu item that does nothing.
+	it("create is gap-robust: uses max(order)+1, not the sibling COUNT", async () => {
+		const { model } = await freshModel();
+		const a = await model.create({ sectionId: "s1", title: "A" }); // order 0
+		const b = await model.create({ sectionId: "s1", title: "B" }); // order 1
+		const c = await model.create({ sectionId: "s1", title: "C" }); // order 2
+		await model.remove(b.id); // leaves orders [0, 2] — a gap at 1
+		const d = await model.create({ sectionId: "s1", title: "D" });
+
+		expect(a.order).toBe(0);
+		expect(c.order).toBe(2);
+		expect(d.order).toBe(3); // max(2)+1, NOT count(2)
+	});
+
+	it("a reorder still moves a task after a delete has left a gap", async () => {
+		const { model } = await freshModel();
+		await model.create({ sectionId: "s1", title: "A" });
+		const b = await model.create({ sectionId: "s1", title: "B" });
+		const c = await model.create({ sectionId: "s1", title: "C" });
+		await model.remove(b.id);
+		const d = await model.create({ sectionId: "s1", title: "D" });
+
+		const before = (await model.listBySection("s1")).map((t) => t.title);
+		await model.swapOrder(c.id, d.id);
+		const after = (await model.listBySection("s1")).map((t) => t.title);
+
+		expect(before).toEqual(["A", "C", "D"]);
+		expect(after).toEqual(["A", "D", "C"]); // the swap actually took effect
+	});
+});
+
 describe("createTaskModel — swapOrder", () => {
 	it("swaps order values between two tasks in one notify", async () => {
 		const { model } = await freshModel();
