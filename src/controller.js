@@ -846,7 +846,14 @@ export function createController({ models, els }) {
 			// notify → render consumes flag
 			await tasks.update(taskId, { recurrence, dueAt, hasTime });
 		} catch (err) {
-			if (/not found/i.test(err.message)) return; // cascade race
+			if (/not found/i.test(err.message)) {
+				// Cascade race. No write ⇒ no notify ⇒ no render, so the focus
+				// flag closeRecurrenceEditor just set is never consumed. It would
+				// sit until the next 60s tick and then pull focus out of whatever
+				// the user had moved on to. Render now to spend it.
+				await applyState();
+				return;
+			}
 			throw err;
 		}
 		// A schedule without a repeat is now a valid save, so the toast can no
@@ -862,7 +869,11 @@ export function createController({ models, els }) {
 		try {
 			await tasks.update(taskId, { recurrence: null }); // dueAt kept
 		} catch (err) {
-			if (/not found/i.test(err.message)) return;
+			if (/not found/i.test(err.message)) {
+				// Same stranded-focus-flag race as onSaveRecurrence — see there.
+				await applyState();
+				return;
+			}
 			throw err;
 		}
 		toast.show({ message: "Repeat removed", durationMs: COMPLETE_TOAST_MS });
