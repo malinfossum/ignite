@@ -8,13 +8,14 @@
 import { FOCUS_ID } from "../model/areas.js";
 import { areaForTask } from "../utils/areas.js";
 import { bindActions, bindKeys } from "../utils/dom.js";
+import { focusCounts } from "../utils/focus-counts.js";
 import {
 	firstEnabledIndex,
 	lastEnabledIndex,
 	nextEnabledIndex,
 } from "../utils/menu-keyboard.js";
 import { attachRenameInput, readRenameCaret } from "../utils/rename-input.js";
-import { groupTasksForFocus, pickNextTask } from "../utils/time.js";
+import { pickNextTask } from "../utils/time.js";
 import { renderTabStrip, TABS } from "./focus-tabs.js";
 import { renderMovePicker } from "./move-picker.js";
 import { renderTaskRow } from "./task.js";
@@ -562,15 +563,17 @@ function template(
 	taskMenuMode,
 	activeTab,
 ) {
-	// Which sections belong to Focus. Resolved here, then passed as data, because
-	// utils/time.js must stay ignorant of FOCUS_ID. Every Focus section counts,
-	// not just focus-default — §12.4 keeps pre-merge extra sections from
-	// orphaning their tasks now that the surface has no section headings.
-	const focusSectionIds = state.sections
-		.filter((s) => s.areaId === FOCUS_ID)
-		.map((s) => s.id);
-
-	const groups = groupTasksForFocus(state.tasks, state.now, focusSectionIds);
+	// Every Focus section counts, not just focus-default — §12.4 keeps
+	// pre-merge extra sections from orphaning their tasks now that the surface
+	// has no section headings. Shared with the page-header summary and the
+	// sidebar hero card so the three can never disagree — see
+	// utils/focus-counts.js.
+	const { groups } = focusCounts(
+		state.sections,
+		state.tasks,
+		state.now,
+		FOCUS_ID,
+	);
 	const counts = {
 		today: groups.overdue.length + groups.today.length,
 		tomorrow: groups.tomorrow.length,
