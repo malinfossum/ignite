@@ -362,7 +362,11 @@ body {
 /* --- NEXT card --- */
 .next-card {
 	margin: 0 0 var(--space-5);
-	padding: var(--space-4);
+	/* Vertical padding only. `.task` brings its own 16px inline padding, so a
+	   matching inline padding here nested inside it and pushed the hero row 16px
+	   in from both edges — its title and its right-hand columns sat 16px off
+	   every group row below. The label re-adds the inset for itself. */
+	padding: var(--space-4) 0;
 	background: var(--card-bg);
 	/* A full border, not the v1 left rule: single-sided borders and rounded
 	   corners do not combine, and the accent tint carries the emphasis anyway. */
@@ -374,6 +378,10 @@ body {
 	align-items: center;
 	gap: var(--space-2);
 	margin: 0 0 var(--space-3);
+	/* The card no longer pads itself horizontally, so the label supplies its
+	   own inset — matching `.task`'s inline padding keeps it flush with the
+	   row beneath. */
+	padding-inline: var(--space-4);
 	font-size: var(--text-sm);
 	text-transform: none;
 	color: var(--accent);

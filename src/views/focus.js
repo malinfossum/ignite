@@ -725,7 +725,7 @@ function renderGroup(heading, modifierClass, tasks, showCount, rowOpts) {
 	const rows = tasks.map((t) => renderTaskRowWithMenu(t, rowOpts)).join("");
 	return `
 		<section class="group ${modifierClass}">
-			<h3 class="group__heading">${heading}${countHtml}</h3>
+			<h2 class="group__heading">${heading}${countHtml}</h2>
 			<ul class="group__list">${rows}</ul>
 		</section>
 	`;
