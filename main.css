@@ -481,9 +481,9 @@ body {
 	color: var(--color-text-muted);
 	font-size: 0.85rem;
 }
-/* Phone: the row is title-first, so the badge drops out entirely (spec §7).
-   display:none takes it out of the accessibility tree too — accepted, because
-   the area is not conveyed to the sighted phone user either. */
+/* Phone and tablet: the row is title-first, so the badge drops out entirely
+   (spec §7). display:none takes it out of the accessibility tree too — accepted,
+   because the area is not conveyed to the sighted user at these widths either. */
 .task__area-badge {
 	display: none;
 	color: var(--text-muted);
@@ -503,7 +503,10 @@ body {
 .task__menu-btn {
 	flex: 0 0 auto;
 }
-@media (min-width: 768px) {
+/* 1024px, not the 768px of spec §7: at 768 the sidebar already claims 240px, so
+   reserving 8rem + 6rem for these two columns left the title 6–9 characters.
+   Malin's call 2026-08-14 — desktop-only columns, tablet keeps the phone row. */
+@media (min-width: 1024px) {
 	.task__area-badge {
 		display: block;
 		flex: 0 0 8rem;

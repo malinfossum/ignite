@@ -65,7 +65,7 @@ export function renderTaskRow(
 				aria-label="File ${escapeHtml(task.title)}">File</button>`
 		: "";
 	// The badge is a plain <span>, not a link or a button: it says where the task
-	// lives, it does not navigate. main.css hides it below 768px.
+	// lives, it does not navigate. main.css hides it below 1024px.
 	const areaBadge = areaName
 		? `<span class="task__area-badge">${escapeHtml(areaName)}</span>`
 		: "";
