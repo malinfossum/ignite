@@ -472,6 +472,20 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			// notify → re-render → the (already-null) menu closes.
 		},
 
+		// Same close-and-hand-off shape as pick-move-target, including the
+		// cross-area focus fallback: the new section is created in this task's
+		// own area, so the row stays on this route and its ⋯ can be refocused.
+		"create-move-target": (_event, actionEl) => {
+			const t = taskFromEvent(actionEl);
+			if (!t) return;
+			openTaskMenuId = null;
+			taskMenuMode = "actions"; // reset for next open
+			pendingFocusTaskId = t.id;
+			pendingFocusMoveSourceSectionId = t.sectionId;
+			callbacks.onCreateSectionAndMove({ taskId: t.id });
+			// No doRender() — the model-notify re-render consumes the focus flags.
+		},
+
 		"move-picker-back": (event, actionEl) => {
 			event.stopPropagation();
 			const t = taskFromEvent(actionEl);
@@ -887,7 +901,6 @@ function template(
 	}
 
 	// ≥1 section other than any task's own ⇒ a valid move target exists.
-	const hasMoveTargets = state.sections.length > 1;
 
 	// Compute the picker only for the open task in picker mode — guarded so
 	// it's skipped on every normal render.
@@ -920,7 +933,6 @@ function template(
 				pendingRenameTaskValue,
 				taskMenuMode,
 				movePickerHtml,
-				hasMoveTargets,
 				now: state.now,
 				pendingAddValue: pendingAddValue.get(s.id),
 			}),

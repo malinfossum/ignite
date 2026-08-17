@@ -38,6 +38,10 @@ const MOVE_TOAST_MS = 5_000;
 // Completing a recurring task is reversible (Undo restores the prior schedule)
 // — same 5s urgency as a move/single-delete.
 const COMPLETE_TOAST_MS = 5_000;
+// Name given to a section created from the move picker's "＋ New section…".
+// Matches onAddArea's "New area" so the two creation paths read the same; the
+// user renames it from the area view.
+const NEW_SECTION_NAME = "New section";
 
 export function parseHash(hash) {
 	const raw = (hash || "").replace(/^#/, "");
@@ -346,6 +350,58 @@ export function createController({ models, els }) {
 		});
 	}
 
+	// "＋ New section…" in the move picker. Creates a section alongside the
+	// task's current one — same area, so the user never has to pick one — then
+	// hands off to the ordinary move path so the toast, the undo and the
+	// cascade-race swallows are all the ones already proven for a normal move.
+	//
+	// Undo removes the section this created as well as moving the task back:
+	// the section exists only because of this action, so leaving an empty
+	// stray behind would make undo a partial reversal. It is removed AFTER the
+	// task has moved out, so the delete can never take a task with it.
+	async function handleCreateSectionAndMove({ taskId }) {
+		const task = (await tasks.list()).find((t) => t.id === taskId);
+		if (!task) return; // race: task already gone
+		const currentSection = (await sections.list()).find(
+			(s) => s.id === task.sectionId,
+		);
+		if (!currentSection) return; // race: section cascade-deleted
+		const fromSectionId = task.sectionId;
+		const fromOrder = task.order;
+
+		const created = await sections.create({
+			areaId: currentSection.areaId,
+			name: NEW_SECTION_NAME,
+		});
+
+		try {
+			await tasks.moveToSection(taskId, created.id);
+		} catch (err) {
+			if (!/not found/i.test(err.message)) throw err;
+			// The move failed, so the section we just made is an orphan nobody
+			// asked for. Take it back out rather than leaving it behind.
+			await sections.remove(created.id).catch(() => {});
+			return;
+		}
+
+		toast.show({
+			message: `Moved to ${created.name}`,
+			durationMs: MOVE_TOAST_MS,
+			onAction: async () => {
+				try {
+					await tasks.update(taskId, {
+						sectionId: fromSectionId,
+						order: fromOrder,
+					});
+				} catch (err) {
+					if (!/not found/i.test(err.message)) throw err;
+					// Task is gone; the section is still ours to clean up.
+				}
+				await sections.remove(created.id).catch(() => {});
+			},
+		});
+	}
+
 	// #area/focus is a dead duplicate of the landing route: Focus is no longer a
 	// listed area, it IS the landing surface. Redirect rather than render it, so
 	// neither a bookmark nor the back button can land on a second copy of the
@@ -396,6 +452,7 @@ export function createController({ models, els }) {
 					}
 				},
 				onMoveTaskToSection: handleMoveTaskToSection,
+				onCreateSectionAndMove: handleCreateSectionAndMove,
 				onOpenRepeatEditor: openRecurrenceEditor,
 			});
 			// Something asked for a specific tab on this mount — today only the
@@ -456,6 +513,7 @@ export function createController({ models, els }) {
 				}
 			},
 			onMoveTaskToSection: handleMoveTaskToSection,
+			onCreateSectionAndMove: handleCreateSectionAndMove,
 
 			onMoveUp: async ({ sectionId }) => {
 				await moveSection(sectionId, "up");

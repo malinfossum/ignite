@@ -19,7 +19,6 @@
 //                            (survives re-renders), or undefined
 //   taskMenuMode           - 'actions' | 'picker'; sub-face of the open task menu
 //   movePickerHtml         - pre-rendered picker string for the open task, or null
-//   hasMoveTargets         - true when ≥1 other section exists (gates "Move to…")
 //   showFile               - passed through to renderTaskRow (consumed by Task 6)
 //   now                    - Date used by renderTaskRow for time labels
 
@@ -40,7 +39,6 @@ export function renderSection({
 	pendingRenameTaskValue,
 	taskMenuMode,
 	movePickerHtml,
-	hasMoveTargets,
 	showFile,
 	now,
 	pendingAddValue,
@@ -65,7 +63,6 @@ export function renderSection({
 		pendingRenameTaskValue,
 		taskMenuMode,
 		movePickerHtml,
-		hasMoveTargets,
 		showFile,
 		pendingAddValue,
 	);
@@ -171,7 +168,6 @@ function renderBody(
 	pendingRenameTaskValue,
 	taskMenuMode,
 	movePickerHtml,
-	hasMoveTargets,
 	showFile,
 	pendingAddValue,
 ) {
@@ -186,7 +182,6 @@ function renderBody(
 				pendingRenameTaskValue,
 				taskMenuMode,
 				movePickerHtml,
-				hasMoveTargets,
 				showFile,
 			}),
 		)
@@ -226,7 +221,6 @@ function renderTaskRowWithMenu(
 		pendingRenameTaskValue,
 		taskMenuMode,
 		movePickerHtml,
-		hasMoveTargets,
 		showFile,
 	},
 ) {
@@ -261,10 +255,10 @@ function renderTaskRowWithMenu(
 		? ""
 		: `<button class="task-menu__item" type="button" data-action="move-task-down"
 				role="menuitem" tabindex="-1">Move down</button>`;
-	const moveToItem = hasMoveTargets
-		? `<button class="task-menu__item" type="button" data-action="move-task-to"
-				role="menuitem" tabindex="-1" aria-haspopup="menu">Move to…</button>`
-		: "";
+	// Always shown — the picker carries "＋ New section…", so it is never a
+	// dead end even when this is the only section. See focus.js for the full note.
+	const moveToItem = `<button class="task-menu__item" type="button" data-action="move-task-to"
+				role="menuitem" tabindex="-1" aria-haspopup="menu">Move to…</button>`;
 	return row.replace(
 		"</li>",
 		`<div class="task-menu" role="menu">
