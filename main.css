@@ -1220,12 +1220,29 @@ body {
 	}
 
 	/* The toggle is the ONLY way out of the rail. It had no collapsed rule at
-	   all, and its old position came from the 1rem padding removed above. */
+	   all, and its old position came from the 1rem padding removed above.
+	   Spec §3.6: a rail tile like any other — the button is the 44px hit target,
+	   the glyph span is the 36px painted surface, mirroring .sidebar__icon. With
+	   the border gone the paint IS the affordance; without it the toggle is the
+	   one rail control with nothing painted. */
 	body.is-sidebar-collapsed .sidebar__toggle {
 		align-self: center;
 		inline-size: 44px;
 		block-size: 44px;
 		border: 0;
+		display: grid;
+		place-items: center;
+	}
+	body.is-sidebar-collapsed .sidebar__toggle-glyph {
+		inline-size: 36px;
+		block-size: 36px;
+		display: grid;
+		place-items: center;
+		border-radius: 10px;
+		background: var(--surface-3);
+	}
+	body.is-sidebar-collapsed .sidebar__toggle:hover .sidebar__toggle-glyph {
+		background: var(--surface-4);
 	}
 
 	/* ＋ becomes a tile rather than disappearing. */
