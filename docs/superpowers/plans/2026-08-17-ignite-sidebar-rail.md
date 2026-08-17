@@ -530,18 +530,26 @@ In `main.css`, replace the collapsed label/count rule at lines 196-202 with:
 Replace the collapsed display-none rule at lines 1119-1126 with:
 
 ```css
-/* Collapsed state — desktop-only. The ⋯ button and the ＋ row are rendered by
-   the rail now (see the collapsed block above), so they are no longer hidden.
-   The rename input stays hidden until it becomes a popover — see the rename
-   block further down, which removes this rule entirely. */
+/* Collapsed state — desktop-only. The ＋ row is rendered by the rail now (see
+   the collapsed block above), so it is no longer hidden.
+
+   The ⋯ button stays hidden HERE and only HERE: it carries min-inline-size:44px,
+   so while it is still in flow the row would centre two 44px children inside a
+   48px rail and both would bleed off the edges. Task 7 removes this line in the
+   same change that gives it `position: absolute` in the tile's corner — the two
+   must land together.
+
+   The rename input likewise stays hidden until it becomes a popover in Task 8,
+   which removes it from this rule. */
 @media (min-width: 768px) {
+	body.is-sidebar-collapsed .sidebar__menu-btn,
 	body.is-sidebar-collapsed .sidebar__rename-input {
 		display: none;
 	}
 }
 ```
 
-Leave `main.css:1579-1586`'s `.icon-picker` collapsed rule alone in this task — it is removed together with the rule above, in Task 8. Between the two tasks the rename path stays exactly as broken as it is today, which is intentional: this task is about geometry and must be reviewable on its own.
+Leave `main.css:1579-1586`'s `.icon-picker` collapsed rule alone in this task — it is removed together with the rename input's hide, in Task 8. Between the two tasks the rename path stays exactly as broken as it is today, which is intentional: this task is about geometry and must be reviewable on its own.
 
 - [ ] **Step 3: Verify in the browser**
 
@@ -869,6 +877,10 @@ Append inside the Task 4 collapsed block:
 	   display or visibility, both of which would take it out of the tab order and
 	   re-create the dead keyboard path this rail exists to fix. */
 	body.is-sidebar-collapsed .sidebar__menu-btn {
+		/* Un-hides what Task 4 hid. That hide and this rule are one change split
+		   across two tasks: in flow the button's min-inline-size:44px overflows a
+		   48px rail, so it may only become visible at the moment it leaves flow. */
+		display: block;
 		position: absolute;
 		inset-block-end: 0;
 		inset-inline-end: 0;
