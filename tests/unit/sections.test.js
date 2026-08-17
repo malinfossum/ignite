@@ -223,3 +223,20 @@ describe("createSectionModel — restoreMany", () => {
 		expect(calls).toEqual(["notified"]); // single notify
 	});
 });
+
+describe("createSectionModel — order collisions", () => {
+	// Same hazard as tasks.create and areas.create — see those tests.
+	it("create uses max(order)+1, not the sibling COUNT", async () => {
+		const { model } = await freshModel();
+		const a = await model.create({ areaId: "a1", name: "A" });
+		const b = await model.create({ areaId: "a1", name: "B" });
+		const c = await model.create({ areaId: "a1", name: "C" });
+		await model.remove(b.id);
+		const d = await model.create({ areaId: "a1", name: "D" });
+
+		expect(a.order).toBe(0);
+		expect(d.order).toBeGreaterThan(c.order);
+		const orders = (await model.listByArea("a1")).map((x) => x.order);
+		expect(new Set(orders).size).toBe(orders.length); // all distinct
+	});
+});

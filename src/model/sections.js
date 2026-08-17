@@ -47,7 +47,10 @@ export async function createSectionModel(db) {
 			const siblings = (await db.getAll("sections")).filter(
 				(s) => s.areaId === areaId,
 			);
-			const order = siblings.length;
+			// max(order)+1, NOT the count — a delete leaves a hole, so the count
+			// can equal an order still in use, and two sections sharing an order
+			// make swapOrder a silent no-op (see tasks.create for the full note).
+			const order = siblings.reduce((max, s) => Math.max(max, s.order), -1) + 1;
 			const section = {
 				id: uuid(),
 				areaId,

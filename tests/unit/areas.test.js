@@ -308,3 +308,22 @@ describe("createAreaModel — restore + restoreMany", () => {
 		expect(calls).toEqual(["notified"]); // single notify
 	});
 });
+
+describe("createAreaModel — order collisions", () => {
+	// Same hazard as tasks.create: a delete leaves a hole, so the sibling COUNT
+	// can equal an order still in use. Two areas sharing an order make
+	// swapOrder a silent no-op, which surfaces as a Move up/down that does
+	// nothing.
+	it("create uses max(order)+1, not the area COUNT", async () => {
+		const { model } = await freshModel();
+		await model.create({ name: "A" });
+		const b = await model.create({ name: "B" });
+		const c = await model.create({ name: "C" });
+		await model.remove(b.id);
+		const d = await model.create({ name: "D" });
+
+		expect(d.order).toBeGreaterThan(c.order);
+		const orders = (await model.list()).map((x) => x.order);
+		expect(new Set(orders).size).toBe(orders.length); // all distinct
+	});
+});
