@@ -1209,6 +1209,44 @@ body {
 		font-size: var(--text-lg);
 		line-height: 1;
 	}
+
+	/* Counts become corner badges. The badge must stay INSIDE the rail's inline
+	   bounds — a 44px button in a 48px rail leaves 2px each side, so it is inset
+	   from the button's edge, never overhanging it. */
+	body.is-sidebar-collapsed .sidebar__area {
+		position: relative;
+	}
+	body.is-sidebar-collapsed .sidebar__count {
+		/* Un-hides what Task 4 hid. That hide and this rule are one change split
+		   across two tasks: in flow the count squeezes the 36px tile, so it may
+		   only become visible at the moment it leaves flow. */
+		display: block;
+		position: absolute;
+		inset-block-start: 1px;
+		inset-inline-end: 1px;
+		min-inline-size: 1rem;
+		padding: 0 0.25rem;
+		border-radius: 999px;
+		background: var(--surface-4);
+		color: var(--text);
+		font-size: 0.6875rem;
+		line-height: 1.45;
+		text-align: center;
+	}
+	/* --surface-1 on --accent measures 4.38:1 in light theme (near-white on
+	   #c64e16) — under the 4.5:1 AA floor for 11px text. --surface-2 clears it
+	   (4.66:1 light, 6.43:1 dark) without weakening dark theme's already
+	   comfortable contrast. */
+	body.is-sidebar-collapsed .sidebar__area.is-active .sidebar__count {
+		background: var(--accent);
+		color: var(--surface-2);
+		font-weight: 500;
+	}
+	/* An area with nothing open shows a bare icon. Scoped to the rail: the
+	   expanded row keeps showing 0, which is its existing behaviour. */
+	body.is-sidebar-collapsed .sidebar__count.is-zero {
+		display: none;
+	}
 }
 
 /* Collapsed state — desktop-only. The ＋ row is rendered by the rail now (see
