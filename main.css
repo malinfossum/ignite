@@ -193,11 +193,92 @@ body {
 	flex-shrink: 0;
 }
 
-/* Collapsed state — desktop only; hides labels and counts. */
+/* Collapsed rail — desktop only. The rail is a CSS VARIANT of the same DOM, not
+   a second template: sidebarCollapsed is also true on mobile, where the drawer
+   is full width and every label must stay visible. That is why every rule below
+   is inside this media query, and why none of them may move out of it. */
 @media (min-width: 768px) {
+	/* #sidebar's 1rem padding is what left a 48px rail with 16px of content
+	   width — the cause of every overflow in the old rail. */
+	body.is-sidebar-collapsed #sidebar {
+		padding: 0.375rem 0;
+		align-items: center;
+	}
+
 	body.is-sidebar-collapsed .sidebar__name,
-	body.is-sidebar-collapsed .sidebar__count {
+	body.is-sidebar-collapsed .sidebar__add-text {
 		display: none;
+	}
+
+	body.is-sidebar-collapsed .sidebar__areas {
+		align-self: stretch;
+	}
+	body.is-sidebar-collapsed .sidebar__area-row {
+		justify-content: center;
+	}
+
+	/* The painted tile and the hit target are DIFFERENT boxes. The button stays
+	   44px so pointer targets do not shrink and gaps do not open between rows;
+	   .sidebar__icon is the 36px surface that carries the tint. Do not "simplify"
+	   this by shrinking the button to 36px. */
+	body.is-sidebar-collapsed .sidebar__area {
+		inline-size: 44px;
+		min-block-size: 44px;
+		flex: 0 0 auto;
+		justify-content: center;
+		padding: 0;
+		border-radius: 10px;
+	}
+	body.is-sidebar-collapsed .sidebar__icon {
+		inline-size: 36px;
+		block-size: 36px;
+		display: grid;
+		place-items: center;
+		border-radius: 10px;
+		font-size: var(--text-md);
+	}
+
+	/* The tint moves off the button and onto the tile, so it can never paint
+	   across a box wider than the rail. */
+	body.is-sidebar-collapsed .sidebar__area.is-active {
+		background: transparent;
+	}
+	body.is-sidebar-collapsed .sidebar__area.is-active .sidebar__icon {
+		background: var(--accent-soft);
+	}
+	body.is-sidebar-collapsed .sidebar__area:not(.is-active):hover {
+		background: transparent;
+	}
+	body.is-sidebar-collapsed
+		.sidebar__area:not(.is-active):hover
+		.sidebar__icon {
+		background: var(--surface-4);
+	}
+
+	/* The toggle is the ONLY way out of the rail. It had no collapsed rule at
+	   all, and its old position came from the 1rem padding removed above. */
+	body.is-sidebar-collapsed .sidebar__toggle {
+		align-self: center;
+		inline-size: 44px;
+		block-size: 44px;
+		border: 0;
+	}
+
+	/* ＋ becomes a tile rather than disappearing. */
+	body.is-sidebar-collapsed .sidebar__add-area-row {
+		display: flex;
+		justify-content: center;
+	}
+	body.is-sidebar-collapsed .sidebar__add-area {
+		inline-size: 44px;
+		min-block-size: 44px;
+		padding: 0;
+		text-align: center;
+		border-radius: 10px;
+	}
+	body.is-sidebar-collapsed .sidebar__add-glyph {
+		font-size: var(--text-lg);
+		line-height: 1;
 	}
 }
 
@@ -1116,10 +1197,11 @@ body {
 	outline-offset: 2px;
 }
 
-/* Collapsed state — desktop-only (matches the rail + label/count hides above). */
+/* Collapsed state — desktop-only. The ⋯ button and the ＋ row are rendered by
+   the rail now (see the collapsed block above), so they are no longer hidden.
+   The rename input stays hidden until it becomes a popover — see the rename
+   block further down, which removes this rule entirely. */
 @media (min-width: 768px) {
-	body.is-sidebar-collapsed .sidebar__menu-btn,
-	body.is-sidebar-collapsed .sidebar__add-area-row,
 	body.is-sidebar-collapsed .sidebar__rename-input {
 		display: none;
 	}
