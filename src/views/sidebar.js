@@ -26,6 +26,7 @@
 
 import { FOCUS_ID } from "../model/areas.js";
 import { bindActions, bindKeys, escapeHtml } from "../utils/dom.js";
+import { focusCounts } from "../utils/focus-counts.js";
 import {
 	firstEnabledIndex,
 	lastEnabledIndex,
@@ -480,6 +481,27 @@ function template(
 	const wordmarkAria = focusActive ? 'aria-current="page"' : "";
 	const wordmarkActive = focusActive ? "is-active" : "";
 
+	// Same derivation as the page-header summary and the Focus tab counts.
+	const { overdue, dueToday, attention } = focusCounts(
+		state.sections,
+		state.tasks,
+		state.now,
+		FOCUS_ID,
+	);
+	const focusArea = state.areas.find((a) => a.id === FOCUS_ID);
+	const focusMark = focusArea?.icon || "🔥";
+	// Numbers only — no user-authored text reaches this string.
+	const focusMeta =
+		overdue > 0
+			? `Focus · <strong class="sidebar__home-overdue">${overdue} overdue</strong> · ${dueToday} due today`
+			: `Focus · ${dueToday} due today`;
+	const focusName =
+		overdue > 0
+			? `Ignite, Focus, ${overdue} overdue, ${dueToday} due today`
+			: `Ignite, Focus, ${dueToday} due today`;
+	const homeBadgeClass =
+		attention === 0 ? "sidebar__home-badge is-zero" : "sidebar__home-badge";
+
 	const sorted = state.areas.slice().sort((a, b) => a.order - b.order);
 	// Focus is no longer a listed area — it IS the landing surface, reached by
 	// the wordmark above. Listing it as well would be a second door onto the same
@@ -503,7 +525,14 @@ function template(
 
 	return `
 		<button class="sidebar__home ${wordmarkActive}" type="button"
-			data-action="go-focus" ${wordmarkAria}>Ignite</button>
+			data-action="go-focus" ${wordmarkAria} aria-label="${focusName}">
+			<span class="sidebar__home-mark" aria-hidden="true">${escapeHtml(focusMark)}</span>
+			<span class="sidebar__home-body" aria-hidden="true">
+				<span class="sidebar__home-name">Ignite</span>
+				<span class="sidebar__home-meta">${focusMeta}</span>
+			</span>
+			<span class="${homeBadgeClass}" aria-hidden="true">${attention}</span>
+		</button>
 		<button class="sidebar__toggle" type="button"
 			data-action="toggle-sidebar" aria-label="Toggle sidebar">
 			<span class="sidebar__toggle-glyph" aria-hidden="true">≡</span>
