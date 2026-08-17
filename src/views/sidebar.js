@@ -511,8 +511,10 @@ function template(
 		<ul class="sidebar__areas">
 			${items}
 			<li class="sidebar__add-area-row">
-				<button type="button" class="sidebar__add-area" data-action="add-area">
-					＋ New area
+				<button type="button" class="sidebar__add-area" data-action="add-area"
+					aria-label="New area">
+					<span class="sidebar__add-glyph" aria-hidden="true">＋</span>
+					<span class="sidebar__add-text" aria-hidden="true">New area</span>
 				</button>
 			</li>
 		</ul>
@@ -570,13 +572,21 @@ function renderAreaRow(area, state, route, opts) {
 		? renderAreaMenu({ canMoveUp, canMoveDown, isUndeletable })
 		: "";
 
+	// The accessible name lives on the button, not in its children. In the rail
+	// the label and count are not painted, and a name assembled from painted
+	// children would vanish with them — the exact defect this replaces. Both
+	// spans are aria-hidden so the name is stated once, identically, in both
+	// states. WCAG 2.5.3 holds: the visible "Hjemme" is contained in "Hjemme, 3 open".
+	const countClass = count === 0 ? "sidebar__count is-zero" : "sidebar__count";
+
 	return `
 		<li class="sidebar__area-row" data-area-id="${escapeHtml(area.id)}">
 			<button type="button" class="sidebar__area ${activeClass}"
-				data-action="open-area" data-id="${escapeHtml(area.id)}" ${aria}>
+				data-action="open-area" data-id="${escapeHtml(area.id)}" ${aria}
+				aria-label="${escapeHtml(area.name)}, ${count} open">
 				<span class="sidebar__icon" aria-hidden="true">${escapeHtml(area.icon || "•")}</span>
-				<span class="sidebar__name">${escapeHtml(area.name)}</span>
-				<span class="sidebar__count">${count}</span>
+				<span class="sidebar__name" aria-hidden="true">${escapeHtml(area.name)}</span>
+				<span class="${countClass}" aria-hidden="true">${count}</span>
 			</button>
 			<button type="button" class="sidebar__menu-btn"
 				data-action="open-area-menu"

@@ -40,7 +40,7 @@ Separately, Plan 3 removed Focus from the sidebar list on the reasoning that the
 |---|---|---|
 | D1 | The rail is a **navigation strip that also reports status**, with **no loss of function** | Collapsing should cost width, not capability |
 | D2 | The rail is a **CSS variant of one DOM**, never a second template branch | `sidebarCollapsed` is also true on mobile, where the drawer is full width and labels must stay — so the view cannot branch on it (§3.1) |
-| D3 | Labels are **clipped, not removed** | Preserves the accessible name; the technique already exists at `main.css:238` for `.sidebar__theme-text` |
+| D3 | Accessible names live on the **button** via `aria-label`, with painted children `aria-hidden` | A clipped label cannot work on area rows — `.sidebar__name` is the *visible* label when expanded. One name, stated once, correct in both states (§3.3) |
 | D4 | Counts become **corner badges** on the tile | Same number as the expanded row, different presentation |
 | D5 | The ⋯ menu trigger moves to the **tile's bottom-right corner**, revealed on `:hover` / `:focus-within` and always visible under `@media (hover: none)`, always in the tab order | Same mental model and same keyboard path as the expanded sidebar. Desktop-only does not mean pointer-only — a touchscreen laptop gets the rail with no hover state (§3.3) |
 | D6 | Rename becomes a **popover anchored to the tile**, carrying the field and the icon picker | Restyling the existing `--editing` row; no DOM change, so every closure flag keeps working |
@@ -89,7 +89,7 @@ The 36px tile is deliberately below the 44px touch-target rule the project appli
 Each area tile shows:
 
 - the area icon, centred, `--text-lg`
-- `.sidebar__name`, clipped (position/1px/clip-rect, per D3) so the accessible name survives
+- `.sidebar__name`, not painted in the rail. The name is not lost, because `.sidebar__area` carries `aria-label="<name>, <N> open"` and both spans are `aria-hidden` — see D3
 - `.sidebar__count` as a badge pinned to the top-right corner. The badge overhangs the tile; at 48px with 36px tiles that leaves ~2px to the rail's border, so it **must render inside the rail's inline bounds** — it may not extend past the sidebar's right edge
 - `.sidebar__menu-btn` pinned to the bottom-right corner, `opacity: 0` until the row is hovered or contains focus. Its **painted** glyph is ~15px; its **target** is at least 24×24px, per WCAG 2.5.8 (AA). It overlaps the tile — that is intended, and it is why the tile's own click target is the remaining area, not the full 36px square
 
@@ -106,7 +106,7 @@ Each area tile shows:
 
 The badge shows the **same number the expanded row shows** — open (non-completed) tasks in the area's sections. A different number in the same sidebar's two states would be a bug, not a feature.
 
-**The count must not land in the accessible name as a bare integer.** `.sidebar__count` sits inside `.sidebar__area`, so restoring the label by clipping makes the button's name "Hjemme 3" — a number with no unit. Mark the visible count `aria-hidden="true"` and let the clipped label carry the whole phrase: "Hjemme, 3 open". *Scope note: this is pre-existing in the expanded sidebar, so it is a small deliberate increase over "fix the rail".*
+**The count does not land in the accessible name as a bare integer.** The button's `aria-label` states it with a unit — "Hjemme, 3 open" — and `.sidebar__count` is `aria-hidden`, so the painted badge never contributes a stray number.
 
 Badge legibility is a real constraint at this size and must be checked in **both themes**: the light palette's accent is `#c64e16` ([`ignite.css:42`](../../../design-system/tokens/palettes/ignite.css)) against a light ground, and badge text sits on the accent fill.
 
