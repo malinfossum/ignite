@@ -385,6 +385,15 @@ body {
 }
 
 /* --- Groups --- */
+/* Only BETWEEN groups, never after the last one: a trailing margin would pad the
+   bottom of every panel, including the single-group tabs. `--space-5` is the same
+   gap `.next-card` puts below itself, so Next → Overdue → Today share one rhythm.
+   Groups render flush without this — `.group__list` has `margin: 0` and
+   `.group__heading` has no top margin, so the Today heading sat on the Overdue
+   list's bottom border. */
+.group + .group {
+	margin-top: var(--space-5);
+}
 .group__heading {
 	display: flex;
 	align-items: baseline;
