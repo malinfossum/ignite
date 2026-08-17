@@ -449,7 +449,13 @@ In `main.css`, replace the collapsed label/count rule at lines 196-202 with:
 		align-items: center;
 	}
 
+	/* .sidebar__count is hidden HERE and only HERE. It is a flex sibling of the
+	   icon inside the 44px button, and its min-content width squeezes or overflows
+	   the tile for as long as it stays in flow. Task 5 removes it from this rule in
+	   the same change that gives it `position: absolute` — the two must land
+	   together, exactly as the ⋯ button's hide pairs with Task 7. */
 	body.is-sidebar-collapsed .sidebar__name,
+	body.is-sidebar-collapsed .sidebar__count,
 	body.is-sidebar-collapsed .sidebar__add-text {
 		display: none;
 	}
@@ -609,6 +615,10 @@ Append inside the `@media (min-width: 768px)` collapsed block added in Task 4 (b
 		position: relative;
 	}
 	body.is-sidebar-collapsed .sidebar__count {
+		/* Un-hides what Task 4 hid. That hide and this rule are one change split
+		   across two tasks: in flow the count squeezes the 36px tile, so it may
+		   only become visible at the moment it leaves flow. */
+		display: block;
 		position: absolute;
 		inset-block-start: 1px;
 		inset-inline-end: 1px;

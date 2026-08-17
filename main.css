@@ -1123,7 +1123,13 @@ body {
 		align-items: center;
 	}
 
+	/* .sidebar__count is hidden HERE and only HERE. It is a flex sibling of the
+	   icon inside the 44px button, and its min-content width squeezes or overflows
+	   the tile for as long as it stays in flow. Task 5 removes it from this rule in
+	   the same change that gives it `position: absolute` — the two must land
+	   together, exactly as the ⋯ button's hide pairs with Task 7. */
 	body.is-sidebar-collapsed .sidebar__name,
+	body.is-sidebar-collapsed .sidebar__count,
 	body.is-sidebar-collapsed .sidebar__add-text {
 		display: none;
 	}
