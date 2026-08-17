@@ -932,6 +932,20 @@ Append inside the Task 4 collapsed block:
 	}
 ```
 
+- [ ] **Step 1b: Correct Task 4's now-stale comments**
+
+Task 4's hide rule carries a comment promising that Tasks 5 and 7 would *remove* `.sidebar__count` and `.sidebar__menu-btn` from it. Both tasks instead override the hide with `display: block` in the rule that positions the element, which works by source-order cascade — the selectors are identical, so there is no specificity win, only order. The behaviour is correct; the comment is not.
+
+In `main.css`, in Task 4's collapsed hide rule, replace the sentence that says the later task "removes it from this rule" with wording that matches what actually happens:
+
+```
+   Tasks 5 and 7 each override this hide with `display: block` in the very rule
+   that gives the element `position: absolute` — never separately. The override is
+   a source-order cascade tie-break on an identical selector, not a specificity
+   win, so those blocks must stay BELOW this one. Biome's noDescendingSpecificity
+   and this file's ascending-order convention are what keep that true.
+```
+
 - [ ] **Step 2: Keep the ⋯ visible where there is no hover**
 
 Add immediately **after** the closing brace of the `@media (min-width: 768px)` collapsed block, so it wins on source order:

@@ -1328,9 +1328,12 @@ body {
 
    The ⋯ button stays hidden HERE and only HERE: it carries min-inline-size:44px,
    so while it is still in flow the row would centre two 44px children inside a
-   48px rail and both would bleed off the edges. Task 7 removes this line in the
-   same change that gives it `position: absolute` in the tile's corner — the two
-   must land together.
+   48px rail and both would bleed off the edges. Tasks 5 and 7 each override this
+   hide with `display: block` in the very rule that gives the element `position:
+   absolute` — never separately. The override is a source-order cascade tie-break
+   on an identical selector, not a specificity win, so those blocks must stay
+   BELOW this one. Biome's noDescendingSpecificity and this file's ascending-order
+   convention are what keep that true.
 
    The rename input likewise stays hidden until it becomes a popover in Task 8,
    which removes it from this rule. */
@@ -1338,6 +1341,60 @@ body {
 	body.is-sidebar-collapsed .sidebar__menu-btn,
 	body.is-sidebar-collapsed .sidebar__rename-input {
 		display: none;
+	}
+
+	/* Same ⋯ as the expanded sidebar, moved to the tile's corner. Painted small,
+	   but the TARGET is 24x24 per WCAG 2.5.8. Revealed with opacity only — never
+	   display or visibility, both of which would take it out of the tab order and
+	   re-create the dead keyboard path this rail exists to fix. */
+	body.is-sidebar-collapsed .sidebar__menu-btn {
+		/* Un-hides what Task 4 hid. That hide and this rule are one change split
+		   across two tasks: in flow the button's min-inline-size:44px overflows a
+		   48px rail, so it may only become visible at the moment it leaves flow. */
+		display: block;
+		position: absolute;
+		inset-block-end: 0;
+		inset-inline-end: 0;
+		inline-size: 24px;
+		min-inline-size: 24px;
+		block-size: 24px;
+		min-block-size: 24px;
+		padding: 0;
+		font-size: 0.875rem;
+		line-height: 24px;
+		border-radius: 6px;
+		background: var(--surface-4);
+		color: var(--text);
+		opacity: 0;
+		transition: opacity var(--duration-fast) var(--ease-standard);
+	}
+	/* :focus-within, NOT :focus-visible — the row is an <li> and never receives
+	   focus itself, and there is no :focus-visible-within. */
+	body.is-sidebar-collapsed .sidebar__area-row:hover .sidebar__menu-btn,
+	body.is-sidebar-collapsed .sidebar__area-row:focus-within .sidebar__menu-btn {
+		opacity: 1;
+	}
+
+	/* Anchored beside the TILE, not below the row. The rail's popovers project
+	   into the content column, where .capture-picker (70) and #toast-root (100)
+	   live — so they need a layer above both. They escape the 48px column only
+	   because #sidebar is overflow-y: visible at this breakpoint; that is an
+	   invariant, not an oversight. */
+	body.is-sidebar-collapsed .sidebar-menu {
+		inset-block-start: 0;
+		inset-inline-start: 100%;
+		inset-inline-end: auto;
+		z-index: 110;
+	}
+}
+
+/* Desktop-only does not mean pointer-only. A touchscreen laptop at 1280px gets
+   the rail with no hover state, and an opacity:0 element is still hit-testable —
+   so without this the first tap on the tile's corner opens a menu the user
+   cannot see. */
+@media (hover: none) {
+	body.is-sidebar-collapsed .sidebar__menu-btn {
+		opacity: 1;
 	}
 }
 
@@ -1461,11 +1518,16 @@ body.is-drawer-open {
 	overflow: hidden;
 }
 
-/* Reduced motion: drawer + scrim appear without the slide/fade.
+/* Reduced motion: drawer + scrim appear without the slide/fade, the sidebar
+   collapses without animating the grid column, and the rail's ⋯ appears without
+   a fade. `body` is in this list because the collapse animation is
+   `transition: grid-template-columns` on body, not on #sidebar.
    Placed before the state overrides so #sidebar / #scrim specificity stays ascending. */
 @media (prefers-reduced-motion: reduce) {
+	body,
 	#sidebar,
-	#scrim {
+	#scrim,
+	.sidebar__menu-btn {
 		transition: none;
 	}
 }
