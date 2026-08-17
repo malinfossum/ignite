@@ -16,7 +16,6 @@
 //   pendingMenuFocusAreaId  - after the next render, focus first menu item
 //   pendingRenameSelect     - true → next render focuses + selects rename input
 //   pendingRenameValue      - last typed value of rename input, or null
-//   prevSidebarCollapsed    - tracks settings.sidebarCollapsed across renders
 //   isRendering             - true during innerHTML rewrite (blur-listener re-entrancy guard)
 //
 // We do NOT capture element references for focus return. Across an innerHTML
@@ -26,6 +25,7 @@
 
 import { FOCUS_ID } from "../model/areas.js";
 import { bindActions, bindKeys, escapeHtml } from "../utils/dom.js";
+import { focusCounts } from "../utils/focus-counts.js";
 import {
 	firstEnabledIndex,
 	lastEnabledIndex,
@@ -63,7 +63,6 @@ export function createSidebarView(
 	let pendingFocusHome = false; // → focus the "Ignite" wordmark (the Today nav item)
 	let pendingRenameSelect = false;
 	let pendingRenameValue = null;
-	let prevSidebarCollapsed = null;
 	let isRendering = false;
 
 	function areaFromEvent(actionEl) {
@@ -392,25 +391,6 @@ export function createSidebarView(
 	return {
 		render(state) {
 			lastState = state;
-
-			// Sidebar collapse force-close: when sidebar transitions from
-			// expanded → collapsed, close any open menu and commit-or-cancel
-			// any active rename. Without this, closure state desyncs and
-			// re-expanding shows a stale menu or orphaned input.
-			const nextCollapsed = !!state.settings.sidebarCollapsed;
-			if (prevSidebarCollapsed === false && nextCollapsed === true) {
-				openAreaMenuId = null;
-				if (renamingAreaId) {
-					const input = rootEl.querySelector(".sidebar__rename-input");
-					const value = (input?.value ?? "").trim();
-					if (value)
-						onCommitAreaRename({ areaId: renamingAreaId, name: value });
-					renamingAreaId = null;
-					pendingRenameValue = null;
-				}
-			}
-			prevSidebarCollapsed = nextCollapsed;
-
 			doRender();
 		},
 
@@ -465,7 +445,6 @@ export function createSidebarView(
 			pendingFocusAreaIcon = null;
 			pendingRenameSelect = false;
 			pendingRenameValue = null;
-			prevSidebarCollapsed = null;
 			isRendering = false;
 		},
 	};
@@ -479,6 +458,27 @@ function template(
 	const focusActive = route.name === "focus";
 	const wordmarkAria = focusActive ? 'aria-current="page"' : "";
 	const wordmarkActive = focusActive ? "is-active" : "";
+
+	// Same derivation as the page-header summary and the Focus tab counts.
+	const { overdue, dueToday, attention } = focusCounts(
+		state.sections,
+		state.tasks,
+		state.now,
+		FOCUS_ID,
+	);
+	const focusArea = state.areas.find((a) => a.id === FOCUS_ID);
+	const focusMark = focusArea?.icon || "🔥";
+	// Numbers only — no user-authored text reaches this string.
+	const focusMeta =
+		overdue > 0
+			? `Focus · <strong class="sidebar__home-overdue">${overdue} overdue</strong> · ${dueToday} due today`
+			: `Focus · ${dueToday} due today`;
+	const focusName =
+		overdue > 0
+			? `Ignite, Focus, ${overdue} overdue, ${dueToday} due today`
+			: `Ignite, Focus, ${dueToday} due today`;
+	const homeBadgeClass =
+		attention === 0 ? "sidebar__home-badge is-zero" : "sidebar__home-badge";
 
 	const sorted = state.areas.slice().sort((a, b) => a.order - b.order);
 	// Focus is no longer a listed area — it IS the landing surface, reached by
@@ -503,7 +503,14 @@ function template(
 
 	return `
 		<button class="sidebar__home ${wordmarkActive}" type="button"
-			data-action="go-focus" ${wordmarkAria}>Ignite</button>
+			data-action="go-focus" ${wordmarkAria} aria-label="${focusName}">
+			<span class="sidebar__home-mark" aria-hidden="true">${escapeHtml(focusMark)}</span>
+			<span class="sidebar__home-body" aria-hidden="true">
+				<span class="sidebar__home-name">Ignite</span>
+				<span class="sidebar__home-meta">${focusMeta}</span>
+			</span>
+			<span class="${homeBadgeClass}" aria-hidden="true">${attention}</span>
+		</button>
 		<button class="sidebar__toggle" type="button"
 			data-action="toggle-sidebar" aria-label="Toggle sidebar">
 			<span class="sidebar__toggle-glyph" aria-hidden="true">≡</span>
@@ -511,8 +518,10 @@ function template(
 		<ul class="sidebar__areas">
 			${items}
 			<li class="sidebar__add-area-row">
-				<button type="button" class="sidebar__add-area" data-action="add-area">
-					＋ New area
+				<button type="button" class="sidebar__add-area" data-action="add-area"
+					aria-label="New area">
+					<span class="sidebar__add-glyph" aria-hidden="true">＋</span>
+					<span class="sidebar__add-text" aria-hidden="true">New area</span>
 				</button>
 			</li>
 		</ul>
@@ -570,13 +579,21 @@ function renderAreaRow(area, state, route, opts) {
 		? renderAreaMenu({ canMoveUp, canMoveDown, isUndeletable })
 		: "";
 
+	// The accessible name lives on the button, not in its children. In the rail
+	// the label and count are not painted, and a name assembled from painted
+	// children would vanish with them — the exact defect this replaces. Both
+	// spans are aria-hidden so the name is stated once, identically, in both
+	// states. WCAG 2.5.3 holds: the visible "Hjemme" is contained in "Hjemme, 3 open".
+	const countClass = count === 0 ? "sidebar__count is-zero" : "sidebar__count";
+
 	return `
 		<li class="sidebar__area-row" data-area-id="${escapeHtml(area.id)}">
 			<button type="button" class="sidebar__area ${activeClass}"
-				data-action="open-area" data-id="${escapeHtml(area.id)}" ${aria}>
+				data-action="open-area" data-id="${escapeHtml(area.id)}" ${aria}
+				aria-label="${escapeHtml(area.name)}, ${count} open">
 				<span class="sidebar__icon" aria-hidden="true">${escapeHtml(area.icon || "•")}</span>
-				<span class="sidebar__name">${escapeHtml(area.name)}</span>
-				<span class="sidebar__count">${count}</span>
+				<span class="sidebar__name" aria-hidden="true">${escapeHtml(area.name)}</span>
+				<span class="${countClass}" aria-hidden="true">${count}</span>
 			</button>
 			<button type="button" class="sidebar__menu-btn"
 				data-action="open-area-menu"

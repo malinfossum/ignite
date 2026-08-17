@@ -193,14 +193,6 @@ body {
 	flex-shrink: 0;
 }
 
-/* Collapsed state — desktop only; hides labels and counts. */
-@media (min-width: 768px) {
-	body.is-sidebar-collapsed .sidebar__name,
-	body.is-sidebar-collapsed .sidebar__count {
-		display: none;
-	}
-}
-
 /* --- Sidebar footer: theme control --- */
 .sidebar__footer {
 	margin-top: auto;
@@ -928,27 +920,60 @@ body {
 	cursor: not-allowed;
 }
 
-/* Sidebar wordmark + active state */
+/* Sidebar home = the Focus card. Brand and landing surface are one control:
+   promoting the wordmark gives Focus a real front door without adding a second
+   control that points at the same page. */
 .sidebar__home {
-	background: transparent;
-	border: 0;
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	inline-size: 100%;
+	padding: var(--space-3);
+	background: var(--accent-soft);
+	border: 1px solid rgb(var(--accent-rgb) / 45%);
+	border-radius: var(--radius);
 	color: var(--color-text);
+	cursor: pointer;
+	text-align: left;
+}
+.sidebar__home-mark {
+	font-size: var(--text-lg);
+	line-height: 1;
+	flex-shrink: 0;
+}
+.sidebar__home-body {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+.sidebar__home-name {
+	font-family: var(--font-display);
 	font-size: 1.1rem;
 	font-weight: 700;
-	cursor: pointer;
-	padding: 0.75rem 1rem;
-	min-block-size: 44px;
-	text-align: left;
-	width: 100%;
+	line-height: 1.1;
+}
+.sidebar__home-meta {
+	font-size: 0.8125rem;
+	color: var(--text-muted);
+}
+.sidebar__home-overdue {
+	color: var(--color-overdue);
+	font-weight: 500;
+}
+/* The badge is a rail affordance only; the expanded card spells the numbers out. */
+.sidebar__home-badge {
+	display: none;
 }
 .sidebar__home:hover {
-	color: var(--color-accent);
+	border-color: var(--color-accent);
 }
 .sidebar__home:focus-visible {
 	outline: 2px solid var(--color-accent);
 	outline-offset: 2px;
 }
-.sidebar__home.is-active {
+.sidebar__home.is-active .sidebar__home-name {
 	color: var(--color-accent);
 }
 
@@ -1116,12 +1141,304 @@ body {
 	outline-offset: 2px;
 }
 
-/* Collapsed state — desktop-only (matches the rail + label/count hides above). */
+/* Collapsed rail — desktop only. The rail is a CSS VARIANT of the same DOM, not
+   a second template: sidebarCollapsed is also true on mobile, where the drawer
+   is full width and every label must stay visible. That is why every rule below
+   is inside this media query, and why none of them may move out of it.
+   Placed after the base sidebar rules above (not beside them, near line 189)
+   so this override's higher specificity stays in ascending source order
+   (Biome noDescendingSpecificity). */
 @media (min-width: 768px) {
-	body.is-sidebar-collapsed .sidebar__menu-btn,
-	body.is-sidebar-collapsed .sidebar__add-area-row,
-	body.is-sidebar-collapsed .sidebar__rename-input {
+	/* #sidebar's 1rem padding is what left a 48px rail with 16px of content
+	   width — the cause of every overflow in the old rail. */
+	body.is-sidebar-collapsed #sidebar {
+		padding: 0.375rem 0;
+		align-items: center;
+	}
+
+	/* .sidebar__count is hidden HERE and only HERE. It is a flex sibling of the
+	   icon inside the 44px button, and its min-content width squeezes or overflows
+	   the tile for as long as it stays in flow. Tasks 5 and 7 each override this
+	   hide with `display: block` in the very rule that gives the element
+	   `position: absolute` — never separately. The override is a source-order
+	   cascade tie-break on an identical selector, not a specificity win, so
+	   those blocks must stay BELOW this one. */
+	body.is-sidebar-collapsed .sidebar__name,
+	body.is-sidebar-collapsed .sidebar__count,
+	body.is-sidebar-collapsed .sidebar__add-text {
 		display: none;
+	}
+
+	body.is-sidebar-collapsed .sidebar__areas {
+		align-self: stretch;
+	}
+	body.is-sidebar-collapsed .sidebar__area-row {
+		justify-content: center;
+	}
+
+	/* The painted tile and the hit target are DIFFERENT boxes. The button stays
+	   44px so pointer targets do not shrink and gaps do not open between rows;
+	   .sidebar__icon is the 36px surface that carries the tint. Do not "simplify"
+	   this by shrinking the button to 36px. */
+	body.is-sidebar-collapsed .sidebar__area {
+		inline-size: 44px;
+		min-block-size: 44px;
+		flex: 0 0 auto;
+		justify-content: center;
+		padding: 0;
+		border-radius: 10px;
+	}
+	body.is-sidebar-collapsed .sidebar__icon {
+		inline-size: 36px;
+		block-size: 36px;
+		/* Load-bearing. The icon must hold 36px regardless of what else ever ends
+		   up in the button's flex flow — flex children default to flex-shrink: 1,
+		   and a sibling left in flow is exactly what squeezed this tile to ~28px
+		   during development, before .sidebar__count moved out of flow. */
+		flex-shrink: 0;
+		display: grid;
+		place-items: center;
+		border-radius: 10px;
+		font-size: var(--text-md);
+	}
+
+	/* The tint moves off the button and onto the tile, so it can never paint
+	   across a box wider than the rail. */
+	body.is-sidebar-collapsed .sidebar__area.is-active {
+		background: transparent;
+	}
+	body.is-sidebar-collapsed .sidebar__area.is-active .sidebar__icon {
+		background: var(--accent-soft);
+	}
+	body.is-sidebar-collapsed .sidebar__area:not(.is-active):hover {
+		background: transparent;
+	}
+	body.is-sidebar-collapsed
+		.sidebar__area:not(.is-active):hover
+		.sidebar__icon {
+		background: var(--surface-4);
+	}
+
+	/* The toggle is the ONLY way out of the rail. It had no collapsed rule at
+	   all, and its old position came from the 1rem padding removed above.
+	   Spec §3.6: a rail tile like any other — the button is the 44px hit target,
+	   the glyph span is the 36px painted surface, mirroring .sidebar__icon. With
+	   the border gone the paint IS the affordance; without it the toggle is the
+	   one rail control with nothing painted. */
+	body.is-sidebar-collapsed .sidebar__toggle {
+		align-self: center;
+		inline-size: 44px;
+		block-size: 44px;
+		border: 0;
+		display: grid;
+		place-items: center;
+	}
+	body.is-sidebar-collapsed .sidebar__toggle-glyph {
+		inline-size: 36px;
+		block-size: 36px;
+		display: grid;
+		place-items: center;
+		border-radius: 10px;
+		background: var(--surface-3);
+	}
+	body.is-sidebar-collapsed .sidebar__toggle:hover .sidebar__toggle-glyph {
+		background: var(--surface-4);
+	}
+
+	/* ＋ becomes a tile rather than disappearing. */
+	body.is-sidebar-collapsed .sidebar__add-area-row {
+		display: flex;
+		justify-content: center;
+	}
+	body.is-sidebar-collapsed .sidebar__add-area {
+		inline-size: 44px;
+		min-block-size: 44px;
+		padding: 0;
+		text-align: center;
+		border-radius: 10px;
+	}
+	body.is-sidebar-collapsed .sidebar__add-glyph {
+		font-size: var(--text-lg);
+		line-height: 1;
+	}
+
+	/* Counts become corner badges. The badge must stay INSIDE the rail's inline
+	   bounds — a 44px button in a 48px rail leaves 2px each side, so it is inset
+	   from the button's edge, never overhanging it. */
+	body.is-sidebar-collapsed .sidebar__area {
+		position: relative;
+	}
+	body.is-sidebar-collapsed .sidebar__count {
+		/* Un-hides what Task 4 hid. That hide and this rule are one change split
+		   across two tasks: in flow the count squeezes the 36px tile, so it may
+		   only become visible at the moment it leaves flow. */
+		display: block;
+		position: absolute;
+		inset-block-start: 1px;
+		inset-inline-end: 1px;
+		min-inline-size: 1rem;
+		padding: 0 0.25rem;
+		border-radius: 999px;
+		background: var(--surface-4);
+		color: var(--text);
+		font-size: 0.6875rem;
+		line-height: 1.45;
+		text-align: center;
+	}
+	/* --surface-1 on --accent measures 4.38:1 in light theme (near-white on
+	   #c64e16) — under the 4.5:1 AA floor for 11px text. --surface-2 clears it
+	   (4.66:1 light, 6.43:1 dark) without weakening dark theme's already
+	   comfortable contrast. */
+	body.is-sidebar-collapsed .sidebar__area.is-active .sidebar__count {
+		background: var(--accent);
+		color: var(--surface-2);
+		font-weight: 500;
+	}
+	/* An area with nothing open shows a bare icon. Scoped to the rail: the
+	   expanded row keeps showing 0, which is its existing behaviour. */
+	body.is-sidebar-collapsed .sidebar__count.is-zero {
+		display: none;
+	}
+
+	/* The card collapses to one promoted tile — bordered, so it reads as the
+	   landing surface rather than another area. */
+	body.is-sidebar-collapsed .sidebar__home {
+		inline-size: 44px;
+		min-block-size: 44px;
+		padding: 0;
+		justify-content: center;
+		background: transparent;
+		border: 0;
+	}
+	body.is-sidebar-collapsed .sidebar__home-body {
+		display: none;
+	}
+	body.is-sidebar-collapsed .sidebar__home-mark {
+		inline-size: 38px;
+		block-size: 38px;
+		display: grid;
+		place-items: center;
+		border-radius: 10px;
+		background: var(--accent-soft);
+		box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 45%);
+	}
+	body.is-sidebar-collapsed .sidebar__home-badge {
+		display: block;
+		position: absolute;
+		inset-block-start: 1px;
+		inset-inline-end: 1px;
+		min-inline-size: 1rem;
+		padding: 0 0.25rem;
+		border-radius: 999px;
+		background: var(--accent);
+		/* Same pairing as .sidebar__area.is-active .sidebar__count above, and the
+		   same reason: --surface-1 on --accent is 4.38:1 in light theme, under the
+		   4.5:1 AA floor. --surface-2 clears it (4.66:1 light, 6.43:1 dark). */
+		color: var(--surface-2);
+		font-size: 0.6875rem;
+		line-height: 1.45;
+		font-weight: 500;
+		text-align: center;
+	}
+	body.is-sidebar-collapsed .sidebar__home-badge.is-zero {
+		display: none;
+	}
+
+	/* Rename at 48px: the editing row keeps its tile, and its two children are
+	   positioned beside the rail as a stacked pair. The DOM is unchanged, so
+	   every closure flag in sidebar.js — pendingRenameSelect, the caret restore,
+	   the isRendering blur guard — keeps working untouched.
+	   The picker's offset is derived from .sidebar__rename-input's pinned
+	   min-block-size (44px). CHANGE ONE AND YOU MUST CHANGE THE OTHER. */
+	body.is-sidebar-collapsed .sidebar__area-row--editing {
+		justify-content: center;
+		padding: 0;
+	}
+	body.is-sidebar-collapsed .sidebar__area-row--editing .sidebar__icon {
+		inline-size: 36px;
+		block-size: 36px;
+		display: grid;
+		place-items: center;
+		border-radius: 10px;
+		background: var(--accent-soft);
+	}
+	body.is-sidebar-collapsed .sidebar__rename-input {
+		position: absolute;
+		inset-block-start: 0;
+		inset-inline-start: calc(100% + var(--space-1));
+		inline-size: 13.75rem;
+		flex: none;
+		z-index: 110;
+	}
+}
+
+/* Collapsed state — desktop-only. The ＋ row is rendered by the rail now (see
+   the collapsed block above), so it is no longer hidden.
+
+   The ⋯ button is taken out of flow by the rule below, which sets `position:
+   absolute` in the same declaration that sets `display: block` — it carries
+   min-inline-size:44px, and left in flow the row would centre two 44px
+   children inside a 48px rail with both bleeding off the edges. It must never
+   be revealed with `display` or `visibility`: either would strip it from the
+   tab order and re-create the dead keyboard path this rail exists to fix.
+   `opacity` alone toggles it between the rest state and :hover/:focus-within.
+
+   The rename input no longer needs hiding here: Task 8 positions it (and the
+   icon picker it owns) beside the tile instead, so it is dropped from this
+   rule and rendered like everything else. */
+@media (min-width: 768px) {
+	/* Same ⋯ as the expanded sidebar, moved to the tile's corner. Painted small,
+	   but the TARGET is 24x24 per WCAG 2.5.8. Revealed with opacity only — never
+	   display or visibility, both of which would take it out of the tab order and
+	   re-create the dead keyboard path this rail exists to fix. */
+	body.is-sidebar-collapsed .sidebar__menu-btn {
+		/* Un-hides what Task 4 hid. That hide and this rule are one change split
+		   across two tasks: in flow the button's min-inline-size:44px overflows a
+		   48px rail, so it may only become visible at the moment it leaves flow. */
+		display: block;
+		position: absolute;
+		inset-block-end: 0;
+		inset-inline-end: 0;
+		inline-size: 24px;
+		min-inline-size: 24px;
+		block-size: 24px;
+		min-block-size: 24px;
+		padding: 0;
+		font-size: 0.875rem;
+		line-height: 24px;
+		border-radius: 6px;
+		background: var(--surface-4);
+		color: var(--text);
+		opacity: 0;
+		transition: opacity var(--duration-fast) var(--ease-standard);
+	}
+	/* :focus-within, NOT :focus-visible — the row is an <li> and never receives
+	   focus itself, and there is no :focus-visible-within. */
+	body.is-sidebar-collapsed .sidebar__area-row:hover .sidebar__menu-btn,
+	body.is-sidebar-collapsed .sidebar__area-row:focus-within .sidebar__menu-btn {
+		opacity: 1;
+	}
+
+	/* Anchored beside the TILE, not below the row. The rail's popovers project
+	   into the content column, where .capture-picker (70) and #toast-root (100)
+	   live — so they need a layer above both. They escape the 48px column only
+	   because #sidebar is overflow-y: visible at this breakpoint; that is an
+	   invariant, not an oversight. */
+	body.is-sidebar-collapsed .sidebar-menu {
+		inset-block-start: 0;
+		inset-inline-start: 100%;
+		inset-inline-end: auto;
+		z-index: 110;
+	}
+}
+
+/* Desktop-only does not mean pointer-only. A touchscreen laptop at 1280px gets
+   the rail with no hover state, and an opacity:0 element is still hit-testable —
+   so without this the first tap on the tile's corner opens a menu the user
+   cannot see. */
+@media (hover: none) {
+	body.is-sidebar-collapsed .sidebar__menu-btn {
+		opacity: 1;
 	}
 }
 
@@ -1245,11 +1562,16 @@ body.is-drawer-open {
 	overflow: hidden;
 }
 
-/* Reduced motion: drawer + scrim appear without the slide/fade.
+/* Reduced motion: drawer + scrim appear without the slide/fade, the sidebar
+   collapses without animating the grid column, and the rail's ⋯ appears without
+   a fade. `body` is in this list because the collapse animation is
+   `transition: grid-template-columns` on body, not on #sidebar.
    Placed before the state overrides so #sidebar / #scrim specificity stays ascending. */
 @media (prefers-reduced-motion: reduce) {
+	body,
 	#sidebar,
-	#scrim {
+	#scrim,
+	.sidebar__menu-btn {
 		transition: none;
 	}
 }
@@ -1576,11 +1898,21 @@ body.is-drawer-open #scrim {
 	color: var(--text-faint);
 }
 
-/* Collapsed rail: the rename input that owns this picker is hidden too (see
-   the collapsed-state rule above) — hide the picker itself so it cannot
-   render across the 48px rail into the main content. */
+/* Collapsed rail: stacked beneath the rename input (see the collapsed rail's
+   .sidebar__rename-input rule earlier in the file) rather than beside it, in
+   its own @media block so this override's higher specificity stays in
+   ascending source order after .icon-picker's base rule above
+   (Biome noDescendingSpecificity). The offset is derived from
+   .sidebar__rename-input's pinned min-block-size (44px). CHANGE ONE AND YOU
+   MUST CHANGE THE OTHER. */
 @media (min-width: 768px) {
 	body.is-sidebar-collapsed .icon-picker {
-		display: none;
+		position: absolute;
+		inset-block-start: calc(44px + var(--space-1));
+		inset-inline-start: calc(100% + var(--space-1));
+		inline-size: 13.75rem;
+		margin-top: 0;
+		flex: none;
+		z-index: 110;
 	}
 }

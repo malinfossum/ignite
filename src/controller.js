@@ -8,6 +8,7 @@
 import { FOCUS_DEFAULT_SECTION_ID, FOCUS_ID } from "./model/areas.js";
 import { captureChipLabel, captureDestination } from "./utils/capture.js";
 import { escapeHtml } from "./utils/dom.js";
+import { focusCounts } from "./utils/focus-counts.js";
 import { previousSectionId } from "./utils/sections.js";
 import { describeRecurrence, formatTaskDeleteMessage } from "./utils/text.js";
 import {
@@ -19,8 +20,6 @@ import {
 	formatDayGreeting,
 	formatDueSummary,
 	formatOccurrenceLabel,
-	groupTasksForFocus,
-	summariseDay,
 } from "./utils/time.js";
 import { createAreaView } from "./views/area.js";
 import { createCaptureView } from "./views/capture.js";
@@ -146,16 +145,14 @@ export function createController({ models, els }) {
 		// The <h1> says "Focus", not the date. A heading names WHERE YOU ARE, and
 		// a screen-reader user navigating by heading needs a landmark that is the
 		// same every day. The date is the greeting beneath it. Spec §3.1.
-		const focusSectionIds = state.sections
-			.filter((s) => s.areaId === FOCUS_ID)
-			.map((s) => s.id);
-		// Computed here as well as in the view. Both calls take the same `state`,
-		// including the same `now`, so the summary and the tab counts agree by
-		// construction — which is the property worth paying one extra O(n) pass
-		// for. Threading groups through `state` would make the view depend on the
-		// controller having computed them first.
-		const groups = groupTasksForFocus(state.tasks, state.now, focusSectionIds);
-		const { overdue, dueToday } = summariseDay(groups);
+		// One shared derivation with the Focus tab counts and the sidebar hero
+		// card — see utils/focus-counts.js for why this is not inlined here.
+		const { overdue, dueToday } = focusCounts(
+			state.sections,
+			state.tasks,
+			state.now,
+			FOCUS_ID,
+		);
 		// The overdue count is emphasised, and omitted entirely at zero — "0
 		// overdue" is a reassurance nobody asked for. The Overdue group keeps its
 		// own heading and count, so this line is never the only route to the
@@ -711,6 +708,13 @@ export function createController({ models, els }) {
 		return {
 			onAddArea: async () => {
 				const area = await areas.create({ name: "New area" });
+				// Seed a section so the area is usable and a valid move target the
+				// moment it exists. Composed HERE, not inside areas.create: a model
+				// that writes to another model's store notifies its own listeners
+				// only, so the section model would never hear about a section that
+				// now exists. ensureFocus gets away with that only because it runs
+				// before any subscriber exists.
+				await sections.create({ areaId: area.id, name: "Tasks" });
 				window.location.hash = `#area/${area.id}`;
 				sidebar.enterRename(area.id);
 			},
