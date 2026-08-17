@@ -3,7 +3,7 @@
 **Date:** 2026-08-17
 **Status:** design agreed · stress-tested 2026-08-17 (11 findings folded in)
 **Supersedes:** nothing. Amends decision D1 of `2026-08-11-ignite-v3-focus-design.md` (see §5).
-**Covers:** items 3, 5 and 6 of the 2026-08-14 follow-up list.
+**Covers:** items 5 and 6 of the 2026-08-14 follow-up list. Item 3 is a named non-goal (§9).
 
 ---
 
@@ -42,7 +42,7 @@ Separately, Plan 3 removed Focus from the sidebar list on the reasoning that the
 | D2 | The rail is a **CSS variant of one DOM**, never a second template branch | `sidebarCollapsed` is also true on mobile, where the drawer is full width and labels must stay — so the view cannot branch on it (§3.1) |
 | D3 | Labels are **clipped, not removed** | Preserves the accessible name; the technique already exists at `main.css:238` for `.sidebar__theme-text` |
 | D4 | Counts become **corner badges** on the tile | Same number as the expanded row, different presentation |
-| D5 | The ⋯ menu trigger moves to the **tile's bottom-right corner**, revealed on `:hover` and `:focus-visible`, always in the tab order | Same mental model and same keyboard path as the expanded sidebar. The rail is desktop-only, so hover-reveal costs nothing on touch |
+| D5 | The ⋯ menu trigger moves to the **tile's bottom-right corner**, revealed on `:hover` / `:focus-within` and always visible under `@media (hover: none)`, always in the tab order | Same mental model and same keyboard path as the expanded sidebar. Desktop-only does not mean pointer-only — a touchscreen laptop gets the rail with no hover state (§3.3) |
 | D6 | Rename becomes a **popover anchored to the tile**, carrying the field and the icon picker | Restyling the existing `--editing` row; no DOM change, so every closure flag keeps working |
 | D7 | The wordmark becomes the **Focus hero card** — brand and landing surface as one promoted control | Gives Focus a real front door without adding a second control pointing at one page |
 | D8 | Focus and area counts come from **one shared helper** | The `focusSectionIds` derivation is already duplicated; a third copy is how the page header and the sidebar start disagreeing |
