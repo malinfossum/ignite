@@ -708,6 +708,13 @@ export function createController({ models, els }) {
 		return {
 			onAddArea: async () => {
 				const area = await areas.create({ name: "New area" });
+				// Seed a section so the area is usable and a valid move target the
+				// moment it exists. Composed HERE, not inside areas.create: a model
+				// that writes to another model's store notifies its own listeners
+				// only, so the section model would never hear about a section that
+				// now exists. ensureFocus gets away with that only because it runs
+				// before any subscriber exists.
+				await sections.create({ areaId: area.id, name: "Tasks" });
 				window.location.hash = `#area/${area.id}`;
 				sidebar.enterRename(area.id);
 			},
