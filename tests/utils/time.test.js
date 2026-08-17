@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+	formatDayGreeting,
 	formatDueSummary,
 	formatOccurrenceLabel,
 	formatTimeLabel,
-	groupTasksForToday,
+	groupTasksForFocus,
 	pickNextTask,
 	sortByDueThenUntimed,
+	summariseDay,
 } from "../../src/utils/time.js";
 
 const NOW = new Date("2026-04-28T14:00:00");
@@ -70,89 +72,220 @@ describe("formatTimeLabel", () => {
 	});
 });
 
-describe("groupTasksForToday", () => {
-	it("partitions tasks into overdue, today, and starred", () => {
+describe("groupTasksForFocus", () => {
+	it("partitions tasks into overdue, today, tomorrow, starred and the notepad", () => {
 		const tasks = [
 			task({ id: "a", dueAt: "2026-04-27T09:00:00.000Z" }), // overdue (yesterday)
 			task({ id: "b", dueAt: "2026-04-28T18:00:00.000Z" }), // today
-			task({ id: "c", starred: true, dueAt: null }), // starred undated
-			task({ id: "d", dueAt: "2026-05-10T09:00:00.000Z" }), // future, ignored
+			task({ id: "c", dueAt: "2026-04-29T09:00:00.000Z" }), // tomorrow
+			task({ id: "d", starred: true, dueAt: null }), // starred undated
+			task({ id: "e", dueAt: null, sectionId: "focus-default" }), // notepad
+			task({ id: "f", dueAt: null, sectionId: "work-1" }), // undated in an area: no tab
+			task({ id: "g", dueAt: "2026-05-10T09:00:00.000Z" }), // beyond tomorrow: no tab
 		];
-		const result = groupTasksForToday(tasks, NOW);
+		const result = groupTasksForFocus(tasks, NOW, ["focus-default"]);
 		expect(result.overdue.map((t) => t.id)).toEqual(["a"]);
 		expect(result.today.map((t) => t.id)).toEqual(["b"]);
-		expect(result.starred.map((t) => t.id)).toEqual(["c"]);
+		expect(result.tomorrow.map((t) => t.id)).toEqual(["c"]);
+		expect(result.starred.map((t) => t.id)).toEqual(["d"]);
+		expect(result.notepad.map((t) => t.id)).toEqual(["e"]);
 	});
 
-	it("excludes completed tasks from every group", () => {
+	it("excludes completed tasks from every group, including the notepad", () => {
 		const tasks = [
 			task({ id: "a", completed: true, dueAt: "2026-04-27T09:00:00.000Z" }),
 			task({ id: "b", completed: true, dueAt: "2026-04-28T18:00:00.000Z" }),
-			task({ id: "c", completed: true, starred: true }),
+			task({ id: "c", completed: true, dueAt: "2026-04-29T09:00:00.000Z" }),
+			task({ id: "d", completed: true, starred: true }),
+			task({ id: "e", completed: true, sectionId: "focus-default" }),
 		];
-		const result = groupTasksForToday(tasks, NOW);
+		const result = groupTasksForFocus(tasks, NOW, ["focus-default"]);
 		expect(result.overdue).toEqual([]);
 		expect(result.today).toEqual([]);
+		expect(result.tomorrow).toEqual([]);
+		expect(result.starred).toEqual([]);
+		expect(result.notepad).toEqual([]);
+	});
+
+	it("lets a date beat a star: a dated starred task never reaches Starred", () => {
+		const tasks = [
+			task({ id: "a", starred: true, dueAt: "2026-04-28T18:00:00.000Z" }),
+			// Dated beyond tomorrow AND starred — the date still wins, so it lands
+			// on no tab at all rather than falling through to Starred.
+			task({ id: "b", starred: true, dueAt: "2026-05-10T09:00:00.000Z" }),
+		];
+		const result = groupTasksForFocus(tasks, NOW, ["focus-default"]);
+		expect(result.today.map((t) => t.id)).toEqual(["a"]);
 		expect(result.starred).toEqual([]);
 	});
 
-	it("keeps same-day past-due tasks in Today (with 'was' label), not Overdue", () => {
+	it("lets a star beat the notepad: starring a note promotes it out", () => {
+		const tasks = [
+			task({ id: "a", starred: true, dueAt: null, sectionId: "focus-default" }),
+		];
+		const result = groupTasksForFocus(tasks, NOW, ["focus-default"]);
+		expect(result.starred.map((t) => t.id)).toEqual(["a"]);
+		expect(result.notepad).toEqual([]);
+	});
+
+	it("keeps same-day past-due tasks in Today, not Overdue", () => {
 		const tasks = [task({ id: "a", dueAt: "2026-04-28T09:00:00.000Z" })];
-		const result = groupTasksForToday(tasks, NOW);
+		const result = groupTasksForFocus(tasks, NOW, []);
 		expect(result.overdue).toEqual([]);
 		expect(result.today.map((t) => t.id)).toEqual(["a"]);
 	});
 
-	it("sorts today by dueAt ascending and starred by order ascending", () => {
-		// Both dated tasks are TIMED: sorting by clock time is only meaningful
-		// for tasks that carry one. Untimed peers sort by createdAt instead.
+	it("sorts the dated groups by time and starred by order", () => {
 		const tasks = [
 			task({ id: "b", dueAt: "2026-04-28T18:00:00.000Z", hasTime: true }),
 			task({ id: "a", dueAt: "2026-04-28T16:00:00.000Z", hasTime: true }),
+			task({ id: "d", dueAt: "2026-04-29T18:00:00.000Z", hasTime: true }),
+			task({ id: "c", dueAt: "2026-04-29T16:00:00.000Z", hasTime: true }),
 			task({ id: "z", starred: true, order: 2 }),
 			task({ id: "y", starred: true, order: 0 }),
 		];
-		const result = groupTasksForToday(tasks, NOW);
+		const result = groupTasksForFocus(tasks, NOW, []);
 		expect(result.today.map((t) => t.id)).toEqual(["a", "b"]);
+		expect(result.tomorrow.map((t) => t.id)).toEqual(["c", "d"]);
 		expect(result.starred.map((t) => t.id)).toEqual(["y", "z"]);
+	});
+
+	it("sorts the notepad newest first, on createdAt", () => {
+		// The notepad is a capture stream, so the thing you just typed belongs on
+		// top. Deliberately NOT `order`: the M4 reorder invariants depend on
+		// `order` meaning position-within-a-section, and this is a cross-section
+		// view. Spec §12.2.
+		const tasks = [
+			task({
+				id: "old",
+				sectionId: "focus-default",
+				createdAt: "2026-04-01T10:00:00.000Z",
+			}),
+			task({
+				id: "new",
+				sectionId: "focus-default",
+				createdAt: "2026-04-28T10:00:00.000Z",
+			}),
+			task({
+				id: "mid",
+				sectionId: "focus-default",
+				createdAt: "2026-04-14T10:00:00.000Z",
+			}),
+		];
+		const result = groupTasksForFocus(tasks, NOW, ["focus-default"]);
+		expect(result.notepad.map((t) => t.id)).toEqual(["new", "mid", "old"]);
+	});
+
+	it("counts every Focus section into the notepad, not just focus-default", () => {
+		// §12.4: extra Focus sections created before the merge still show their
+		// tasks. Nothing is orphaned by the surface losing its section headings.
+		const tasks = [
+			task({ id: "a", sectionId: "focus-default" }),
+			task({ id: "b", sectionId: "focus-extra" }),
+		];
+		const result = groupTasksForFocus(tasks, NOW, [
+			"focus-default",
+			"focus-extra",
+		]);
+		expect(result.notepad.map((t) => t.id).sort()).toEqual(["a", "b"]);
+	});
+
+	it("treats a missing focusSectionIds as an empty notepad rather than throwing", () => {
+		const tasks = [task({ id: "a", sectionId: "focus-default" })];
+		expect(groupTasksForFocus(tasks, NOW).notepad).toEqual([]);
 	});
 });
 
 describe("pickNextTask", () => {
-	it("picks the earliest upcoming time-dated task", () => {
-		const tasks = [
-			task({ id: "a", dueAt: "2026-04-28T18:00:00.000Z" }),
-			task({ id: "b", dueAt: "2026-04-28T16:00:00.000Z" }),
-		];
-		expect(pickNextTask(tasks, NOW)?.id).toBe("b");
+	// The hero reads the grouped buckets, not the raw list, so it can never
+	// promote something due next week into a card labelled "Next" on Today.
+	const groups = (over, todayList) => ({
+		overdue: over,
+		today: todayList,
+		tomorrow: [],
+		starred: [],
+		notepad: [],
 	});
 
-	it("falls back to oldest overdue when nothing is upcoming", () => {
-		const tasks = [
-			task({ id: "a", dueAt: "2026-04-26T09:00:00.000Z" }),
-			task({ id: "b", dueAt: "2026-04-27T09:00:00.000Z" }),
-		];
-		expect(pickNextTask(tasks, NOW)?.id).toBe("a");
+	it("picks the earliest still-upcoming timed task today", () => {
+		const a = task({
+			id: "a",
+			dueAt: "2026-04-28T18:00:00.000Z",
+			hasTime: true,
+		});
+		const b = task({
+			id: "b",
+			dueAt: "2026-04-28T16:00:00.000Z",
+			hasTime: true,
+		});
+		expect(pickNextTask(groups([], [b, a]), NOW)?.id).toBe("b");
 	});
 
-	it("falls back to first starred undated when nothing is dated", () => {
-		const tasks = [
-			task({ id: "a", starred: true, order: 2 }),
-			task({ id: "b", starred: true, order: 0 }),
-		];
-		expect(pickNextTask(tasks, NOW)?.id).toBe("b");
+	it("skips a timed task that has already passed today", () => {
+		const past = task({
+			id: "past",
+			dueAt: "2026-04-28T09:00:00.000Z",
+			hasTime: true,
+		});
+		const soon = task({
+			id: "soon",
+			dueAt: "2026-04-28T18:00:00.000Z",
+			hasTime: true,
+		});
+		expect(pickNextTask(groups([], [past, soon]), NOW)?.id).toBe("soon");
 	});
 
-	it("returns null on empty input", () => {
-		expect(pickNextTask([], NOW)).toBeNull();
+	it("prefers an untimed task due today over anything overdue", () => {
+		// An untimed task is stored at local midnight, so `dueAt > now` is false
+		// from 00:01 onward. Reading the buckets instead of the raw dates is what
+		// stops that stored midnight from reading as "overdue" — the defect Plan 2
+		// recorded and deferred to here.
+		const untimed = task({
+			id: "untimed",
+			dueAt: "2026-04-28T00:00:00.000Z",
+			hasTime: false,
+		});
+		const old = task({
+			id: "old",
+			dueAt: "2026-04-20T09:00:00.000Z",
+			hasTime: true,
+		});
+		expect(pickNextTask(groups([old], [untimed]), NOW)?.id).toBe("untimed");
 	});
 
-	it("ignores completed tasks", () => {
-		const tasks = [
-			task({ id: "a", completed: true, dueAt: "2026-04-28T18:00:00.000Z" }),
-			task({ id: "b", starred: true, order: 0 }),
-		];
-		expect(pickNextTask(tasks, NOW)?.id).toBe("b");
+	it("falls back to the first task due today when everything today has passed", () => {
+		const past = task({
+			id: "past",
+			dueAt: "2026-04-28T09:00:00.000Z",
+			hasTime: true,
+		});
+		expect(pickNextTask(groups([], [past]), NOW)?.id).toBe("past");
+	});
+
+	it("falls back to the oldest overdue task when nothing is due today", () => {
+		// `overdue` arrives day-ascending from sortByDueThenUntimed, so [0] is the
+		// thing that has been rotting longest.
+		const older = task({ id: "older", dueAt: "2026-04-20T09:00:00.000Z" });
+		const newer = task({ id: "newer", dueAt: "2026-04-27T09:00:00.000Z" });
+		expect(pickNextTask(groups([older, newer], []), NOW)?.id).toBe("older");
+	});
+
+	it("never reaches into Starred, Tomorrow or the notepad", () => {
+		const result = pickNextTask(
+			{
+				overdue: [],
+				today: [],
+				tomorrow: [task({ id: "t" })],
+				starred: [task({ id: "s", starred: true })],
+				notepad: [task({ id: "n" })],
+			},
+			NOW,
+		);
+		expect(result).toBeNull();
+	});
+
+	it("returns null for empty groups", () => {
+		expect(pickNextTask(groups([], []), NOW)).toBeNull();
 	});
 });
 
@@ -265,7 +398,7 @@ describe("sortByDueThenUntimed", () => {
 	});
 });
 
-describe("groupTasksForToday — untimed ordering", () => {
+describe("groupTasksForFocus — untimed ordering", () => {
 	it("sorts today's untimed tasks after its timed ones", () => {
 		const tasks = [
 			task({
@@ -279,7 +412,7 @@ describe("groupTasksForToday — untimed ordering", () => {
 				hasTime: true,
 			}),
 		];
-		expect(groupTasksForToday(tasks, NOW).today.map((t) => t.id)).toEqual([
+		expect(groupTasksForFocus(tasks, NOW, []).today.map((t) => t.id)).toEqual([
 			"timed",
 			"untimed",
 		]);
@@ -326,5 +459,52 @@ describe("formatDueSummary", () => {
 		expect(formatDueSummary(dueAt, true, NOW, "12h")).toBe(
 			"Tomorrow at 6:30 PM",
 		);
+	});
+});
+
+describe("formatDayGreeting", () => {
+	it("renders weekday, day-of-month and month in full", () => {
+		expect(formatDayGreeting(NOW)).toBe("Tuesday 28 April");
+	});
+
+	it("does not pad a single-digit day", () => {
+		expect(formatDayGreeting(new Date("2026-04-05T12:00:00"))).toBe(
+			"Sunday 5 April",
+		);
+	});
+
+	it("handles the last month of the year", () => {
+		expect(formatDayGreeting(new Date("2026-12-31T12:00:00"))).toBe(
+			"Thursday 31 December",
+		);
+	});
+});
+
+describe("summariseDay", () => {
+	it("counts overdue and due-today items", () => {
+		const result = summariseDay({
+			overdue: [task({ id: "a" }), task({ id: "b" })],
+			today: [task({ id: "c" })],
+			tomorrow: [task({ id: "d" })],
+			starred: [task({ id: "e" })],
+			notepad: [task({ id: "f" })],
+		});
+		expect(result).toEqual({ overdue: 2, dueToday: 1 });
+	});
+
+	it("counts zeroes rather than omitting them", () => {
+		expect(
+			summariseDay({
+				overdue: [],
+				today: [],
+				tomorrow: [],
+				starred: [],
+				notepad: [],
+			}),
+		).toEqual({ overdue: 0, dueToday: 0 });
+	});
+
+	it("survives a missing or partial groups object", () => {
+		expect(summariseDay()).toEqual({ overdue: 0, dueToday: 0 });
 	});
 });

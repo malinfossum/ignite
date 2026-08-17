@@ -1,12 +1,12 @@
 // createSidebarView(rootEl, {
-//   onToggleCollapse, onGoToday, onOpenArea,
+//   onToggleCollapse, onGoFocus, onOpenArea,
 //   onAddArea, onCommitAreaRename, onMoveAreaUp, onMoveAreaDown, onDeleteArea,
 //   onCloseDrawer, onCycleTheme, onPickAreaIcon,
 // }) → { render(state), enterRename(areaId), destroy() }
 //
 // state expected: { areas, sections, tasks, settings, route, now, themeChoice, theme }
 // route:
-//   { name: "today" }            → wordmark gets aria-current="page"
+//   { name: "focus" }            → wordmark gets aria-current="page"
 //   { name: "area", id: "..." }  → matching area row gets aria-current="page"
 //
 // Closure state (all reset to initial values in destroy()):
@@ -41,7 +41,7 @@ export function createSidebarView(
 	rootEl,
 	{
 		onToggleCollapse,
-		onGoToday,
+		onGoFocus,
 		onOpenArea,
 		onAddArea,
 		onCommitAreaRename,
@@ -182,7 +182,7 @@ export function createSidebarView(
 
 	const unbindClick = bindActions(rootEl, {
 		"toggle-sidebar": () => onToggleCollapse(),
-		"go-today": () => onGoToday(),
+		"go-focus": () => onGoFocus(),
 
 		"open-area": (_event, actionEl) => {
 			const id = actionEl.dataset.id;
@@ -362,8 +362,8 @@ export function createSidebarView(
 		}
 
 		// Post-render lookup: an area cascade delete removed the row whose ⋯
-		// had focus and redirected to #today, so focus would fall to <body>.
-		// The wordmark IS the Today nav item — focusing it lands the user
+		// had focus and redirected to #focus, so focus would fall to <body>.
+		// The wordmark IS the Focus nav item — focusing it lands the user
 		// where the redirect took them.
 		//
 		// Cleared UNCONDITIONALLY; skipped while a rename is live so it can't
@@ -475,35 +475,35 @@ function template(
 	state,
 	{ openAreaMenuId, renamingAreaId, pendingRenameValue },
 ) {
-	const route = state.route ?? { name: "today" };
-	const todayActive = route.name === "today";
-	const wordmarkAria = todayActive ? 'aria-current="page"' : "";
-	const wordmarkActive = todayActive ? "is-active" : "";
+	const route = state.route ?? { name: "focus" };
+	const focusActive = route.name === "focus";
+	const wordmarkAria = focusActive ? 'aria-current="page"' : "";
+	const wordmarkActive = focusActive ? "is-active" : "";
 
 	const sorted = state.areas.slice().sort((a, b) => a.order - b.order);
-	// Focus is pinned to the top; only user areas reorder among themselves.
+	// Focus is no longer a listed area — it IS the landing surface, reached by
+	// the wordmark above. Listing it as well would be a second door onto the same
+	// tasks, and its rename and icon controls belong to a surface that no longer
+	// exists here. Spec D1.
 	const userAreas = sorted.filter((a) => a.id !== FOCUS_ID);
 	const firstUserAreaId = userAreas[0]?.id ?? null;
 	const lastUserAreaId = userAreas[userAreas.length - 1]?.id ?? null;
-	const items = sorted
-		.map((area) => {
-			const isFocus = area.id === FOCUS_ID;
-			return renderAreaRow(area, state, route, {
-				// Focus is pinned (no moves). A user area can move up unless it's
-				// directly below Focus, and down unless it's the last row.
-				canMoveUp: !isFocus && area.id !== firstUserAreaId,
-				canMoveDown: !isFocus && area.id !== lastUserAreaId,
-				isUndeletable: isFocus,
+	const items = userAreas
+		.map((area) =>
+			renderAreaRow(area, state, route, {
+				canMoveUp: area.id !== firstUserAreaId,
+				canMoveDown: area.id !== lastUserAreaId,
+				isUndeletable: false,
 				openAreaMenuId,
 				renamingAreaId,
 				pendingRenameValue,
-			});
-		})
+			}),
+		)
 		.join("");
 
 	return `
 		<button class="sidebar__home ${wordmarkActive}" type="button"
-			data-action="go-today" ${wordmarkAria}>Ignite</button>
+			data-action="go-focus" ${wordmarkAria}>Ignite</button>
 		<button class="sidebar__toggle" type="button"
 			data-action="toggle-sidebar" aria-label="Toggle sidebar">
 			<span class="sidebar__toggle-glyph" aria-hidden="true">≡</span>

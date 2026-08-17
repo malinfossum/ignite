@@ -2,23 +2,28 @@ import { describe, expect, it } from "vitest";
 import { parseHash } from "../../src/controller.js";
 
 // parseHash maps the location hash to a route object. Two routes exist:
-//   { name: "today" }            — the default, and the fallback for anything unknown
+//   { name: "focus" }            — the landing surface, and the fallback for anything unknown
 //   { name: "area", id: "<id>" } — an area page
+// "#today" is kept as an accepted alias so pre-v3 bookmarks still resolve.
 describe("parseHash", () => {
-	it("treats an empty hash as Today", () => {
-		expect(parseHash("")).toEqual({ name: "today" });
+	it("treats an empty hash as Focus", () => {
+		expect(parseHash("")).toEqual({ name: "focus" });
 	});
 
-	it("treats a bare # as Today", () => {
-		expect(parseHash("#")).toEqual({ name: "today" });
+	it("treats a bare # as Focus", () => {
+		expect(parseHash("#")).toEqual({ name: "focus" });
 	});
 
-	it("parses #today as Today", () => {
-		expect(parseHash("#today")).toEqual({ name: "today" });
+	it("parses #focus as Focus", () => {
+		expect(parseHash("#focus")).toEqual({ name: "focus" });
 	});
 
-	it("parses a hash with no leading # as Today", () => {
-		expect(parseHash("today")).toEqual({ name: "today" });
+	it("still parses the legacy #today as Focus", () => {
+		expect(parseHash("#today")).toEqual({ name: "focus" });
+	});
+
+	it("parses a hash with no leading # as Focus", () => {
+		expect(parseHash("focus")).toEqual({ name: "focus" });
 	});
 
 	it("parses #area/<id> into an area route", () => {
@@ -32,17 +37,23 @@ describe("parseHash", () => {
 		});
 	});
 
-	it("falls back to Today on an unknown route", () => {
-		expect(parseHash("#settings")).toEqual({ name: "today" });
+	it("still parses #area/focus as an area route (the controller redirects it)", () => {
+		// parseHash stays pure — the redirect is a side effect and belongs to the
+		// controller, which owns FOCUS_ID. utils and pure parsers never import model/.
+		expect(parseHash("#area/focus")).toEqual({ name: "area", id: "focus" });
 	});
 
-	it("falls back to Today when area/ has no id", () => {
+	it("falls back to Focus on an unknown route", () => {
+		expect(parseHash("#settings")).toEqual({ name: "focus" });
+	});
+
+	it("falls back to Focus when area/ has no id", () => {
 		// /^area\/(.+)$/ requires at least one character after the slash.
-		expect(parseHash("#area/")).toEqual({ name: "today" });
+		expect(parseHash("#area/")).toEqual({ name: "focus" });
 	});
 
-	it("treats null and undefined as Today (hash may be unset)", () => {
-		expect(parseHash(null)).toEqual({ name: "today" });
-		expect(parseHash(undefined)).toEqual({ name: "today" });
+	it("treats null and undefined as Focus (hash may be unset)", () => {
+		expect(parseHash(null)).toEqual({ name: "focus" });
+		expect(parseHash(undefined)).toEqual({ name: "focus" });
 	});
 });

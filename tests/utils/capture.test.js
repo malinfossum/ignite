@@ -8,7 +8,7 @@ const sec = (id, areaId, order, name = id) => ({ id, areaId, order, name });
 
 describe("captureDestination", () => {
 	it("routes the Focus/landing route to the notepad", () => {
-		expect(captureDestination({ name: "today" }, [])).toEqual({
+		expect(captureDestination({ name: "focus" }, [])).toEqual({
 			kind: "focus",
 		});
 	});

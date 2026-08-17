@@ -4,9 +4,9 @@
 
 An ADHD-friendly task app — open source, local-first, zero bloat.
 
-**Status:** v0.4.0 — 228 tests passing. **Live:** [malinfossum.github.io/ignite](https://malinfossum.github.io/ignite/)
+**Status:** v0.4.0 — 247 tests passing. **Live:** [malinfossum.github.io/ignite](https://malinfossum.github.io/ignite/)
 
-![Ignite in dark mode — the Today view showing a Next card and a Starred group, with the area sidebar and theme control on the left](docs/desktop_preview.png)
+![Ignite in dark mode — the Focus view showing the tab strip, a Next card and a Today group, with the area sidebar and theme control on the left](docs/desktop_preview.png)
 
 ---
 
@@ -32,10 +32,11 @@ Built to replace a cluttered subscription task app with something minimal, free,
 ## Features
 
 - **Quick capture** — type and go; the bar shows where the task will land, and asks which section when an area has more than one
-- **Today view** — what's next, with relative time labels that tick live
+- **Focus** — the landing surface, on four tabs: Today (what's overdue and what's due, led by what's next), Tomorrow, Starred, and Focus itself — the notepad every capture lands in until you file it
+- **One-tap filing** — a note moves out of the notepad into any section without going through a menu
 - **Areas & sections** — organize with a two-level hierarchy; create, rename, reorder, and delete
 - **Add in place** — every section has its own add row, so a run of tasks goes in without leaving the keyboard
-- **Tasks** — complete, star, reorder, rename in place, and move between sections; tasks in Focus file into any section in one tap
+- **Tasks** — complete, star, reorder, rename in place, and move between sections
 - **Scheduling** — give any task a date, and a time of day if it needs one; a task with no time reads as due that day rather than at midnight, and sorts after the day's timed tasks
 - **Recurring tasks** — repeat daily, weekly, monthly, or yearly (every N); completing one advances it to the next date, keeping its time of day, and records when you last did it
 - **Undo everything** — deletes (including a whole area and its contents) are undoable from the toast
@@ -53,7 +54,7 @@ Vanilla HTML, CSS, and JavaScript — no frameworks. Strict MVC with a `subscrib
 - **Build:** Vite
 - **Persistence:** IndexedDB (hand-rolled wrapper)
 - **Offline:** hand-rolled service worker + web app manifest
-- **Test:** Vitest + fake-indexeddb (228 tests)
+- **Test:** Vitest + fake-indexeddb (247 tests)
 - **Format / lint:** Biome
 - **Deploy:** GitHub Pages via GitHub Actions
 

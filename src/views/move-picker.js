@@ -3,7 +3,7 @@
 // Pure template. Renders the move-target picker as a sub-face of the task
 // ⋯ menu: every section in every area EXCEPT the task's current section,
 // grouped by area, with a "← Back" row LAST. Shared by area.js (threaded
-// through section.js) and today.js.
+// through section.js) and focus.js.
 //
 // The returned markup is itself role="menu", so it reuses the views'
 // existing menu machinery (findOpenMenu*, arrow-key nav, isRendering blur

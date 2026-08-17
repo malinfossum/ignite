@@ -18,6 +18,29 @@ const SHORT_MONTH = [
 	"Nov",
 	"Dec",
 ];
+const LONG_WEEKDAY = [
+	"Sunday",
+	"Monday",
+	"Tuesday",
+	"Wednesday",
+	"Thursday",
+	"Friday",
+	"Saturday",
+];
+const LONG_MONTH = [
+	"January",
+	"February",
+	"March",
+	"April",
+	"May",
+	"June",
+	"July",
+	"August",
+	"September",
+	"October",
+	"November",
+	"December",
+];
 
 function startOfDay(date) {
 	const d = new Date(date);
@@ -98,13 +121,27 @@ export function formatDueSummary(dueAtIso, hasTime, now, format = "24h") {
 	return `${day} at ${formatHM(new Date(dueAtIso), format)}`;
 }
 
-export function groupTasksForToday(tasks, now) {
+// The four Focus tabs, in one pass. Precedence is a cascade — a date beats a
+// star, a star beats the notepad — so each task lands in at most one bucket and
+// the tab counts sum to something meaningful.
+//
+// A dated task outside today/tomorrow deliberately falls off every tab rather
+// than dropping through to Starred: the date is the strongest statement the
+// user has made about it, and it is still visible in its own area.
+//
+// `focusSectionIds` arrives as a parameter because utils/ must never import
+// FOCUS_ID from model/. The controller resolves it from the section list.
+export function groupTasksForFocus(tasks, now, focusSectionIds) {
 	const startToday = startOfDay(now).getTime();
 	const startTomorrow = startToday + ONE_DAY_MS;
+	const startDayAfter = startTomorrow + ONE_DAY_MS;
+	const inFocus = new Set(focusSectionIds ?? []);
 
 	const overdue = [];
 	const today = [];
+	const tomorrow = [];
 	const starred = [];
+	const notepad = [];
 
 	for (const t of tasks) {
 		if (t.completed) continue;
@@ -112,17 +149,30 @@ export function groupTasksForToday(tasks, now) {
 			const due = new Date(t.dueAt).getTime();
 			if (due < startToday) overdue.push(t);
 			else if (due < startTomorrow) today.push(t);
-		} else if (t.starred) {
-			starred.push(t);
+			else if (due < startDayAfter) tomorrow.push(t);
+			continue;
 		}
+		if (t.starred) {
+			starred.push(t);
+			continue;
+		}
+		if (inFocus.has(t.sectionId)) notepad.push(t);
 	}
 
 	starred.sort((a, b) => a.order - b.order);
+	// Newest first: the notepad is a capture stream, so what you just typed goes
+	// on top. Sorting in the view keeps `order` semantics — and the M4 reorder
+	// invariants that rest on them — untouched. Spec §12.2.
+	notepad.sort((a, b) =>
+		a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0,
+	);
 
 	return {
 		overdue: sortByDueThenUntimed(overdue),
 		today: sortByDueThenUntimed(today),
+		tomorrow: sortByDueThenUntimed(tomorrow),
 		starred,
+		notepad,
 	};
 }
 
@@ -158,25 +208,46 @@ function byDueThenUntimed(a, b) {
 	return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0;
 }
 
-export function pickNextTask(tasks, now) {
-	const active = tasks.filter((t) => !t.completed);
-	const dated = active.filter((t) => t.dueAt).sort(byDueAtAsc);
-	const upcoming = dated.find(
-		(t) => new Date(t.dueAt).getTime() > now.getTime(),
+// The Today tab's "Next up" hero. Takes the grouped buckets rather than the raw
+// task list for two reasons: it can then never promote something due next week
+// into a card labelled "Next", and an untimed task due today stays a candidate
+// instead of being mistaken for overdue (its stored midnight is behind `now`
+// from 00:01 onward).
+//
+// Candidate order: the next timed thing still ahead of you today → anything
+// untimed today ("sometime today" is still ahead of you) → the earliest thing
+// today that has already passed → the oldest overdue item. `groups.today` and
+// `groups.overdue` both arrive sorted, so first-match is the right pick.
+export function pickNextTask(groups, now) {
+	const today = groups?.today ?? [];
+	const upcoming = today.find(
+		(t) => t.hasTime && new Date(t.dueAt).getTime() > now.getTime(),
 	);
 	if (upcoming) return upcoming;
 
-	const overdue = dated.find(
-		(t) => new Date(t.dueAt).getTime() <= now.getTime(),
-	);
-	if (overdue) return overdue;
+	const untimed = today.find((t) => !t.hasTime);
+	if (untimed) return untimed;
 
-	const starred = active
-		.filter((t) => t.starred && !t.dueAt)
-		.sort((a, b) => a.order - b.order);
-	return starred[0] ?? null;
+	return today[0] ?? groups?.overdue?.[0] ?? null;
 }
 
-function byDueAtAsc(a, b) {
-	return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
+// "Tuesday 28 April" — the Focus page's greeting line.
+//
+// Built from constant arrays rather than toLocaleDateString on purpose: the
+// locale-driven version returns a different string per machine, which makes it
+// untestable without pinning a locale, and the rest of this surface ("Today",
+// "Overdue", "Starred", "Next") is English regardless. Matches how
+// formatTimeLabel and formatOccurrenceLabel already work in this file.
+export function formatDayGreeting(now) {
+	return `${LONG_WEEKDAY[now.getDay()]} ${now.getDate()} ${LONG_MONTH[now.getMonth()]}`;
+}
+
+// Counts for the page-header summary. Takes the grouped output, not the raw
+// task list, so the summary can never disagree with what the Today tab renders
+// — both are derived from one groupTasksForFocus call over one `state`.
+export function summariseDay(groups) {
+	return {
+		overdue: groups?.overdue?.length ?? 0,
+		dueToday: groups?.today?.length ?? 0,
+	};
 }

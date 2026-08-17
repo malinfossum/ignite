@@ -15,13 +15,19 @@ import {
 	nextThemeChoice,
 	resolveTheme,
 } from "./utils/theme.js";
-import { formatDueSummary, formatOccurrenceLabel } from "./utils/time.js";
+import {
+	formatDayGreeting,
+	formatDueSummary,
+	formatOccurrenceLabel,
+	groupTasksForFocus,
+	summariseDay,
+} from "./utils/time.js";
 import { createAreaView } from "./views/area.js";
 import { createCaptureView } from "./views/capture.js";
+import { createFocusView } from "./views/focus.js";
 import { createRecurrenceDialog } from "./views/recurrence-dialog.js";
 import { createSidebarView } from "./views/sidebar.js";
 import { createToastView, TASK_DELETE_BATCH_KEY } from "./views/toast.js";
-import { createTodayView } from "./views/today.js";
 import { createTopbarView } from "./views/topbar.js";
 
 const TICK_MS = 60_000;
@@ -35,10 +41,11 @@ const COMPLETE_TOAST_MS = 5_000;
 
 export function parseHash(hash) {
 	const raw = (hash || "").replace(/^#/, "");
-	if (raw === "" || raw === "today") return { name: "today" };
+	if (raw === "" || raw === "focus" || raw === "today")
+		return { name: "focus" };
 	const areaMatch = raw.match(/^area\/(.+)$/);
 	if (areaMatch) return { name: "area", id: areaMatch[1] };
-	return { name: "today" };
+	return { name: "focus" };
 }
 
 export function createController({ models, els }) {
@@ -60,7 +67,7 @@ export function createController({ models, els }) {
 	let capture = null;
 	let toast = null;
 	let currentMainView = null;
-	let currentRoute = { name: "today" };
+	let currentRoute = { name: "focus" };
 	let tickHandle = null;
 	let unsubs = [];
 	let taskDeleteBatch = null; // null | { tasks: Array<TaskSnapshot> }
@@ -69,6 +76,7 @@ export function createController({ models, els }) {
 	let drawerMqHandler = null;
 	let recurrenceDialog = null;
 	let repeatEditorTaskId = null; // transient UI state — NOT a model field
+	let pendingTabSelection = null; // transient UI state — NOT a model field
 	const completing = new Set(); // task ids mid-completion (re-entry guard)
 	let currentChoice = null; // "system" | "dark" | "light" — mirrors the model
 	let currentTheme = null; // resolved "dark" | "light" — what is on the document
@@ -124,14 +132,38 @@ export function createController({ models, els }) {
 			}</h1>`;
 			return;
 		}
-		const date = state.now.toLocaleDateString(undefined, {
-			weekday: "long",
-			day: "numeric",
-			month: "long",
-		});
+		// The <h1> says "Focus", not the date. A heading names WHERE YOU ARE, and
+		// a screen-reader user navigating by heading needs a landmark that is the
+		// same every day. The date is the greeting beneath it. Spec §3.1.
+		const focusSectionIds = state.sections
+			.filter((s) => s.areaId === FOCUS_ID)
+			.map((s) => s.id);
+		// Computed here as well as in the view. Both calls take the same `state`,
+		// including the same `now`, so the summary and the tab counts agree by
+		// construction — which is the property worth paying one extra O(n) pass
+		// for. Threading groups through `state` would make the view depend on the
+		// controller having computed them first.
+		const groups = groupTasksForFocus(state.tasks, state.now, focusSectionIds);
+		const { overdue, dueToday } = summariseDay(groups);
+		// The overdue count is emphasised, and omitted entirely at zero — "0
+		// overdue" is a reassurance nobody asked for. The Overdue group keeps its
+		// own heading and count, so this line is never the only route to the
+		// number (§8).
+		const summary = [
+			overdue > 0
+				? `<strong class="page-header__overdue">${overdue} overdue</strong>`
+				: "",
+			`${dueToday} due today`,
+		]
+			.filter(Boolean)
+			.join(" · ");
+
+		// No escapeHtml on the greeting: formatDayGreeting composes it from two
+		// constant arrays and a number, with no user-authored input anywhere.
 		pageHeaderRoot.innerHTML = `
-			<h1 class="page-header__title">Today</h1>
-			<p class="page-header__date">${date}</p>
+			<h1 class="page-header__title">Focus</h1>
+			<p class="page-header__greeting">${formatDayGreeting(state.now)}</p>
+			<p class="page-header__summary">${summary}</p>
 		`;
 	}
 
@@ -199,7 +231,7 @@ export function createController({ models, els }) {
 			toast.show({
 				message: `Done · next ${formatOccurrenceLabel(updated.dueAt, new Date())}`,
 				durationMs: COMPLETE_TOAST_MS,
-				onUndo: async () => {
+				onAction: async () => {
 					try {
 						await tasks.update(id, snapshot); // restore date, stamp, count
 					} catch (err) {
@@ -228,7 +260,7 @@ export function createController({ models, els }) {
 				message: formatTaskDeleteMessage(1),
 				key: TASK_DELETE_BATCH_KEY,
 				durationMs: 5000,
-				onUndo: () => {
+				onAction: () => {
 					const batch = taskDeleteBatch;
 					taskDeleteBatch = null;
 					for (const t of [...batch.tasks].reverse()) {
@@ -276,7 +308,7 @@ export function createController({ models, els }) {
 		toast.show({
 			message: `Moved to ${label}`,
 			durationMs: MOVE_TOAST_MS,
-			onUndo: async () => {
+			onAction: async () => {
 				// Exact restore — the move touched only this task (append left
 				// peers untouched; the source kept the gap this task vacated).
 				try {
@@ -292,12 +324,39 @@ export function createController({ models, els }) {
 		});
 	}
 
+	// #area/focus is a dead duplicate of the landing route: Focus is no longer a
+	// listed area, it IS the landing surface. Redirect rather than render it, so
+	// neither a bookmark nor the back button can land on a second copy of the
+	// same tasks.
+	//
+	// replaceState, NOT an assignment to location.hash. Assigning PUSHES a
+	// history entry, so Back would land on #area/focus and be redirected straight
+	// forward again — a loop the user cannot walk out of. replaceState rewrites
+	// the URL in place, fires no hashchange, and therefore also mounts once
+	// instead of twice.
+	function routeFromHash() {
+		const route = parseHash(window.location.hash);
+		if (route.name === "area" && route.id === FOCUS_ID) {
+			window.history.replaceState(null, "", "#focus");
+			return { name: "focus" };
+		}
+		return route;
+	}
+
 	function mountMainView(route) {
 		currentMainView?.destroy();
 		currentMainView = null;
 
-		if (route.name === "today") {
-			currentMainView = createTodayView(mainRoot, {
+		// Read and clear in one place, before either branch. Every pending-focus
+		// flag in this codebase is consumed once and cleared unconditionally; this
+		// one used to be cleared only on the focus path, so a hashchange that
+		// routed to an area in between would leave it set and force-select the
+		// Focus tab on some later, unrelated mount.
+		const wantedTab = pendingTabSelection;
+		pendingTabSelection = null;
+
+		if (route.name === "focus") {
+			currentMainView = createFocusView(mainRoot, {
 				onToggleComplete: handleToggleComplete,
 				onToggleStar: (id, currentStarred) =>
 					tasks.update(id, { starred: !currentStarred }),
@@ -317,6 +376,12 @@ export function createController({ models, els }) {
 				onMoveTaskToSection: handleMoveTaskToSection,
 				onOpenRepeatEditor: openRecurrenceEditor,
 			});
+			// Something asked for a specific tab on this mount — today only the
+			// capture toast's View action, fired after a route change. selectTab
+			// before the first render(state) is safe: doRender early-returns on a
+			// null lastState, activeTab is already set, and the applyState that
+			// follows renders the right tab.
+			if (wantedTab) currentMainView.selectTab(wantedTab);
 			return;
 		}
 
@@ -425,7 +490,7 @@ export function createController({ models, els }) {
 				toast.show({
 					message: cascadeMessage(sectionSnapshot.name, taskSnapshots.length),
 					durationMs: CASCADE_TOAST_MS,
-					onUndo: async () => {
+					onAction: async () => {
 						await sections.restore(sectionSnapshot);
 						await tasks.restoreMany(taskSnapshots);
 					},
@@ -500,7 +565,7 @@ export function createController({ models, els }) {
 		// Without this, applyState fires between areas.remove and the redirect
 		// and the user sees an "Area not found" flash.
 		if (currentRoute.name === "area" && currentRoute.id === areaId) {
-			window.location.hash = "#today";
+			window.location.hash = "#focus";
 		}
 
 		// 3. Cascade: tasks → sections → area. Guard empty layers —
@@ -531,7 +596,7 @@ export function createController({ models, els }) {
 				taskSnapshots.length,
 			),
 			durationMs: CASCADE_TOAST_MS,
-			onUndo: async () => {
+			onAction: async () => {
 				// Reverse-cascade restore (parents before children); same
 				// empty-layer guard as the delete above.
 				await areas.restore(areaSnapshot);
@@ -720,7 +785,7 @@ export function createController({ models, els }) {
 		closeDrawer(); // close on ALL route changes incl. browser back/forward
 		closeRecurrenceEditor({ rerender: false }); // route change closes the dialog
 		capture?.closePicker();
-		currentRoute = parseHash(window.location.hash);
+		currentRoute = routeFromHash();
 		mountMainView(currentRoute);
 		applyState();
 	}
@@ -736,9 +801,9 @@ export function createController({ models, els }) {
 
 		topbar = createTopbarView(topbarRoot, {
 			onToggleDrawer: () => (drawerOpen ? closeDrawer() : openDrawer()),
-			onGoToday: () => {
-				window.location.hash = "#today";
-				closeDrawer(); // same-hash tap of "Ignite" on #today fires no hashchange
+			onGoFocus: () => {
+				window.location.hash = "#focus";
+				closeDrawer(); // same-hash tap of "Ignite" on #focus fires no hashchange
 			},
 		});
 
@@ -749,8 +814,8 @@ export function createController({ models, els }) {
 					!(current.sidebarCollapsed ?? false),
 				);
 			},
-			onGoToday: () => {
-				window.location.hash = "#today";
+			onGoFocus: () => {
+				window.location.hash = "#focus";
 				closeDrawer();
 			},
 			onOpenArea: (id) => {
@@ -767,7 +832,40 @@ export function createController({ models, els }) {
 		capture = createCaptureView(captureRoot, {
 			// No `starred` — a star means "I chose this for today", and capture
 			// setting it on everything made the signal worthless. Spec D2.
-			onSubmit: (title, sectionId) => tasks.create({ sectionId, title }),
+			onSubmit: async (title, sectionId) => {
+				// SNAPSHOT BOTH BEFORE THE WRITE. Each of these can change while the
+				// IndexedDB write is in flight — one sidebar click during the await is
+				// enough — and reading them afterwards makes the toast announce
+				// "Added to Focus" for a task that went into an area. Same trap as
+				// wasDrawerOpen in deleteAreaCascade, and the lesson recorded there
+				// is that a race like this usually has more than one late read.
+				const wasFocusRoute = currentRoute.name === "focus";
+				const tabBefore = currentMainView?.getActiveTab?.();
+
+				await tasks.create({ sectionId, title });
+
+				// Capture on Focus writes into the notepad, which is usually not the
+				// tab on screen — so say where it went and offer one tap to look.
+				// Skipped when the notepad WAS on screen: the row is right there, and
+				// a toast about something visible is noise. Spec §3.4.
+				if (!wasFocusRoute || tabBefore === "focus") return;
+				toast.show({
+					message: "Added to Focus",
+					actionLabel: "View",
+					durationMs: MOVE_TOAST_MS,
+					onAction: () => {
+						// The user may have left Focus since the toast appeared. Route
+						// there first and let mountMainView apply the tab; the direct
+						// call covers the ordinary case where we never left.
+						if (currentRoute.name !== "focus") {
+							pendingTabSelection = "focus";
+							window.location.hash = "#focus";
+							return;
+						}
+						currentMainView?.selectTab?.("focus");
+					},
+				});
+			},
 			focusSectionId: FOCUS_DEFAULT_SECTION_ID,
 		});
 
@@ -778,7 +876,7 @@ export function createController({ models, els }) {
 			settings.subscribe(applyState),
 		);
 
-		currentRoute = parseHash(window.location.hash);
+		currentRoute = routeFromHash();
 		mountMainView(currentRoute);
 		applyState();
 

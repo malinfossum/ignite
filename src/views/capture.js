@@ -138,7 +138,7 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 	//
 	// Below Escape: ARIA APG menu navigation for the picker, guarded on
 	// pickerOpen AND the event target being inside the picker — same double
-	// guard as the ⋯-menu handlers in today.js / area.js (area.js:216-217),
+	// guard as the ⋯-menu handlers in focus.js / area.js (area.js:216-217),
 	// extending this single rootEl listener rather than adding a second one.
 	// The second half matters here specifically: clicking back into the
 	// input does NOT close the picker (the outside-click handler returns
