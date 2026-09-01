@@ -679,8 +679,15 @@ function panelBody(activeTab, groups, state, rowOpts) {
 		return html ? { html, isEmpty: false } : renderEmpty("starred");
 	}
 	if (activeTab === "focus") {
+		// "Notepad", not "Focus": renderPageHeader always emits <h1>Focus</h1>,
+		// so heading this group "Focus" printed the same word twice in a row and
+		// told a heading-navigating screen-reader user nothing about the bucket.
+		// "Notepad" is what the class (group--notepad), utils/time.js, the
+		// controller and the tests have always called it, so the visible copy
+		// now matches the code. The TAB stays "Focus": it names the capture
+		// destination the user chooses, which is a different thing.
 		const html = renderGroup(
-			"Focus",
+			"Notepad",
 			"group--notepad",
 			groups.notepad,
 			false,
