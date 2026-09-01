@@ -12,6 +12,7 @@
 		"lint": "biome lint .",
 		"check": "biome check .",
 		"gen:icons": "node scripts/gen-icons.mjs",
+		"gen:preview": "node scripts/gen-preview.mjs",
 		"test": "vitest",
 		"test:run": "vitest run"
 	},
