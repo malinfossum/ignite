@@ -399,7 +399,17 @@ body {
 	align-items: baseline;
 	gap: var(--space-2);
 	margin: 0 0 var(--space-2);
-	font-size: var(--text-md);
+	/* --text-lg, not --text-md: at 16px this heading was the same size as the
+	   .task__title rows beneath it, so the only thing separating a group label
+	   from its contents was the display face. One step up restores the level.
+	   `.section__title` MUST carry the same value: the two elements name the
+	   same thing (a list of tasks) on two different surfaces.
+	   Tracking is deliberately NOT set here. The ignite palette pins it with
+	   `[data-palette="ignite"] h1, h2, h3, h4 { letter-spacing: -0.03em }` at
+	   specificity (0,1,1), which a plain class cannot outrank, so a
+	   `letter-spacing: var(--tracking-heading)` line here would compute to
+	   -0.03em anyway and be inert. Browser-verified 2026-09-01. */
+	font-size: var(--text-lg);
 	text-transform: none;
 	color: var(--text);
 }
@@ -783,14 +793,16 @@ body {
 	transition: transform 150ms ease;
 }
 
-/* Section title is rendered as <h2>; reset the default H2 user-agent
-   styles (margin, font-size) so it sits inline inside the toggle button. */
+/* Section title is an <h2> inside the toggle button. base/base.css already
+   supplies the display face, the 600 weight and --leading-snug, and reset.css
+   zeroes the margin globally, so only the scale needs setting here, and it
+   MUST stay equal to `.group__heading` (see the note there, including why
+   tracking is not set). The explicit colour stays: `.section__toggle` is a
+   <button>, whose UA `color: buttontext` it undoes with `color: inherit`;
+   pinning the title keeps it readable if that ever moves. */
 .section__title {
-	font-size: 1rem;
-	font-weight: 600;
+	font-size: var(--text-lg);
 	color: var(--color-text);
-	margin: 0;
-	line-height: 1.2;
 }
 
 /* Menu trigger */
@@ -1656,9 +1668,11 @@ body.is-drawer-open #scrim {
 		transform: translateY(0);
 	}
 }
+/* Same scale as every other <h2> in the app (`.group__heading`,
+   `.section__title`). Was a raw 1.1rem, which was the only heading left off the
+   token scale. reset.css zeroes the margin globally. */
 .repeat-panel__heading {
-	margin: 0;
-	font-size: 1.1rem;
+	font-size: var(--text-lg);
 }
 .repeat-fieldset {
 	border: 0;
