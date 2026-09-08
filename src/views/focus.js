@@ -641,8 +641,9 @@ function renderPanel(activeTab, groups, state, rowOpts) {
 }
 
 // Every tab needs an empty state. A blank surface with no message is
-// indistinguishable from a broken render, and one of these four (Focus) is the
-// very first thing a new user sees.
+// indistinguishable from a broken render, and one of these four (Today) is the
+// very first thing a new user sees: parseHash routes an empty hash to the Focus
+// surface, and this view opens on activeTab "today".
 //
 // The Focus copy deliberately does NOT say where the capture bar is. The bar is
 // pinned to the BOTTOM on phones and sits at the top from 768px up (decision
@@ -654,6 +655,19 @@ const EMPTY_STATE = {
 	starred: "Star a task to pull it into your day.",
 	focus: "Anything you capture lands here.",
 };
+
+// Shown INSTEAD of EMPTY_STATE.today when the database holds no tasks at all —
+// a first run, or an app emptied back out. Derived from state, never persisted:
+// there is no "seen" flag to migrate, and an app with nothing in it reads the
+// same either way.
+//
+// Naming Focus is not decoration. Capture defaults to the Focus notepad with no
+// date, so the first task captured from the Today tab does not land on Today —
+// without this sentence it looks like the task vanished.
+//
+// Same D9 constraint as above: no directional word for the capture bar.
+const WELCOME =
+	"Sometimes all it takes is a spark. Capture the first thing on your mind — it lands in Focus until you decide where it goes.";
 
 // Returns { html, isEmpty }. The caller needs the flag, not a guess at it — see
 // renderPanel above.
@@ -697,7 +711,11 @@ function panelBody(activeTab, groups, state, rowOpts) {
 	}
 
 	const next = pickNextTask(groups, state.now);
-	if (!next) return renderEmpty("today");
+	if (!next) {
+		// "Nothing due" and "nothing at all" are different states. Only the second
+		// gets greeted; a user with a full app and a clear day keeps the terse line.
+		return state.tasks.length === 0 ? renderWelcome() : renderEmpty("today");
+	}
 	const visible = (list) => list.filter((t) => t.id !== next.id);
 	return {
 		html: `
@@ -711,6 +729,13 @@ function panelBody(activeTab, groups, state, rowOpts) {
 
 function renderEmpty(tab) {
 	return { html: `<p class="empty">${EMPTY_STATE[tab]}</p>`, isEmpty: true };
+}
+
+// isEmpty stays true on purpose: it is what puts tabindex="0" on the panel in
+// renderPanel. The welcome is the only thing on screen on a first run, so
+// without that the whole first paint is unreachable from the keyboard.
+function renderWelcome() {
+	return { html: `<p class="empty">${WELCOME}</p>`, isEmpty: true };
 }
 
 function renderNextCard(task, rowOpts) {
