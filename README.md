@@ -2,7 +2,9 @@
 
 *a small flame, kept going.*
 
-An ADHD-friendly task app — open source, local-first, zero bloat.
+Sometimes all it takes is a spark. Keeping it going is the harder part — and that's the part Ignite is built for.
+
+An ADHD-friendly task app: capture a thought in one line, decide where it belongs later. Open source, local-first, no account, no paywall.
 
 **Status:** Shipped, with versioned [releases](https://github.com/malinfossum/ignite/releases/latest): 258 tests passing. **Live:** [malinfossum.github.io/ignite](https://malinfossum.github.io/ignite/)
 
@@ -54,7 +56,7 @@ Vanilla HTML, CSS, and JavaScript — no frameworks. Strict MVC with a `subscrib
 - **Build:** Vite
 - **Persistence:** IndexedDB (hand-rolled wrapper)
 - **Offline:** hand-rolled service worker + web app manifest
-- **Test:** Vitest + fake-indexeddb (247 tests)
+- **Test:** Vitest + fake-indexeddb (258 tests)
 - **Format / lint:** Biome
 - **Deploy:** GitHub Pages via GitHub Actions
 
