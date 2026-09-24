@@ -10,7 +10,6 @@ const DEFAULTS = {
 	id: SETTINGS_ID,
 	quietStart: 23,
 	quietEnd: 7,
-	lastKnownPermission: "default",
 	sidebarCollapsed: false,
 	// The user's CHOICE, not the resolved theme: "system" | "dark" | "light".
 	// "system" defers to prefers-color-scheme and stays reachable via the cycle,
