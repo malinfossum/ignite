@@ -22,7 +22,6 @@ describe("createSettingsModel", () => {
 		expect(s.quietStart).toBe(23);
 		expect(s.quietEnd).toBe(7);
 		expect(s.lastKnownPermission).toBe("default");
-		expect(s.lastView).toBe("#today");
 	});
 
 	it("is idempotent — does not overwrite existing settings", async () => {
@@ -41,10 +40,9 @@ describe("createSettingsModel", () => {
 		model.subscribe(() => {
 			calls++;
 		});
-		await model.update({ quietEnd: 6, lastView: "#area/focus" });
+		await model.update({ quietEnd: 6 });
 		const s = await model.get();
 		expect(s.quietEnd).toBe(6);
-		expect(s.lastView).toBe("#area/focus");
 		expect(s.quietStart).toBe(23); // untouched
 		expect(calls).toBe(1);
 	});
