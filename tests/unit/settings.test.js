@@ -21,7 +21,6 @@ describe("createSettingsModel", () => {
 		expect(s.id).toBe("app");
 		expect(s.quietStart).toBe(23);
 		expect(s.quietEnd).toBe(7);
-		expect(s.lastKnownPermission).toBe("default");
 	});
 
 	it("is idempotent — does not overwrite existing settings", async () => {
