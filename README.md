@@ -2,22 +2,22 @@
 
 *a small flame, kept going.*
 
-Sometimes all it takes is a spark. Keeping it going is the harder part — and that's the part Ignite is built for.
+Sometimes all it takes is a spark. Keeping it going is the harder part. That's the part Ignite is built for.
 
 An ADHD-friendly task app: capture a thought in one line, decide where it belongs later. Open source, local-first, no account, no paywall.
 
 **Status:** Shipped, with versioned [releases](https://github.com/malinfossum/ignite/releases/latest): 258 tests passing. **Live:** [malinfossum.github.io/ignite](https://malinfossum.github.io/ignite/)
 
-![Ignite in dark mode — the Focus view showing the tab strip, a Next card and a Today group, with the area sidebar and theme control on the left](docs/desktop_preview.png)
+![Ignite in dark mode: the Focus view showing the tab strip, a Next card and a Today group, with the area sidebar and theme control on the left](docs/desktop_preview.png)
 
 ---
 
 ## About the name
 
-*Ignite* — to set something alight; to spark.
-In Norwegian: **tenne** (to light, to spark). The tagline reads *"en liten flamme, holdt i live"* — a small flame, kept going.
+*Ignite*: to set something alight; to spark.
+In Norwegian: **tenne** (to light, to spark). The tagline reads *"en liten flamme, holdt i live"* (a small flame, kept going).
 
-The name is about starting — and staying with it. Consistency is how anything actually grows: in skills, in habits, in life. For an ADHD brain, the spark is easy — keeping the flame alive is the work. Start small, stay consistent, get where you want to go.
+The name is about starting. And about staying with it. Consistency is how anything actually grows: in skills, in habits, in life. For an ADHD brain, the spark is easy. Keeping the flame alive is the work. Start small, stay consistent, get where you want to go.
 
 ---
 
@@ -26,32 +26,32 @@ The name is about starting — and staying with it. Consistency is how anything 
 Built to replace a cluttered subscription task app with something minimal, free, and genuinely helpful for ADHD users. Every feature has to earn its place.
 
 - Two levels of hierarchy: **Area → Section → Task**
-- Local-first — your data stays on your device (IndexedDB)
+- Local-first: your data stays on your device (IndexedDB)
 - Dark-mode-first, no account required, no paywall
 
 ---
 
 ## Features
 
-- **Quick capture** — type and go; the bar shows where the task will land, and asks which section when an area has more than one
-- **Focus** — the landing surface, on four tabs: Today (what's overdue and what's due, led by what's next), Tomorrow, Starred, and Focus itself — the notepad every capture lands in until you file it
-- **One-tap filing** — a note moves out of the notepad into any section without going through a menu
-- **Areas & sections** — organize with a two-level hierarchy; create, rename, reorder, and delete
-- **Add in place** — every section has its own add row, so a run of tasks goes in without leaving the keyboard
-- **Tasks** — complete, star, reorder, rename in place, and move between sections
-- **Scheduling** — give any task a date, and a time of day if it needs one; a task with no time reads as due that day rather than at midnight, and sorts after the day's timed tasks
-- **Recurring tasks** — repeat daily, weekly, monthly, or yearly (every N); completing one advances it to the next date, keeping its time of day, and records when you last did it
-- **Undo everything** — deletes (including a whole area and its contents) are undoable from the toast
-- **Keyboard & screen reader** — ARIA menu navigation and full keyboard paths throughout
-- **Install & offline** — installable PWA; works fully offline once loaded, including airplane mode
-- **Mobile** — responsive shell with an off-canvas navigation drawer and a pinned capture bar
-- **Light and dark** — follows your system by default, or pick one; the control cycles back to system whenever you want it
+- **Quick capture**: type and go; the bar shows where the task will land, and asks which section when an area has more than one
+- **Focus**: the landing surface. It has four tabs: Today (what's overdue and what's due, led by what's next), Tomorrow, Starred, and Focus itself (the notepad every capture lands in until you file it)
+- **One-tap filing**: a note moves out of the notepad into any section without going through a menu
+- **Areas & sections**: organize with a two-level hierarchy; create, rename, reorder, and delete
+- **Add in place**: every section has its own add row, so a run of tasks goes in without leaving the keyboard
+- **Tasks**: complete, star, reorder, rename in place, and move between sections
+- **Scheduling**: give any task a date, and a time of day if it needs one; a task with no time reads as due that day rather than at midnight, and sorts after the day's timed tasks
+- **Recurring tasks**: repeat daily, weekly, monthly, or yearly (every N); completing one advances it to the next date, keeping its time of day, and records when you last did it
+- **Undo everything**: deletes (including a whole area and its contents) are undoable from the toast
+- **Keyboard & screen reader**: ARIA menu navigation and full keyboard paths throughout
+- **Install & offline**: installable PWA; works fully offline once loaded, including airplane mode
+- **Mobile**: responsive shell with an off-canvas navigation drawer and a pinned capture bar
+- **Light and dark**: follows your system by default, or pick one; the control cycles back to system whenever you want it
 
 ---
 
 ## Tech
 
-Vanilla HTML, CSS, and JavaScript — no frameworks. Strict MVC with a `subscribe/notify` pattern.
+Vanilla HTML, CSS, and JavaScript. No frameworks. Strict MVC with a `subscribe/notify` pattern.
 
 - **Build:** Vite
 - **Persistence:** IndexedDB (hand-rolled wrapper)
