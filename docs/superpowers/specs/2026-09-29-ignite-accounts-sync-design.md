@@ -310,6 +310,28 @@ A sync failure never throws into the controller and never shows a toast. It appe
 
 If hashing goes over, the fallback (per R1) is a custom `password.hash` / `password.verify` in Better Auth that uses WebCrypto PBKDF2-SHA-256, which runs natively. The iteration count is the highest that fits inside 10 ms. That is below OWASP's recommended count for PBKDF2, which is why §5.4 requires 15 characters: a long password carries the strength a cheaper hash gives up. Workers Paid is only raised with me as a question.
 
+**Measured 2026-10-07** (plan Task 1: a throwaway Worker on Workers Free, `better-auth@1.7.6`, 10 runs each at one request a second, median / max CPU in ms; the floor, `/noop`, was 0.0 / 1.0). CPU came from `wrangler tail`'s `cpuTime`, the same per-request figure Workers Logs records, because the dashboard query builder was new to me; tail caught every hash and verify request. "over (1102)" counts the runs Cloudflare cut off for exceeding the CPU limit. Two earlier unpaced runs the same day cut off more often, because bursts use up the free plan's short allowance.
+
+| Hash | Sign-up (hash) | Sign-in (verify) |
+|---|---|---|
+| Better Auth default: scrypt N=16384, r=16, p=1 | 123.0 / 180.0, over (1102) 4 of 10 | 10.0 / 137.0, over (1102) 4 of 6 |
+| PBKDF2-SHA-256, WebCrypto, 25 000 | 8.5 / 11.0 | 9.0 / 11.0 |
+| PBKDF2-SHA-256, WebCrypto, 50 000 | 16.0 / 21.0, over (1102) 1 of 10 | 16.0 / 19.0 |
+| PBKDF2-SHA-256, WebCrypto, 100 000 | 32.5 / 37.0, over (1102) 4 of 10 | 27.5 / 35.0, over (1102) 2 of 6 |
+| PBKDF2-SHA-256, WebCrypto, 200 000 | refused | refused |
+| PBKDF2-SHA-256, WebCrypto, 300 000 | refused | refused |
+| PBKDF2-SHA-256, WebCrypto, 600 000 | refused | refused |
+| PBKDF2-SHA-256, node:crypto, 25 000 | 8.0 / 16.0 | 9.0 / 11.0 |
+| PBKDF2-SHA-256, node:crypto, 50 000 | 11.5 / 18.0, over (1102) 5 of 10 | 15.0 / 17.0, over (1102) 2 of 5 |
+| PBKDF2-SHA-256, node:crypto, 100 000 | 31.5 / 41.0, over (1102) 2 of 10 | 10.0 / 37.0, over (1102) 5 of 8 |
+| PBKDF2-SHA-256, node:crypto, 200 000 | refused | refused |
+| PBKDF2-SHA-256, node:crypto, 300 000 | refused | refused |
+| PBKDF2-SHA-256, node:crypto, 600 000 | refused | refused |
+
+`node:crypto` hits the same 100 000-iteration cap as WebCrypto in production ("iteration counts above 100000 are not supported").
+
+**Decision: nothing fits on Workers Free.** Even 25 000 iterations is over 8 ms. Raised with me as a question (R1).
+
 The same measurement idea applies to push encryption in project 3. It is recorded on the roadmap, not here.
 
 ---
