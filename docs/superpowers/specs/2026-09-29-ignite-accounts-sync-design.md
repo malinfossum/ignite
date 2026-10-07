@@ -338,12 +338,12 @@ The same measurement idea applies to push encryption in project 3. It is recorde
 ## 14. Privacy and legal
 
 - **Where my data lives:** task content, area and section names, quiet hours, and my email and password hash are stored in Neon, **Frankfurt (EEA)**. Requests pass through Cloudflare, a US company that processes them transiently at its edge (EU–US Data Privacy Framework certified). IndexedDB on each signed-in device holds a copy.
-- **Necessity:** every stored field is one the app already uses. The only new personal data is my email (the sign-in name) and the password hash.
+- **Necessity:** every stored field is one the app already uses. The new personal data is my email (the sign-in name), the password hash, and what Better Auth records on its own: the IP address and user agent of each sign-in (the session table, removed with the user) and IP addresses in its rate-limit table (keyed by IP and path, not linked to a user).
 - **Delete:** `api/scripts/delete-user.ts` deletes the user, and `ON DELETE CASCADE` removes every row and tombstone. Neon keeps point-in-time history for a short restore window on the free plan, so a deletion reaches backups when that window passes. The plan records the current window length from Neon's docs.
 - **Export:** project 1's JSON export covers it.
 - **Cookies:** the session cookie is strictly necessary, and the theme in `localStorage` is a preference I set myself, so no consent banner is needed (ekomloven § 3-15 exempts both).
 - **Licences:** new dependencies must be MIT, Apache-2.0 or similarly permissive, compatible with Ignite's Apache-2.0. The plan checks each one's `license` field before installing.
-- **Gate before anyone else joins:** as long as `ALLOWED_EMAILS` holds only me, I am processing my own data. **Before a second email is added**, Ignite needs a privacy notice, a way to delete an account from the app, and email for password reset. Adding a second email without those is out of bounds.
+- **Gate before anyone else joins:** as long as `ALLOWED_EMAILS` holds only me, I am processing my own data. **Before a second email is added**, Ignite needs a privacy notice (naming the stored IP addresses and user agents), a way to delete an account from the app, and email for password reset. Adding a second email without those is out of bounds.
 
 ---
 
