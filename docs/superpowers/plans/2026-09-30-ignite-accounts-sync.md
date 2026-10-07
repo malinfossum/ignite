@@ -21,7 +21,7 @@ Every task's requirements include these. A task that would break R1 or R2 stops 
 - **Names, paths and types** are fixed by the interface blocks in each task. Never rename one to fit a task.
 - **Security:** session cookie HttpOnly, Secure, `SameSite=Strict`. `user_id` comes from the session only. Sync routes accept only `Content-Type: application/json` from the app's own `Origin`. No SQL text built from input. Logs never hold an email, a password, a request body or a task title.
 - **Accounts:** sign-up only for emails in `ALLOWED_EMAILS`. Minimum password length **15**. Sign-in copy exactly: "Email or password is wrong" · "Too many attempts. Try again in a minute." · "Can't reach Ignite's server. Check your connection." · "Password must be at least 15 characters."
-- **Licences:** every new dependency is MIT, Apache-2.0, ISC or BSD. Check with `npm view <package> license` before installing. `npm view` only sees the packages I name, so after every install that changes `package-lock.json`, `node scripts/check-licences.mjs` (Task 2) checks every package new since `main`, including the ones they pull in. Expected: `0 disallowed`. Task 1's probe lives in its own folder before that script exists, so it runs the same rule as a one-liner against its own lockfile, with every package counted as new.
+- **Licences:** every new dependency is MIT, Apache-2.0, ISC, BSD or CC0-1.0. A package only dev tooling reaches (`"dev": true` in `package-lock.json`) may also be LGPL-3.0-or-later: Wrangler's local simulator pulls in `sharp`'s libvips binaries, which never ship, so LGPL asks nothing of Ignite (decided 2026-10-07, when Task 1's check stopped on them). Check with `npm view <package> license` before installing. `npm view` only sees the packages I name, so after every install that changes `package-lock.json`, `node scripts/check-licences.mjs` (Task 2) checks every package new since `main`, including the ones they pull in. Expected: `0 disallowed`. Task 1's probe lives in its own folder before that script exists, so it runs the same rule as a one-liner against its own lockfile, with every package counted as new.
 - **Database tests stay local.** The Workers handler tests run against the Neon `dev` branch on my machine only. CI holds no database secret.
 - **Views and the controller get no unit tests** (project rule). They are verified in the browser, with numbers read off the page.
 - **UI rules:** controls on one row share one height (44 px) and one bottom edge. Every control is at least 44 × 44 px. Mobile-first CSS with `min-width` queries only. Design-system tokens only; `design-system/` is read-only.
@@ -437,7 +437,7 @@ Expected: installs without errors; `node_modules/better-auth/package.json` reads
 Then check the licence of every package npm pulled in, not just the two I named (`npm view` only sees those). The probe's lockfile is compared with an empty one, so every package in it counts as new. Task 2's `scripts/check-licences.mjs` does not exist yet, so this is the same rule as a one-liner. In `.superpowers/cpu-probe/`:
 
 ```bash
-node -e "const ok=new Set(['MIT','Apache-2.0','ISC','BSD-2-Clause','BSD-3-Clause','0BSD']);const p=require('./package-lock.json').packages;const bad=Object.entries(p).filter(([k,v])=>k.includes('node_modules/')&&v.link===undefined).filter(([,v])=>{const ids=String(v.license??'').split(/\s+OR\s+|\s+AND\s+|[()]/).map((s)=>s.trim()).filter(Boolean);return ids.length===0||ids.some((id)=>ok.has(id)===false)});for(const [k,v] of bad)console.log(k.slice(k.lastIndexOf('node_modules/')+13),v.version,v.license??'(none)');console.log(bad.length+' disallowed')"
+node -e "const ok=new Set(['MIT','Apache-2.0','ISC','BSD-2-Clause','BSD-3-Clause','0BSD','CC0-1.0']);const dev=new Set([...ok,'LGPL-3.0-or-later']);const p=require('./package-lock.json').packages;const bad=Object.entries(p).filter(([k,v])=>k.includes('node_modules/')&&v.link===undefined).filter(([,v])=>{const list=v.dev===true?dev:ok;const ids=String(v.license??'').split(/\s+OR\s+|\s+AND\s+|[()]/).map((s)=>s.trim()).filter(Boolean);return ids.length===0||ids.some((id)=>list.has(id)===false)});for(const [k,v] of bad)console.log(k.slice(k.lastIndexOf('node_modules/')+13),v.version,v.license??'(none)');console.log(bad.length+' disallowed')"
 ```
 
 Expected: one line, `0 disallowed`. Any package listed above that line stops the task: tell Malin the name and licence, and do not widen the list.
@@ -772,15 +772,21 @@ const ALLOWED = new Set([
 	"BSD-2-Clause",
 	"BSD-3-Clause",
 	"0BSD",
+	"CC0-1.0",
 ]);
 
+// Only dev tooling reaches these, so they never ship. Wrangler's local
+// simulator pulls in sharp's libvips binaries (decided 2026-10-07).
+const ALLOWED_DEV = new Set([...ALLOWED, "LGPL-3.0-or-later"]);
+
 /** True when every SPDX id in the expression is on the allowlist. */
-function allowed(licence) {
-	const ids = String(licence ?? "")
+function allowed(entry) {
+	const list = entry.dev === true ? ALLOWED_DEV : ALLOWED;
+	const ids = String(entry.license ?? "")
 		.split(/\s+OR\s+|\s+AND\s+|[()]/)
 		.map((id) => id.trim())
 		.filter(Boolean);
-	return ids.length > 0 && ids.every((id) => ALLOWED.has(id));
+	return ids.length > 0 && ids.every((id) => list.has(id));
 }
 
 const base = JSON.parse(
@@ -795,7 +801,7 @@ const bad = Object.entries(current).filter(
 		path.includes("node_modules/") &&
 		entry.link === undefined &&
 		base[path]?.version !== entry.version &&
-		!allowed(entry.license),
+		!allowed(entry),
 );
 
 for (const [path, entry] of bad) {
