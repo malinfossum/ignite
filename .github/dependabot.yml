@@ -1,0 +1,26 @@
+# Ward baseline, from templates/dependabot.yml in malinfossum/ward.
+# Majors are never grouped, so each gets its own PR for me to read.
+version: 2
+updates:
+  # Only GitHub's own actions are grouped and may auto-merge. Every other
+  # action, Ward's own reference included, gets its own PR for me to read.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions-first-party:
+        patterns:
+          - "actions/*"
+          - "github/*"
+          - "dependabot/*"
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm # package.json
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]

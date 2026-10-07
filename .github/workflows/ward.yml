@@ -1,0 +1,32 @@
+# Ward: shared CI, security and accessibility checks.
+# Set the inputs this repo needs; an empty input turns that module off.
+name: Ward
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Dependabot's auto-merges start no push run, so a weekly run re-checks main.
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ward:
+    uses: malinfossum/ward/.github/workflows/ci.yml@v1
+    with:
+      node: "."                 # npm project directory, e.g. "." or "web"
+      a11y: "off"              # off | warn | strict
+      dotnet: ""               # solution directory or file, e.g. "." or "App.slnx"
+      dotnet-os: ubuntu-latest # windows-latest for WPF
+      dotnet-ef-project: ""    # EF Core project path, e.g. "src/App.Data"
+
+  automerge:
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: malinfossum/ward/.github/workflows/dependabot-automerge.yml@0f9842e422ecbaf885e42ff619888fd7cdc306bf # v1.2.0
