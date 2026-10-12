@@ -332,6 +332,21 @@ If hashing goes over, the fallback (per R1) is a custom `password.hash` / `passw
 
 **Decision: nothing fits on Workers Free.** Even 25 000 iterations is over 8 ms. Raised with me as a question (R1).
 
+**Re-measured 2026-10-12** (a second throwaway Worker, PBKDF2-SHA-256 only, 20 runs each at one request a second, CPU from `wrangler tail`'s `cpuTime`, median / max in ms; the floor, `/noop`, was 0 / 0). All 330 requests returned 200 and none was cut off.
+
+| Hash | Sign-up (hash) | Sign-in (verify) |
+|---|---|---|
+| WebCrypto, 10 000 | 2 / 3 | 2 / 5 |
+| WebCrypto, 15 000 | 3 / 5 | 3 / 4 |
+| WebCrypto, 20 000 | 4 / 6 | 4 / 8 |
+| WebCrypto, 25 000 | 5 / 9 | 5 / 8 |
+| node:crypto, 10 000 | 2 / 6 | 2 / 4 |
+| node:crypto, 15 000 | 3 / 5 | 3 / 7 |
+| node:crypto, 20 000 | 4 / 6 | 4 / 5 |
+| node:crypto, 25 000 | 5 / 10 | 5 / 8 |
+
+The 25 000 row ran at about 60 % of what it cost on 2026-10-07 (median 5 against 8.5). The same code costs a different amount of CPU on different days, so a single day's max is not a safe ceiling. WebCrypto and node:crypto run the same algorithm, and their differences here are noise.
+
 The same measurement idea applies to push encryption in project 3. It is recorded on the roadmap, not here.
 
 ---
