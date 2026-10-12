@@ -6,7 +6,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"build": "vite build",
+		"build": "vite build && node scripts/check-bundle.mjs",
 		"preview": "vite preview",
 		"format": "biome format --write .",
 		"lint": "biome lint .",
