@@ -27,13 +27,13 @@
 	},
 	"homepage": "https://github.com/malinfossum/ignite#readme",
 	"devDependencies": {
-		"@biomejs/biome": "2.4.12",
+		"@biomejs/biome": "2.5.15",
 		"@types/node": "^22.20.5",
 		"fake-indexeddb": "^6.2.5",
-		"sharp": "^0.35.4",
+		"sharp": "^0.35.5",
 		"typescript": "7.0.2",
-		"vite": "^8.2.2",
-		"vitest": "^4.1.11"
+		"vite": "^8.3.2",
+		"vitest": "^5.0.3"
 	},
 	"allowScripts": {
 		"sharp@0.34.5": true
