@@ -40,21 +40,23 @@
 		"typescript": "7.0.2",
 		"vite": "^8.3.2",
 		"vitest": "^5.0.3",
-		"wrangler": "^4.144.0"
+		"wrangler": "^4.149.0"
 	},
 	"allowScripts": {
 		"sharp@0.34.5": true,
 		"esbuild@0.28.2": true,
 		"esbuild@0.25.12": true,
-		"esbuild@0.18.20": true,
-		"esbuild@0.28.1": true,
-		"workerd@1.20261006.1": true,
-		"workerd@1.20260926.1": true
+		"workerd@1.20261006.1": true
 	},
 	"dependencies": {
 		"better-auth": "1.7.6",
 		"drizzle-orm": "^0.45.3",
 		"pg": "^8.23.0",
 		"zod": "^4.6.5"
+	},
+	"overrides": {
+		"@esbuild-kit/core-utils": {
+			"esbuild": "^0.25.12"
+		}
 	}
 }
