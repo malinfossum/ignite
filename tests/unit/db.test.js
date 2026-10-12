@@ -15,11 +15,18 @@ afterEach(() => {
 	openHandles = [];
 });
 
-describe("openDB — schema v1", () => {
-	it("creates the four object stores", async () => {
+describe("openDB: schema", () => {
+	it("creates the six object stores", async () => {
 		const db = await fresh();
 		const names = Array.from(db.raw.objectStoreNames).sort();
-		expect(names).toEqual(["areas", "sections", "settings", "tasks"]);
+		expect(names).toEqual([
+			"areas",
+			"meta",
+			"outbox",
+			"sections",
+			"settings",
+			"tasks",
+		]);
 	});
 
 	it("creates indexes on the tasks store", async () => {
