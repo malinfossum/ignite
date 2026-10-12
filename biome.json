@@ -12,7 +12,9 @@
 			"!dist",
 			"!node_modules",
 			"!**/*.min.js",
-			"!design-system"
+			"!design-system",
+			"!api/src/auth-schema.ts",
+			"!api/drizzle"
 		]
 	},
 	"formatter": {

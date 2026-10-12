@@ -11,9 +11,11 @@
 		"format": "biome format --write .",
 		"lint": "biome lint .",
 		"check": "biome check . && npm run typecheck",
-		"typecheck": "tsc --noEmit",
+		"typecheck": "tsc --noEmit && tsc --noEmit -p api",
 		"gen:icons": "node scripts/gen-icons.mjs",
 		"gen:preview": "node scripts/gen-preview.mjs",
+		"db:generate": "drizzle-kit generate --config api/drizzle.config.ts",
+		"db:migrate": "drizzle-kit migrate --config api/drizzle.config.ts",
 		"test": "vitest",
 		"test:run": "vitest run"
 	},
@@ -29,14 +31,30 @@
 	"homepage": "https://github.com/malinfossum/ignite#readme",
 	"devDependencies": {
 		"@biomejs/biome": "2.5.15",
+		"@cloudflare/vitest-plugin": "^1.4.0",
 		"@types/node": "^22.20.5",
+		"@types/pg": "^8.23.1",
+		"drizzle-kit": "^0.31.11",
 		"fake-indexeddb": "^6.2.5",
 		"sharp": "^0.35.5",
 		"typescript": "7.0.2",
 		"vite": "^8.3.2",
-		"vitest": "^5.0.3"
+		"vitest": "^5.0.3",
+		"wrangler": "^4.144.0"
 	},
 	"allowScripts": {
-		"sharp@0.34.5": true
+		"sharp@0.34.5": true,
+		"esbuild@0.28.2": true,
+		"esbuild@0.25.12": true,
+		"esbuild@0.18.20": true,
+		"esbuild@0.28.1": true,
+		"workerd@1.20261006.1": true,
+		"workerd@1.20260926.1": true
+	},
+	"dependencies": {
+		"better-auth": "1.7.6",
+		"drizzle-orm": "^0.45.3",
+		"pg": "^8.23.0",
+		"zod": "^4.6.5"
 	}
 }
