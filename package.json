@@ -10,7 +10,7 @@
 		"preview": "vite preview",
 		"format": "biome format --write .",
 		"lint": "biome lint .",
-		"check": "biome check .",
+		"check": "biome check . && tsc --noEmit",
 		"gen:icons": "node scripts/gen-icons.mjs",
 		"gen:preview": "node scripts/gen-preview.mjs",
 		"test": "vitest",
@@ -28,8 +28,10 @@
 	"homepage": "https://github.com/malinfossum/ignite#readme",
 	"devDependencies": {
 		"@biomejs/biome": "2.4.12",
+		"@types/node": "^22.20.5",
 		"fake-indexeddb": "^6.2.5",
 		"sharp": "^0.35.4",
+		"typescript": "7.0.2",
 		"vite": "^8.2.2",
 		"vitest": "^4.1.11"
 	},
