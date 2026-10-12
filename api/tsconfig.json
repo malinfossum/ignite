@@ -13,6 +13,7 @@
 		"noEmit": true
 	},
 	"include": [
+		"../worker-configuration.d.ts",
 		"src/**/*.ts",
 		"scripts/**/*.ts",
 		"test/**/*.ts",

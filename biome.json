@@ -14,7 +14,8 @@
 			"!**/*.min.js",
 			"!design-system",
 			"!api/src/auth-schema.ts",
-			"!api/drizzle"
+			"!api/drizzle",
+			"!worker-configuration.d.ts"
 		]
 	},
 	"formatter": {

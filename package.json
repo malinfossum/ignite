@@ -17,7 +17,9 @@
 		"db:generate": "drizzle-kit generate --config api/drizzle.config.ts",
 		"db:migrate": "drizzle-kit migrate --config api/drizzle.config.ts",
 		"test": "vitest",
-		"test:run": "vitest run"
+		"test:run": "vitest run",
+		"test:workers": "vite build && vitest run --config vitest.workers.config.ts",
+		"deploy:check": "wrangler deploy --dry-run"
 	},
 	"repository": {
 		"type": "git",
