@@ -330,7 +330,7 @@ If hashing goes over, the fallback (per R1) is a custom `password.hash` / `passw
 
 `node:crypto` hits the same 100 000-iteration cap as WebCrypto in production ("iteration counts above 100000 are not supported").
 
-**Decision: nothing fits on Workers Free.** Even 25 000 iterations is over 8 ms. Raised with me as a question (R1).
+**Superseded 2026-10-12, see the decision below the re-measure:** nothing fits on Workers Free. Even 25 000 iterations is over 8 ms. Raised with me as a question (R1).
 
 **Re-measured 2026-10-12** (a second throwaway Worker, PBKDF2-SHA-256 only, 20 runs each at one request a second, CPU from `wrangler tail`'s `cpuTime`, median / max in ms; the floor, `/noop`, was 0 / 0). All 330 requests returned 200 and none was cut off.
 
@@ -346,6 +346,8 @@ If hashing goes over, the fallback (per R1) is a custom `password.hash` / `passw
 | node:crypto, 25 000 | 5 / 10 | 5 / 8 |
 
 The 25 000 row ran at about 60 % of what it cost on 2026-10-07 (median 5 against 8.5). The same code costs a different amount of CPU on different days, so a single day's max is not a safe ceiling. WebCrypto and node:crypto run the same algorithm, and their differences here are noise.
+
+**Decision: PBKDF2-SHA-256 via WebCrypto at 15 000 iterations.** It replaces the "nothing fits" decision above. Its max today was 5 ms; at the 2026-10-07 cost it would be about 8.5 ms, still under the 10 ms limit. 20 000 already reached 8 ms today, so a slow day would cut sign-ins off. §5.4's 15-character minimum carries the strength this count gives up against OWASP's 600 000. Workers Paid stays unused (R1). The push of 200 changes is measured in Task 11.
 
 The same measurement idea applies to push encryption in project 3. It is recorded on the roadmap, not here.
 
