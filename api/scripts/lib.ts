@@ -2,6 +2,7 @@
 
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
+import { Writable } from "node:stream";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Client } from "pg";
 
@@ -38,44 +39,33 @@ export async function readLine(prompt: string): Promise<string> {
 }
 
 // Reads a line without echoing it, so a password never shows on screen or
-// lands in shell history. Paste works; Backspace removes one character.
-export function readHidden(prompt: string): Promise<string> {
+// lands in shell history: no characters and no stars are printed. This goes
+// through readline because raw-mode "data" events on stdin never arrived on
+// Windows once readline had used stdin earlier in the same script. Readline
+// also handles Backspace and paste. Ctrl+C rejects with "Cancelled.".
+export async function readHidden(prompt: string): Promise<string> {
 	if (!stdin.isTTY) {
-		return Promise.reject(
-			new Error("Run this in PowerShell or Windows Terminal."),
-		);
+		throw new Error("Run this in PowerShell or Windows Terminal.");
 	}
-	stdout.write(prompt);
-	stdin.setRawMode(true);
-	stdin.resume();
-	stdin.setEncoding("utf8");
-	let value = "";
-	return new Promise((resolve, reject) => {
-		const finish = () => {
-			stdin.off("data", onData);
-			stdin.setRawMode(false);
-			stdin.pause();
-			stdout.write("\n");
-		};
-		const onData = (chunk: string) => {
-			for (const char of chunk) {
-				if (char === "\r" || char === "\n") {
-					finish();
-					resolve(value);
-					return;
-				}
-				if (char === "\u0003") {
-					finish();
-					reject(new Error("Cancelled."));
-					return;
-				}
-				if (char === "\u007f" || char === "\b") {
-					value = [...value].slice(0, -1).join("");
-				} else {
-					value += char;
-				}
-			}
-		};
-		stdin.on("data", onData);
+	let muted = false;
+	const output = new Writable({
+		write(chunk, encoding, callback) {
+			if (muted) callback();
+			else stdout.write(chunk, encoding, callback);
+		},
 	});
+	const rl = createInterface({ input: stdin, output, terminal: true });
+	const controller = new AbortController();
+	rl.on("SIGINT", () => controller.abort());
+	try {
+		stdout.write(prompt);
+		muted = true;
+		return await rl.question("", { signal: controller.signal });
+	} catch (error) {
+		if (controller.signal.aborted) throw new Error("Cancelled.");
+		throw error;
+	} finally {
+		rl.close();
+		stdout.write("\n");
+	}
 }
