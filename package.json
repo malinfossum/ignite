@@ -28,10 +28,10 @@
 	"homepage": "https://github.com/malinfossum/ignite#readme",
 	"devDependencies": {
 		"@biomejs/biome": "2.5.15",
-		"fake-indexeddb": "^6.2.5",
+		"fake-indexeddb": "^6.2.6",
 		"sharp": "^0.35.5",
 		"vite": "^8.3.4",
-		"vitest": "^5.0.3"
+		"vitest": "^5.0.5"
 	},
 	"allowScripts": {
 		"sharp@0.34.5": true
