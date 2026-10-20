@@ -30,7 +30,7 @@ jobs:
       actions: read
       contents: read
       security-events: write
-    uses: malinfossum/ward/.github/workflows/codeql.yml@6616cb64aca999157934d2a69d2af92d6e847011 # v1.4.0
+    uses: malinfossum/ward/.github/workflows/codeql.yml@268e66a338df8b4b7f0b929e62243dfda07c8acb # v1.4.0
 
   automerge:
     if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
