@@ -242,3 +242,7 @@ function fromStorage(row) {
 	for (const f of BOOL_FIELDS) out[f] = row[f] === 1;
 	return out;
 }
+
+// The backup layer converts between model and storage shape with the SAME
+// functions the model uses, so the 0/1 boolean quirk stays in one place.
+export { fromStorage as taskFromStorage, toStorage as taskToStorage };

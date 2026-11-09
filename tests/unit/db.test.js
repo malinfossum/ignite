@@ -102,3 +102,101 @@ describe("DBWrapper CRUD", () => {
 		expect(inS1.map((t) => t.id)).toEqual(["t1"]);
 	});
 });
+
+describe("replaceAll", () => {
+	const seed = async (db) => {
+		await db.put("areas", {
+			id: "old-area",
+			name: "Old",
+			icon: "",
+			critical: false,
+			order: 1,
+		});
+		await db.put("sections", {
+			id: "old-sec",
+			areaId: "old-area",
+			name: "Old",
+			collapsed: false,
+			order: 0,
+		});
+		await db.put("tasks", {
+			id: "old-task",
+			sectionId: "old-sec",
+			title: "Old",
+			completed: 0,
+			starred: 0,
+			critical: 0,
+			hasTime: 0,
+			order: 0,
+		});
+		await db.put("settings", { id: "app", theme: "dark" });
+	};
+
+	it("replaces all three data stores", async () => {
+		const db = await fresh();
+		await seed(db);
+		await db.replaceAll({
+			areas: [{ id: "a", name: "A", icon: "", critical: false, order: 1 }],
+			sections: [
+				{ id: "s", areaId: "a", name: "S", collapsed: false, order: 0 },
+			],
+			tasks: [
+				{
+					id: "t",
+					sectionId: "s",
+					title: "T",
+					completed: 0,
+					starred: 1,
+					critical: 0,
+					hasTime: 0,
+					order: 0,
+				},
+			],
+		});
+		expect((await db.getAll("areas")).map((r) => r.id)).toEqual(["a"]);
+		expect((await db.getAll("sections")).map((r) => r.id)).toEqual(["s"]);
+		expect((await db.getAll("tasks")).map((r) => r.id)).toEqual(["t"]);
+	});
+
+	it("leaves settings alone", async () => {
+		const db = await fresh();
+		await seed(db);
+		await db.replaceAll({ areas: [], sections: [], tasks: [] });
+		expect(await db.get("settings", "app")).toEqual({
+			id: "app",
+			theme: "dark",
+		});
+	});
+
+	it("rejects and keeps the old data when a record can't be written", async () => {
+		const db = await fresh();
+		await seed(db);
+		// A task with no `id` violates the keyPath, so put() throws inside the
+		// transaction. The whole replace must abort, clears included.
+		await expect(
+			db.replaceAll({
+				areas: [{ id: "a", name: "A", icon: "", critical: false, order: 1 }],
+				sections: [],
+				tasks: [{ sectionId: "s", title: "No id" }],
+			}),
+		).rejects.toThrow();
+		expect((await db.getAll("areas")).map((r) => r.id)).toEqual(["old-area"]);
+		expect((await db.getAll("tasks")).map((r) => r.id)).toEqual(["old-task"]);
+	});
+});
+
+describe("readAll", () => {
+	it("reads several stores in one call", async () => {
+		const db = await fresh();
+		await db.put("areas", {
+			id: "a",
+			name: "A",
+			icon: "",
+			critical: false,
+			order: 0,
+		});
+		const out = await db.readAll(["areas", "sections"]);
+		expect(out.areas.map((r) => r.id)).toEqual(["a"]);
+		expect(out.sections).toEqual([]);
+	});
+});
