@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { nextOccurrence } from "../../src/model/recurrence.js";
+import {
+	isValidRecurrence,
+	nextOccurrence,
+} from "../../src/model/recurrence.js";
 
 describe("nextOccurrence — daily", () => {
 	it("advances the date by one day, preserving time-of-day", () => {
@@ -207,5 +210,31 @@ describe("nextOccurrence — interval", () => {
 		expect(
 			nextOccurrence({ type: "daily", interval: "banana" }, from).toISOString(),
 		).toBe(expected);
+	});
+});
+
+describe("isValidRecurrence", () => {
+	it.each([
+		[{ type: "daily" }],
+		[{ type: "daily", interval: 3 }],
+		[{ type: "weekly", interval: 1, weekdays: [1, 4] }],
+		[{ type: "monthly", interval: 1, day: 31 }],
+		[{ type: "yearly", interval: 1, month: 2, day: 29 }],
+	])("accepts %j", (rule) => {
+		expect(isValidRecurrence(rule)).toBe(true);
+	});
+
+	it.each([
+		[null],
+		["daily"],
+		[{ type: "hourly" }],
+		[{ type: "weekly", weekdays: [] }],
+		[{ type: "weekly", weekdays: [7] }],
+		[{ type: "monthly", day: 0 }],
+		[{ type: "yearly", month: 13, day: 1 }],
+		[{ type: "daily", interval: "two" }],
+		[{ type: "daily", extra: true }],
+	])("refuses %j", (rule) => {
+		expect(isValidRecurrence(rule)).toBe(false);
 	});
 });

@@ -4,7 +4,7 @@ import { capitalizeFirst } from "../utils/text.js";
 export const FOCUS_ID = "focus";
 export const FOCUS_DEFAULT_SECTION_ID = "focus-default";
 
-const FOCUS_DEFAULTS = {
+export const FOCUS_DEFAULTS = {
 	id: FOCUS_ID,
 	name: "Focus",
 	icon: "🔥",
@@ -12,7 +12,7 @@ const FOCUS_DEFAULTS = {
 	order: 0,
 };
 
-const FOCUS_DEFAULT_SECTION = {
+export const FOCUS_DEFAULT_SECTION = {
 	id: FOCUS_DEFAULT_SECTION_ID,
 	areaId: FOCUS_ID,
 	name: "Tasks",

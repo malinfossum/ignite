@@ -81,3 +81,45 @@ function nextYear(from, ruleMonth1Based, targetDay, interval) {
 		from.getMilliseconds(),
 	);
 }
+
+// True when nextOccurrence can run this rule without throwing. Used to check
+// rules read from a file before they reach the database. RECURRENCE_KEYS is
+// exported so the backup writer can strip anything else without a second list.
+export const RECURRENCE_KEYS = new Set([
+	"type",
+	"interval",
+	"weekdays",
+	"month",
+	"day",
+]);
+const isIntIn = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+
+export function isValidRecurrence(rule) {
+	if (rule === null || typeof rule !== "object" || Array.isArray(rule)) {
+		return false;
+	}
+	for (const key of Object.keys(rule))
+		if (!RECURRENCE_KEYS.has(key)) return false;
+	if (
+		rule.interval !== undefined &&
+		!(typeof rule.interval === "number" && Number.isFinite(rule.interval))
+	) {
+		return false;
+	}
+	switch (rule.type) {
+		case "daily":
+			return true;
+		case "weekly":
+			return (
+				Array.isArray(rule.weekdays) &&
+				rule.weekdays.length > 0 &&
+				rule.weekdays.every((d) => isIntIn(d, 0, 6))
+			);
+		case "monthly":
+			return isIntIn(rule.day, 1, 31);
+		case "yearly":
+			return isIntIn(rule.month, 1, 12) && isIntIn(rule.day, 1, 31);
+		default:
+			return false;
+	}
+}
