@@ -350,7 +350,7 @@ describe("orphan repairs", () => {
 	});
 
 	it("restores a backup of a database holding an orphan section row", () => {
-		// The case Malin's dev database is in: a sections row whose areaId matches no area.
+		// The case my dev database is in: a sections row whose areaId matches no area.
 		const orphan = {
 			id: "s9",
 			areaId: "gone",
