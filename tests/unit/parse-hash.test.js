@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { parseHash } from "../../src/controller.js";
 
-// parseHash maps the location hash to a route object. Two routes exist:
+// parseHash maps the location hash to a route object. Three routes exist:
 //   { name: "focus" }            — the landing surface, and the fallback for anything unknown
 //   { name: "area", id: "<id>" } — an area page
+//   { name: "settings" }         — the Settings page
 // "#today" is kept as an accepted alias so pre-v3 bookmarks still resolve.
 describe("parseHash", () => {
 	it("treats an empty hash as Focus", () => {
@@ -44,7 +45,15 @@ describe("parseHash", () => {
 	});
 
 	it("falls back to Focus on an unknown route", () => {
-		expect(parseHash("#settings")).toEqual({ name: "focus" });
+		expect(parseHash("#nope")).toEqual({ name: "focus" });
+	});
+
+	it("parses #settings", () => {
+		expect(parseHash("#settings")).toEqual({ name: "settings" });
+	});
+
+	it("doesn't treat a settings prefix as Settings", () => {
+		expect(parseHash("#settings/x")).toEqual({ name: "focus" });
 	});
 
 	it("falls back to Focus when area/ has no id", () => {

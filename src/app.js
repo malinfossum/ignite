@@ -3,6 +3,7 @@
 
 import { createController } from "./controller.js";
 import { createAreaModel } from "./model/areas.js";
+import { createDataModel } from "./model/data.js";
 import { openDB } from "./model/db.js";
 import { createSectionModel } from "./model/sections.js";
 import { createSettingsModel } from "./model/settings.js";
@@ -14,6 +15,7 @@ async function boot() {
 	const sections = await createSectionModel(db);
 	const tasks = await createTaskModel(db);
 	const settings = await createSettingsModel(db);
+	const data = createDataModel(db);
 
 	const sidebarRoot = document.getElementById("sidebar");
 	const mainEl = document.getElementById("main");
@@ -35,7 +37,7 @@ async function boot() {
 	document.body.appendChild(repeatDialogRoot);
 
 	const controller = createController({
-		models: { areas, sections, tasks, settings },
+		models: { areas, sections, tasks, settings, data },
 		els: {
 			sidebarRoot,
 			topbarRoot,

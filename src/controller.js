@@ -1,11 +1,13 @@
 // createController({ models, els }) → { start(), stop() }
 //
 // Wires sidebar (always-on), capture (always-on; CSS-hidden on area route),
-// toast (always-on), and a route-driven main view (Today or Area). Subscribes
+// toast (always-on), and a route-driven main view (Focus, an Area, or Settings). Subscribes
 // to all model notifies; rebuilds state and re-renders sidebar + currentMainView.
 // Owns the 60s clock tick that calls currentMainView.render(state) only.
 
+import { version as APP_VERSION } from "../package.json";
 import { FOCUS_DEFAULT_SECTION_ID, FOCUS_ID } from "./model/areas.js";
+import { createSettingsFlows } from "./settings-flows.js";
 import { captureChipLabel, captureDestination } from "./utils/capture.js";
 import { escapeHtml } from "./utils/dom.js";
 import { focusCounts } from "./utils/focus-counts.js";
@@ -25,6 +27,7 @@ import { createAreaView } from "./views/area.js";
 import { createCaptureView } from "./views/capture.js";
 import { createFocusView } from "./views/focus.js";
 import { createRecurrenceDialog } from "./views/recurrence-dialog.js";
+import { createSettingsView } from "./views/settings.js";
 import { createSidebarView } from "./views/sidebar.js";
 import { createToastView, TASK_DELETE_BATCH_KEY } from "./views/toast.js";
 import { createTopbarView } from "./views/topbar.js";
@@ -46,13 +49,14 @@ export function parseHash(hash) {
 	const raw = (hash || "").replace(/^#/, "");
 	if (raw === "" || raw === "focus" || raw === "today")
 		return { name: "focus" };
+	if (raw === "settings") return { name: "settings" };
 	const areaMatch = raw.match(/^area\/(.+)$/);
 	if (areaMatch) return { name: "area", id: areaMatch[1] };
 	return { name: "focus" };
 }
 
 export function createController({ models, els }) {
-	const { areas, sections, tasks, settings } = models;
+	const { areas, sections, tasks, settings, data } = models;
 	const {
 		sidebarRoot,
 		topbarRoot,
@@ -69,6 +73,8 @@ export function createController({ models, els }) {
 	let topbar = null;
 	let capture = null;
 	let toast = null;
+	let flows = null;
+	let lastHeaderHtml = null;
 	let currentMainView = null;
 	let currentRoute = { name: "focus" };
 	let tickHandle = null;
@@ -134,13 +140,15 @@ export function createController({ models, els }) {
 	// Page chrome, not view content: the title varies by route, and the route is
 	// the controller's. It lives above the capture bar, which is why it cannot be
 	// rendered by the views — they render into #main-root, a later sibling.
-	function renderPageHeader(state) {
+	function pageHeaderHtml(state) {
+		if (currentRoute.name === "settings") {
+			return `<h1 class="page-header__title" tabindex="-1">Settings</h1>`;
+		}
 		if (currentRoute.name === "area") {
 			const area = state.areas.find((a) => a.id === currentRoute.id);
-			pageHeaderRoot.innerHTML = `<h1 class="page-header__title">${
+			return `<h1 class="page-header__title" tabindex="-1">${
 				area ? escapeHtml(area.name) : "Area not found."
 			}</h1>`;
-			return;
 		}
 		// The <h1> says "Focus", not the date. A heading names WHERE YOU ARE, and
 		// a screen-reader user navigating by heading needs a landmark that is the
@@ -168,12 +176,24 @@ export function createController({ models, els }) {
 
 		// No escapeHtml on the greeting: formatDayGreeting composes it from two
 		// constant arrays and a number, with no user-authored input anywhere.
-		pageHeaderRoot.innerHTML = `
-			<h1 class="page-header__title">Focus</h1>
+		return `
+			<h1 class="page-header__title" tabindex="-1">Focus</h1>
 			<p class="page-header__greeting">${formatDayGreeting(state.now)}</p>
 			<p class="page-header__summary">${summary}</p>
 		`;
 	}
+
+	// Writes only when the markup changed. The Focus header changes when the
+	// day or a count changes, the area header on a rename, so a focused <h1>
+	// keeps its focus through every tick and every unrelated notify.
+	function renderPageHeader(state) {
+		const html = pageHeaderHtml(state);
+		if (html === lastHeaderHtml) return;
+		lastHeaderHtml = html;
+		pageHeaderRoot.innerHTML = html;
+	}
+
+	const focusPageHeading = () => pageHeaderRoot.querySelector("h1")?.focus();
 
 	async function applyState() {
 		const state = await buildState();
@@ -194,6 +214,10 @@ export function createController({ models, els }) {
 		document.body.classList.toggle(
 			"is-area-route",
 			currentRoute.name === "area",
+		);
+		document.body.classList.toggle(
+			"is-settings-route",
+			currentRoute.name === "settings",
 		);
 		renderPageHeader(state);
 		sidebar?.render(state);
@@ -465,6 +489,13 @@ export function createController({ models, els }) {
 			// null lastState, activeTab is already set, and the applyState that
 			// follows renders the right tab.
 			if (wantedTab) currentMainView.selectTab(wantedTab);
+			return;
+		}
+
+		if (route.name === "settings") {
+			currentMainView = createSettingsView(mainRoot, {
+				onBackUp: () => flows.backUpNow(),
+			});
 			return;
 		}
 
@@ -889,11 +920,22 @@ export function createController({ models, els }) {
 		capture?.closePicker();
 		currentRoute = routeFromHash();
 		mountMainView(currentRoute);
-		applyState();
+		applyState().then(() => {
+			// Settings focuses its heading, so a keyboard user lands at the top
+			// of the new page instead of on <body>.
+			if (currentRoute.name === "settings") focusPageHeading();
+		});
 	}
 
 	function start() {
 		toast = createToastView(toastRoot);
+		flows = createSettingsFlows({
+			models: { data, settings },
+			toast,
+			getView: () =>
+				currentRoute.name === "settings" ? currentMainView : null,
+			appVersion: APP_VERSION,
+		});
 
 		recurrenceDialog = createRecurrenceDialog(repeatDialogRoot, {
 			onSave: onSaveRecurrence,
@@ -918,6 +960,10 @@ export function createController({ models, els }) {
 			},
 			onGoFocus: () => {
 				window.location.hash = "#focus";
+				closeDrawer();
+			},
+			onOpenSettings: () => {
+				window.location.hash = "#settings";
 				closeDrawer();
 			},
 			onOpenArea: (id) => {
@@ -1044,6 +1090,8 @@ export function createController({ models, els }) {
 		toast = null;
 		recurrenceDialog = null;
 		drawerOpen = false;
+		lastHeaderHtml = null;
+		flows = null;
 	}
 
 	return { start, stop };

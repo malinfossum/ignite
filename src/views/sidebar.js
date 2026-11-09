@@ -1,5 +1,5 @@
 // createSidebarView(rootEl, {
-//   onToggleCollapse, onGoFocus, onOpenArea,
+//   onToggleCollapse, onGoFocus, onOpenSettings, onOpenArea,
 //   onAddArea, onCommitAreaRename, onMoveAreaUp, onMoveAreaDown, onDeleteArea,
 //   onCloseDrawer, onCycleTheme, onPickAreaIcon,
 // }) → { render(state), enterRename(areaId), destroy() }
@@ -8,6 +8,7 @@
 // route:
 //   { name: "focus" }            → wordmark gets aria-current="page"
 //   { name: "area", id: "..." }  → matching area row gets aria-current="page"
+//   { name: "settings" }         → the Settings button gets aria-current="page"
 //
 // Closure state (all reset to initial values in destroy()):
 //   openAreaMenuId          - area id whose ⋯ menu is open, or null
@@ -42,6 +43,7 @@ export function createSidebarView(
 	{
 		onToggleCollapse,
 		onGoFocus,
+		onOpenSettings,
 		onOpenArea,
 		onAddArea,
 		onCommitAreaRename,
@@ -191,6 +193,7 @@ export function createSidebarView(
 		"add-area": () => onAddArea(),
 
 		"cycle-theme": () => onCycleTheme(),
+		"open-settings": () => onOpenSettings(),
 
 		"open-area-menu": (event, actionEl) => {
 			event.stopPropagation();
@@ -526,6 +529,12 @@ function template(
 			</li>
 		</ul>
 		<div class="sidebar__footer">
+			<button class="sidebar__settings ${state.route?.name === "settings" ? "is-active" : ""}" type="button"
+				data-action="open-settings" aria-label="Settings"
+				${state.route?.name === "settings" ? 'aria-current="page"' : ""}>
+				<span class="sidebar__settings-icon" aria-hidden="true">⚙️</span>
+				<span class="sidebar__settings-text">Settings</span>
+			</button>
 			<button class="sidebar__theme" type="button" data-action="cycle-theme">
 				<span class="sidebar__theme-icon" aria-hidden="true">${THEME_GLYPH[state.themeChoice]}</span>
 				<span class="sidebar__theme-text">Theme: ${THEME_WORD[state.themeChoice]}</span>

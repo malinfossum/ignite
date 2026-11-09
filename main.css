@@ -198,8 +198,12 @@ body {
 	margin-top: auto;
 	padding-top: var(--space-3);
 	border-top: 1px solid var(--border);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
 }
-.sidebar__theme {
+.sidebar__theme,
+.sidebar__settings {
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
@@ -210,11 +214,19 @@ body {
 	color: var(--text-muted);
 	transition: background-color var(--duration-base) var(--ease-standard);
 }
-.sidebar__theme:hover {
+.sidebar__theme:hover,
+.sidebar__settings:hover {
 	background: var(--surface-4);
 	color: var(--text);
 }
-.sidebar__theme-icon {
+/* Same paint as the active area row. Styled through the class, like the
+   area rows, not through aria-current. */
+.sidebar__settings.is-active {
+	background: var(--accent-soft);
+	color: var(--text);
+}
+.sidebar__theme-icon,
+.sidebar__settings-icon {
 	font-size: var(--text-lg);
 	line-height: 1;
 }
@@ -227,7 +239,8 @@ body {
    So the clip-based hiding has to live here, scoped to the desktop media
    query, repeating .sr-only's technique rather than reusing the class. */
 @media (min-width: 768px) {
-	body.is-sidebar-collapsed .sidebar__theme-text {
+	body.is-sidebar-collapsed .sidebar__theme-text,
+	body.is-sidebar-collapsed .sidebar__settings-text {
 		position: absolute;
 		width: 1px;
 		height: 1px;
@@ -238,7 +251,8 @@ body {
 		white-space: nowrap;
 		border: 0;
 	}
-	body.is-sidebar-collapsed .sidebar__theme {
+	body.is-sidebar-collapsed .sidebar__theme,
+	body.is-sidebar-collapsed .sidebar__settings {
 		justify-content: center;
 	}
 }
@@ -1257,6 +1271,40 @@ body {
 		background: var(--surface-4);
 	}
 
+	/* Settings follows the toggle: the button is the 44px hit target and the
+	   glyph span is the 36px painted tile. The tint (active and hover) sits on
+	   the tile, never on the 44px button, so it cannot paint across a box wider
+	   than the tile. Spec §9.1. */
+	body.is-sidebar-collapsed .sidebar__settings {
+		align-self: center;
+		inline-size: 44px;
+		min-block-size: 44px;
+		padding: 0;
+		display: grid;
+		place-items: center;
+	}
+	body.is-sidebar-collapsed .sidebar__settings-icon {
+		inline-size: 36px;
+		block-size: 36px;
+		flex-shrink: 0;
+		display: grid;
+		place-items: center;
+		border-radius: 10px;
+		font-size: var(--text-md);
+	}
+	body.is-sidebar-collapsed .sidebar__settings:hover,
+	body.is-sidebar-collapsed .sidebar__settings.is-active {
+		background: transparent;
+	}
+	body.is-sidebar-collapsed .sidebar__settings:hover .sidebar__settings-icon {
+		background: var(--surface-4);
+	}
+	body.is-sidebar-collapsed
+		.sidebar__settings.is-active
+		.sidebar__settings-icon {
+		background: var(--accent-soft);
+	}
+
 	/* ＋ becomes a tile rather than disappearing. */
 	body.is-sidebar-collapsed .sidebar__add-area-row {
 		display: flex;
@@ -1567,6 +1615,21 @@ body {
 /* Reserve space so the last task clears the pinned capture bar. */
 #main {
 	padding-block-end: calc(var(--main-padding) + var(--capture-h));
+}
+
+/* Settings has no capture bar, so it reserves no space for one. The
+   override equals the >=768px value, so it holds at every width. */
+body.is-settings-route #capture-root {
+	display: none;
+}
+body.is-settings-route #main {
+	padding-block-end: var(--main-padding);
+}
+/* #main is capped at the reading width (42rem) for task lists. At that cap
+   the Settings grid could never reach a second column at any width, so this
+   route lifts it and lets the grid add columns instead (R3). */
+body.is-settings-route {
+	--main-max-width: none;
 }
 
 /* Lock background scroll while the drawer is open. */
@@ -1929,4 +1992,54 @@ body.is-drawer-open #scrim {
 		flex: none;
 		z-index: 110;
 	}
+}
+
+/* --- Settings page --- */
+/* Cards of a capped width in an auto-fill grid: one column on a phone, two
+   from 1024px, more as later settings join the page, never one column
+   stretched wide. min(100%, ...) keeps a 320px screen from overflowing.
+   20rem, not wider: at 1024px with the full sidebar #main has 720px of
+   content, and two 20rem tracks plus the gap (664px) fit where two 22rem
+   tracks (728px) would not. */
+.settings {
+	display: grid;
+	gap: var(--space-5);
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+	align-items: start;
+}
+.settings-card {
+	min-width: 0;
+}
+.settings-card__heading {
+	font-size: var(--text-lg);
+}
+.settings-card__note {
+	font-size: var(--text-sm);
+}
+.settings-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--space-2);
+}
+.settings-meta__label {
+	font-size: var(--text-sm);
+	color: var(--text-muted);
+}
+.settings-meta__value {
+	color: var(--text);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+.settings-actions {
+	align-items: flex-end;
+}
+/* An empty alert line stays in the tree (so it announces when filled) but
+   must not add a gap at the bottom of the card: cancel the stack's gap. */
+.settings-alert {
+	color: var(--color-overdue);
+	font-size: var(--text-sm);
+}
+.settings-alert:empty {
+	margin-block-start: calc(-1 * var(--space-4));
 }
