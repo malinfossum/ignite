@@ -111,6 +111,7 @@ describe("rruleToRecurrence, refused with a reason", () => {
 		["FREQ=WEEKLY;BYDAY=1MO", R.position],
 		["FREQ=MONTHLY;BYDAY=MO", R.weekdayRule],
 		["FREQ=DAILY;INTERVAL=2;BYDAY=MO", R.unknown],
+		["FREQ=DAILY;BYDAY=1MO", R.position],
 		["FREQ=DAILY;BYDAY=MO;BYMONTH=1", R.unknown],
 		["FREQ=DAILY;BYDAY=MO;BYMONTHDAY=1", R.unknown],
 		["FREQ=DAILY;COUNT=5", R.ends],
