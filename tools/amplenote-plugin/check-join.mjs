@@ -31,6 +31,24 @@ let withFront = 0;
 // Indented front-matter lines that aren't list items: a folded long title,
 // for example. Task 9's reader turns such a note into a header problem.
 let frontContinuationLines = 0;
+// Shape labels only, never values: how each key's value starts, and what
+// the indented lines under a key look like. Tells a folded title apart
+// from a nested map before Task 9's reader is taught either.
+const keyShapes = {};
+const continuationByKey = {};
+const notesWithContinuation = new Set();
+const addShape = (bag, key, label) => {
+	bag[key] ??= {};
+	bag[key][label] = (bag[key][label] ?? 0) + 1;
+};
+const valueShape = (raw) => {
+	if (raw === "") return "empty";
+	if (/^[|>][+-]?\d*$/.test(raw)) return `block${raw[0]}`;
+	if (raw.startsWith("[")) return "flowList";
+	if (raw.startsWith("{")) return "flowMap";
+	if (raw.startsWith('"') || raw.startsWith("'")) return "quoted";
+	return "plain";
+};
 let openTop = 0;
 let openIndented = 0;
 let brokenComment = 0;
@@ -47,11 +65,28 @@ for (const name of md) {
 		const end = lines.indexOf("---", 1);
 		if (end > 0) {
 			withFront++;
+			let lastKey = "(none)";
 			for (const l of lines.slice(1, end)) {
-				const m = l.match(/^([A-Za-z_][\w-]*):/);
-				if (m) frontKeys.add(m[1]);
-				else if (/^\s+\S/.test(l) && !/^\s*-\s/.test(l))
+				const m = l.match(/^([A-Za-z_][\w-]*):(.*)$/);
+				if (m) {
+					frontKeys.add(m[1]);
+					lastKey = m[1];
+					addShape(keyShapes, m[1], valueShape(m[2].trim()));
+				} else if (/^\s*-\s/.test(l)) {
+					addShape(continuationByKey, lastKey, "listItem");
+				} else if (/^\s+\S/.test(l)) {
 					frontContinuationLines++;
+					notesWithContinuation.add(name);
+					const nested = /^\s+[A-Za-z_][\w-]*:(\s|$)/.test(l);
+					const indent = l.match(/^\s*/)[0].length;
+					addShape(
+						continuationByKey,
+						lastKey,
+						`${nested ? "nestedKey" : "text"}@indent${indent}`,
+					);
+				} else if (l.trim() !== "") {
+					addShape(continuationByKey, lastKey, "unindentedOther");
+				}
 			}
 			start = end + 1;
 		}
@@ -109,38 +144,44 @@ for (const { repeat } of entriesList) {
 }
 
 const matched = [...zipUuids].filter((u) => fileUuids.has(u)).length;
-console.log({
-	zip: {
-		markdownEntries: md.length,
-		otherEntries: other.length,
-		otherEntriesBesideANoteFolder: otherBesideNote,
-		maxEntryDepth: Math.max(0, ...names.map(depth)),
-		notesWithFrontMatter: withFront,
-		notesWithCRLF: crlf,
-		frontMatterKeys: [...frontKeys].sort(),
-		frontMatterContinuationLines: frontContinuationLines,
-		openTasksTopLevel: openTop,
-		openTasksIndented: openIndented,
-		taskLinesWithBrokenOrMissingComment: brokenComment,
-		taskCommentKeys: [...commentKeys].sort(),
-		imageLines,
+console.dir(
+	{
+		zip: {
+			markdownEntries: md.length,
+			otherEntries: other.length,
+			otherEntriesBesideANoteFolder: otherBesideNote,
+			maxEntryDepth: Math.max(0, ...names.map(depth)),
+			notesWithFrontMatter: withFront,
+			notesWithCRLF: crlf,
+			frontMatterKeys: [...frontKeys].sort(),
+			frontMatterContinuationLines: frontContinuationLines,
+			notesWithContinuationLines: notesWithContinuation.size,
+			frontMatterKeyShapes: keyShapes,
+			frontMatterLinesUnderKey: continuationByKey,
+			openTasksTopLevel: openTop,
+			openTasksIndented: openIndented,
+			taskLinesWithBrokenOrMissingComment: brokenComment,
+			taskCommentKeys: [...commentKeys].sort(),
+			imageLines,
+		},
+		repeatsFile: {
+			app: repeats.app,
+			version: repeats.version,
+			entries: fileUuids.size,
+			isRepeatingTrue: entriesList.filter((e) => e.isRepeating === true).length,
+			repeatingWithNoRule: entriesList.filter((e) => e.isRepeating && !e.repeat)
+				.length,
+			rrulePartNames: [...partNames].sort(),
+			freqValues: [...freqs].sort(),
+			dtstartLines,
+			rrulePrefix,
+		},
+		join: {
+			zipTaskUuids: zipUuids.size,
+			matched,
+			inZipOnly: zipUuids.size - matched,
+			inFileOnly: [...fileUuids].filter((u) => !zipUuids.has(u)).length,
+		},
 	},
-	repeatsFile: {
-		app: repeats.app,
-		version: repeats.version,
-		entries: fileUuids.size,
-		isRepeatingTrue: entriesList.filter((e) => e.isRepeating === true).length,
-		repeatingWithNoRule: entriesList.filter((e) => e.isRepeating && !e.repeat)
-			.length,
-		rrulePartNames: [...partNames].sort(),
-		freqValues: [...freqs].sort(),
-		dtstartLines,
-		rrulePrefix,
-	},
-	join: {
-		zipTaskUuids: zipUuids.size,
-		matched,
-		inZipOnly: zipUuids.size - matched,
-		inFileOnly: [...fileUuids].filter((u) => !zipUuids.has(u)).length,
-	},
-});
+	{ depth: null },
+);
