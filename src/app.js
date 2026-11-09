@@ -23,6 +23,7 @@ async function boot() {
 	const scrimEl = document.getElementById("scrim");
 
 	mainEl.innerHTML = `
+		<div id="backup-banner-root"></div>
 		<header class="page-header" id="page-header"></header>
 		<section class="capture" id="capture-root"></section>
 		<section id="main-root"></section>
@@ -47,6 +48,7 @@ async function boot() {
 			topbarRoot,
 			scrimEl,
 			mainEl,
+			bannerRoot: document.getElementById("backup-banner-root"),
 			pageHeaderRoot: document.getElementById("page-header"),
 			captureRoot: document.getElementById("capture-root"),
 			mainRoot: document.getElementById("main-root"),

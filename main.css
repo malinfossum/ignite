@@ -2068,3 +2068,23 @@ body.is-drawer-open #scrim {
 .settings-alert:empty {
 	margin-block-start: calc(-1 * var(--space-4));
 }
+
+/* --- Backup banner --- */
+/* The #main gap spaces the banner; an empty root takes no gap. */
+#backup-banner-root:empty {
+	display: none;
+}
+.backup-banner {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-3);
+	padding: var(--space-3) var(--space-4);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+	background: var(--panel-bg);
+}
+.backup-banner__text {
+	flex: 1 1 16rem;
+	color: var(--text);
+}

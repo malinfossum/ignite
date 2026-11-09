@@ -6,6 +6,7 @@
 // Owns the 60s clock tick that calls currentMainView.render(state) only.
 
 import { version as APP_VERSION } from "../package.json";
+import { backupReminder } from "./backup/backup-due.js";
 import { FOCUS_DEFAULT_SECTION_ID, FOCUS_ID } from "./model/areas.js";
 import { createSettingsFlows } from "./settings-flows.js";
 import { captureChipLabel, captureDestination } from "./utils/capture.js";
@@ -24,6 +25,7 @@ import {
 	formatOccurrenceLabel,
 } from "./utils/time.js";
 import { createAreaView } from "./views/area.js";
+import { createBackupBanner } from "./views/backup-banner.js";
 import { createCaptureView } from "./views/capture.js";
 import { createConfirmDialog } from "./views/confirm-dialog.js";
 import { createFocusView } from "./views/focus.js";
@@ -63,6 +65,7 @@ export function createController({ models, els }) {
 		topbarRoot,
 		scrimEl,
 		mainEl,
+		bannerRoot,
 		pageHeaderRoot,
 		captureRoot,
 		mainRoot,
@@ -84,6 +87,8 @@ export function createController({ models, els }) {
 	let capture = null;
 	let toast = null;
 	let flows = null;
+	let banner = null;
+	let bannerDismissed = false; // until the next app start, never a setting
 	let confirmDialog = null;
 	let channel = null;
 	let lastHeaderHtml = null;
@@ -232,6 +237,15 @@ export function createController({ models, els }) {
 			currentRoute.name === "settings",
 		);
 		renderPageHeader(state);
+		banner?.render(
+			currentRoute.name === "settings" || bannerDismissed
+				? null
+				: backupReminder({
+						lastBackupAt: state.settings.lastBackupAt ?? null,
+						taskCount: state.tasks.length,
+						now: state.now,
+					}),
+		);
 		sidebar?.render(state);
 		const destination = captureDestination(currentRoute, state.sections);
 		const sectionName =
@@ -961,6 +975,18 @@ export function createController({ models, els }) {
 				if (event.data?.type === "replaced") window.location.reload();
 			};
 		}
+		banner = createBackupBanner(bannerRoot, {
+			onBackUp: async () => {
+				// The banner goes away after a backup. Hand focus to the page's
+				// <h1>, not <body>. On failure the banner stays, and so does focus.
+				if (await flows.backUpNow()) focusPageHeading();
+			},
+			onDismiss: async () => {
+				bannerDismissed = true;
+				await applyState();
+				focusPageHeading();
+			},
+		});
 		flows = createSettingsFlows({
 			models: { data, settings },
 			toast,
@@ -1133,6 +1159,8 @@ export function createController({ models, els }) {
 		drawerOpen = false;
 		lastHeaderHtml = null;
 		flows = null;
+		banner?.destroy();
+		banner = null;
 	}
 
 	return { start, stop };

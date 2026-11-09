@@ -197,7 +197,7 @@ const SEED = `(async () => {
   await put("tasks", T("demo-n1", "Ideas for the spring trip", { order: 7 }));
 
   const cur = await new Promise((res) => { const q = db.transaction("settings", "readonly").objectStore("settings").get("app"); q.onsuccess = () => res(q.result); });
-  await put("settings", Object.assign({}, cur, { theme: "dark" }));
+  await put("settings", Object.assign({}, cur, { theme: "dark", lastBackupAt: new Date().toISOString() }));
   db.close();
   return "ok";
 })()`;
