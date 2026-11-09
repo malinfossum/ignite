@@ -430,6 +430,17 @@ body {
 	border: 1px solid var(--border);
 	border-radius: var(--radius-md);
 }
+/* The base row rule sits above the .group__list > .task rules so the lower
+   specificity comes first. Its border-radius is overridden per end row below. */
+.task {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: var(--space-3) var(--space-4);
+	min-height: 2.75rem;
+	border-radius: var(--radius);
+}
 .group__list > .task + .task {
 	border-top: 1px solid var(--border-soft);
 }
@@ -447,15 +458,6 @@ body {
 }
 
 /* --- Task row --- */
-.task {
-	position: relative;
-	display: flex;
-	align-items: center;
-	gap: var(--space-3);
-	padding: var(--space-3) var(--space-4);
-	min-height: 2.75rem;
-	border-radius: var(--radius);
-}
 .task:hover {
 	background: var(--surface-3);
 }
@@ -1213,6 +1215,14 @@ body {
 		border-radius: 10px;
 		font-size: var(--text-md);
 	}
+	body.is-sidebar-collapsed .sidebar__area-row--editing .sidebar__icon {
+		inline-size: 36px;
+		block-size: 36px;
+		display: grid;
+		place-items: center;
+		border-radius: 10px;
+		background: var(--accent-soft);
+	}
 
 	/* The tint moves off the button and onto the tile, so it can never paint
 	   across a box wider than the rail. */
@@ -1366,14 +1376,10 @@ body {
 		justify-content: center;
 		padding: 0;
 	}
-	body.is-sidebar-collapsed .sidebar__area-row--editing .sidebar__icon {
-		inline-size: 36px;
-		block-size: 36px;
-		display: grid;
-		place-items: center;
-		border-radius: 10px;
-		background: var(--accent-soft);
-	}
+	/* The editing row's tile (.sidebar__icon with the accent tint) is declared next
+	   to the base .sidebar__icon rule above. It is a sibling of the rename input,
+	   never inside a .sidebar__area button, so the :hover tint rules there cannot
+	   match it. */
 	body.is-sidebar-collapsed .sidebar__rename-input {
 		position: absolute;
 		inset-block-start: 0;
