@@ -15,6 +15,10 @@ const DEFAULTS = {
 	// "system" defers to prefers-color-scheme and stays reachable via the cycle,
 	// so choosing a theme is never a one-way door.
 	theme: DEFAULT_CHOICE,
+	// ISO string of the last full backup, or null. Records saved before this
+	// field existed simply lack it, and every reader uses `?? null`, so there
+	// is no migration.
+	lastBackupAt: null,
 };
 
 export async function createSettingsModel(db) {
@@ -53,6 +57,13 @@ export async function createSettingsModel(db) {
 				throw new Error(`setTheme: unknown theme choice "${choice}"`);
 			}
 			return this.update({ theme: choice });
+		},
+
+		async setLastBackupAt(iso) {
+			if (typeof iso !== "string" || Number.isNaN(Date.parse(iso))) {
+				throw new Error(`setLastBackupAt: not an ISO date "${iso}"`);
+			}
+			return this.update({ lastBackupAt: iso });
 		},
 	};
 }

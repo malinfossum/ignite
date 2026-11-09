@@ -111,3 +111,35 @@ describe("createSettingsModel — theme", () => {
 		expect(after.sidebarCollapsed).toBe(false);
 	});
 });
+
+describe("lastBackupAt", () => {
+	it("is a real default property, null on a new database", async () => {
+		const { model } = await freshModel();
+		expect(await model.get()).toHaveProperty("lastBackupAt", null);
+	});
+
+	it("reads a record saved before the field existed, then stores the stamp", async () => {
+		const db = await openDB(`ignite-test-${crypto.randomUUID()}`);
+		openHandles.push(db);
+		await db.put("settings", {
+			id: "app",
+			theme: "dark",
+			sidebarCollapsed: false,
+		});
+		const model = await createSettingsModel(db);
+		expect(await model.get()).not.toHaveProperty("lastBackupAt");
+		await model.setLastBackupAt("2026-11-09T12:20:00.000Z");
+		expect((await model.get()).lastBackupAt).toBe("2026-11-09T12:20:00.000Z");
+	});
+
+	it("stores the stamp", async () => {
+		const { model } = await freshModel();
+		await model.setLastBackupAt("2026-11-09T12:20:00.000Z");
+		expect((await model.get()).lastBackupAt).toBe("2026-11-09T12:20:00.000Z");
+	});
+
+	it("refuses anything that isn't an ISO string", async () => {
+		const { model } = await freshModel();
+		await expect(model.setLastBackupAt("yesterday")).rejects.toThrow();
+	});
+});
