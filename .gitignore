@@ -19,3 +19,7 @@ npm-debug.log*
 .claude/
 .memsearch/
 .superpowers/
+
+# Wrangler (local secrets and state)
+.dev.vars
+.wrangler/
