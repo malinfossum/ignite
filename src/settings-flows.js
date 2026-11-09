@@ -190,10 +190,10 @@ export function createSettingsFlows({
 		});
 	}
 
-	async function undoLastReplace() {
+	async function undoLastReplace(safetyName = backupFileName(new Date())) {
 		if (!lastReplace) return;
 		const target = lastReplace;
-		const outcome = await replace(target.snapshot, backupFileName(new Date()), {
+		const outcome = await replace(target.snapshot, safetyName, {
 			replaceFailMessage: `Couldn't undo. Your data from before is in ${target.safetyName}.`,
 		});
 		if (!outcome.ok) {
@@ -205,10 +205,35 @@ export function createSettingsFlows({
 		toast.show({ message: "Replace undone." });
 	}
 
+	// The persistent button replaces the whole database, so it asks first, like
+	// Restore does. The toast's Undo calls undoLastReplace directly: almost
+	// nothing can change in its 5 s window.
+	function confirmUndoReplace() {
+		if (!lastReplace || replacing || confirmDialog.isOpen()) return;
+		const safetyName = backupFileName(new Date());
+		openConfirm({
+			title: "Undo the last replace?",
+			lines: [
+				`Your current data is replaced with what you had before the restore. It downloads first as ${safetyName}.`,
+			],
+			confirmLabel: "Undo replace",
+			onReturnFocus: () =>
+				getView()?.focusControl(lastReplace ? "undo-replace" : "restore"),
+			onConfirm: async () => {
+				try {
+					await undoLastReplace(safetyName);
+				} finally {
+					closeConfirm();
+				}
+			},
+		});
+	}
+
 	return {
 		backUpNow,
 		restoreFromFile,
 		undoLastReplace,
+		confirmUndoReplace,
 		canUndo: () => lastReplace !== null,
 		closeDialogs: () => closeConfirm({ restoreFocus: false }),
 	};

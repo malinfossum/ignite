@@ -83,6 +83,7 @@ export function createSettingsView(
 			const selectors = {
 				"back-up": '[data-action="back-up"]',
 				restore: "#restore-file",
+				"undo-replace": '[data-action="undo-replace"]',
 				import: '[data-action="import"]',
 			};
 			$(selectors[name])?.focus();

@@ -522,7 +522,7 @@ export function createController({ models, els }) {
 			currentMainView = createSettingsView(mainRoot, {
 				onBackUp: () => flows.backUpNow(),
 				onRestoreFile: (file) => flows.restoreFromFile(file),
-				onUndoReplace: () => flows.undoLastReplace(),
+				onUndoReplace: () => flows.confirmUndoReplace(),
 			});
 			currentMainView.setUndoAvailable(flows.canUndo());
 			return;
