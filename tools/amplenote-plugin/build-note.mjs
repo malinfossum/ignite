@@ -2,6 +2,8 @@
 // Usage: node tools/amplenote-plugin/build-note.mjs > plugin-note.md
 // The code block inlines build-repeats.js, so the tested function and the
 // installed one can't drift apart.
+// The plugin code must hold no < or >: Amplenote escapes them to &lt; and
+// &gt; on paste, so an arrow function becomes a syntax error.
 
 import { readFileSync } from "node:fs";
 
@@ -30,7 +32,9 @@ ${body}
 			}
 			const now = new Date();
 			const file = buildRepeatsFile(tasks, now);
-			const pad = (n) => String(n).padStart(2, "0");
+			function pad(n) {
+				return String(n).padStart(2, "0");
+			}
 			const day = \`\${now.getFullYear()}-\${pad(now.getMonth() + 1)}-\${pad(now.getDate())}\`;
 			const blob = new Blob([JSON.stringify(file, null, 2)], {
 				type: "application/json",
