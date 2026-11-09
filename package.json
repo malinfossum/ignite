@@ -35,5 +35,8 @@
 	},
 	"allowScripts": {
 		"sharp@0.34.5": true
+	},
+	"dependencies": {
+		"fflate": "0.8.3"
 	}
 }
