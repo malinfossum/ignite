@@ -36,6 +36,10 @@ async function boot() {
 	repeatDialogRoot.id = "repeat-dialog-root";
 	document.body.appendChild(repeatDialogRoot);
 
+	const settingsDialogRoot = document.createElement("div");
+	settingsDialogRoot.id = "settings-dialog-root";
+	document.body.appendChild(settingsDialogRoot);
+
 	const controller = createController({
 		models: { areas, sections, tasks, settings, data },
 		els: {
@@ -48,6 +52,7 @@ async function boot() {
 			mainRoot: document.getElementById("main-root"),
 			toastRoot,
 			repeatDialogRoot,
+			settingsDialogRoot,
 		},
 	});
 	controller.start();

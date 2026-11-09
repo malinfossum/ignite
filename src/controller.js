@@ -25,6 +25,7 @@ import {
 } from "./utils/time.js";
 import { createAreaView } from "./views/area.js";
 import { createCaptureView } from "./views/capture.js";
+import { createConfirmDialog } from "./views/confirm-dialog.js";
 import { createFocusView } from "./views/focus.js";
 import { createRecurrenceDialog } from "./views/recurrence-dialog.js";
 import { createSettingsView } from "./views/settings.js";
@@ -67,13 +68,24 @@ export function createController({ models, els }) {
 		mainRoot,
 		toastRoot,
 		repeatDialogRoot,
+		settingsDialogRoot,
 	} = els;
+
+	// Everything behind a modal, made inert while a dialog or the drawer is
+	// open. One list, so a new background region is added in one place. The
+	// drawer IS the sidebar, so it passes except: sidebarRoot.
+	const backgroundEls = [topbarRoot, sidebarRoot, mainEl, toastRoot];
+	function setBackgroundInert(inert, { except } = {}) {
+		for (const el of backgroundEls) if (el !== except) el.inert = inert;
+	}
 
 	let sidebar = null;
 	let topbar = null;
 	let capture = null;
 	let toast = null;
 	let flows = null;
+	let confirmDialog = null;
+	let channel = null;
 	let lastHeaderHtml = null;
 	let currentMainView = null;
 	let currentRoute = { name: "focus" };
@@ -495,7 +507,10 @@ export function createController({ models, els }) {
 		if (route.name === "settings") {
 			currentMainView = createSettingsView(mainRoot, {
 				onBackUp: () => flows.backUpNow(),
+				onRestoreFile: (file) => flows.restoreFromFile(file),
+				onUndoReplace: () => flows.undoLastReplace(),
 			});
+			currentMainView.setUndoAvailable(flows.canUndo());
 			return;
 		}
 
@@ -821,7 +836,7 @@ export function createController({ models, els }) {
 		sidebarRoot.setAttribute("aria-label", "Navigation");
 		// Background becomes inert → focus is contained in the drawer, AT ignores it.
 		// The scrim is NOT inert — it must stay tappable to close.
-		for (const el of [topbarRoot, mainEl, toastRoot]) el.inert = true;
+		setBackgroundInert(true, { except: sidebarRoot });
 		// Move focus into the drawer (first focusable: the "Ignite" home button).
 		sidebarRoot.querySelector(".sidebar__home")?.focus();
 	}
@@ -830,7 +845,7 @@ export function createController({ models, els }) {
 		if (!drawerOpen) return;
 		drawerOpen = false;
 		document.body.classList.remove("is-drawer-open");
-		for (const el of [topbarRoot, mainEl, toastRoot]) el.inert = false;
+		setBackgroundInert(false, { except: sidebarRoot });
 		// Restore the permanent navigation landmark (index.html sets role="navigation");
 		// openDrawer overrode it with role="dialog" while open. Restore rather than
 		// remove so the sidebar never reverts to a bare, non-landmark <div> (which would
@@ -845,6 +860,14 @@ export function createController({ models, els }) {
 		topbarRoot.querySelector(".topbar__menu")?.focus();
 	}
 
+	// Background inert + scroll lock while a Settings dialog is open. Same
+	// split as the schedule dialog: the dialog owns its own focus, the
+	// controller owns the background.
+	function setSettingsModal(open) {
+		document.body.classList.toggle("is-dialog-open", open);
+		setBackgroundInert(open);
+	}
+
 	async function openRecurrenceEditor(taskId) {
 		const task = (await tasks.list()).find((t) => t.id === taskId);
 		if (!task) return; // deleted between menu render and click
@@ -852,9 +875,7 @@ export function createController({ models, els }) {
 		document.body.classList.add("is-repeat-open"); // scroll-lock (CSS)
 		// Background inert → focus contained in the dialog, AT ignores it. The
 		// dialog root + backdrop are body children, outside every inert subtree.
-		for (const el of [topbarRoot, sidebarRoot, mainEl, toastRoot]) {
-			el.inert = true;
-		}
+		setBackgroundInert(true);
 		recurrenceDialog.open(task);
 	}
 
@@ -868,9 +889,7 @@ export function createController({ models, els }) {
 		repeatEditorTaskId = null;
 		recurrenceDialog.close();
 		document.body.classList.remove("is-repeat-open");
-		for (const el of [topbarRoot, sidebarRoot, mainEl, toastRoot]) {
-			el.inert = false;
-		}
+		setBackgroundInert(false);
 		currentMainView?.focusTaskMenu?.(taskId); // best-effort on route change
 		if (rerender) applyState();
 	}
@@ -917,6 +936,7 @@ export function createController({ models, els }) {
 	function onHashChange() {
 		closeDrawer(); // close on ALL route changes incl. browser back/forward
 		closeRecurrenceEditor({ rerender: false }); // route change closes the dialog
+		flows?.closeDialogs();
 		capture?.closePicker();
 		currentRoute = routeFromHash();
 		mountMainView(currentRoute);
@@ -929,12 +949,28 @@ export function createController({ models, els }) {
 
 	function start() {
 		toast = createToastView(toastRoot);
+		confirmDialog = createConfirmDialog(settingsDialogRoot);
+		// A restore or import in another tab replaced every id. Reload, so this
+		// tab never writes tasks into sections that no longer exist.
+		channel =
+			typeof BroadcastChannel === "undefined"
+				? null
+				: new BroadcastChannel("ignite");
+		if (channel) {
+			channel.onmessage = (event) => {
+				if (event.data?.type === "replaced") window.location.reload();
+			};
+		}
 		flows = createSettingsFlows({
 			models: { data, settings },
 			toast,
 			getView: () =>
 				currentRoute.name === "settings" ? currentMainView : null,
 			appVersion: APP_VERSION,
+			confirmDialog,
+			setModal: setSettingsModal,
+			applyState,
+			channel,
 		});
 
 		recurrenceDialog = createRecurrenceDialog(repeatDialogRoot, {
@@ -1065,6 +1101,11 @@ export function createController({ models, els }) {
 	function stop() {
 		closeRecurrenceEditor({ rerender: false }); // clears inert + is-repeat-open first
 		closeDrawer(); // clears is-drawer-open, inert, scroll-lock, dialog ARIA in one place
+		flows?.closeDialogs();
+		confirmDialog?.destroy();
+		channel?.close();
+		confirmDialog = null;
+		channel = null;
 		clearInterval(tickHandle);
 		tickHandle = null;
 		window.removeEventListener("hashchange", onHashChange);

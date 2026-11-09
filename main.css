@@ -1637,6 +1637,19 @@ body.is-drawer-open {
 	overflow: hidden;
 }
 
+/* Lock background scroll while a Settings dialog is open. */
+body.is-dialog-open {
+	overflow: hidden;
+}
+.confirm-panel__body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+.confirm-panel__body p {
+	color: var(--text);
+}
+
 /* Reduced motion: drawer + scrim appear without the slide/fade, the sidebar
    collapses without animating the grid column, and the rail's ⋯ appears without
    a fade. `body` is in this list because the collapse animation is
@@ -2030,6 +2043,18 @@ body.is-drawer-open #scrim {
 	color: var(--text);
 	font-weight: 600;
 	font-variant-numeric: tabular-nums;
+}
+/* A <label> painted as a 44px button around a visually hidden file input.
+   inline-flex, or min-block-size has no effect on an inline label. The
+   focus ring shows on the label because the input itself is clipped. */
+.settings-file {
+	display: inline-flex;
+	align-items: center;
+	cursor: pointer;
+}
+.settings-file:has(:focus-visible) {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
 }
 .settings-actions {
 	align-items: flex-end;
