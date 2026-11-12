@@ -1,13 +1,17 @@
 # Ward baseline, from templates/dependabot.yml in malinfossum/ward.
-# Majors are never grouped, so each gets its own PR for me to read.
+# Majors are never grouped, so each gets its own PR for me to read. Every block
+# waits 21 days before it proposes a major, so a broken x.0.0 is fixed by then.
 version: 2
 updates:
-  # Only GitHub's own actions are grouped and may auto-merge. Every other
-  # action, Ward's own reference included, gets its own PR for me to read.
+  # GitHub's own actions are grouped and may auto-merge. Ward's two pins arrive
+  # together and merge only when both move to a Ward release tag. Every other
+  # action gets its own PR for me to read.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      semver-major-days: 21
     groups:
       actions-first-party:
         patterns:
@@ -15,11 +19,16 @@ updates:
           - "github/*"
           - "dependabot/*"
         update-types: [minor, patch]
+      ward:
+        patterns:
+          - "malinfossum/ward*"
 
   - package-ecosystem: npm # package.json
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      semver-major-days: 21
     groups:
       npm-minor-patch:
         patterns: ["*"]
