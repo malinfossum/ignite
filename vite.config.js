@@ -9,7 +9,7 @@ export default defineConfig({
 		open: false,
 	},
 	build: {
-		target: "es2022",
+		target: "es2023",
 		outDir: "dist",
 		sourcemap: true,
 	},
