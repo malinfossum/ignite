@@ -81,7 +81,7 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 	// wherever destroy()'s caller intends.
 	function closePicker({ restoreFocus = true } = {}) {
 		if (!pickerOpen) return;
-		pickerRoot.innerHTML = "";
+		pickerRoot.replaceChildren();
 		pickerOpen = false;
 		if (docClickHandler) {
 			document.removeEventListener("click", docClickHandler);
@@ -227,7 +227,7 @@ export function createCaptureView(rootEl, { onSubmit, focusSectionId }) {
 			form.removeEventListener("submit", handler);
 			rootEl.removeEventListener("keydown", keydownHandler);
 			pickerRoot.removeEventListener("click", pickerClickHandler);
-			rootEl.innerHTML = "";
+			rootEl.replaceChildren();
 		},
 	};
 }

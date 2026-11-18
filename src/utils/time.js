@@ -184,7 +184,7 @@ export function groupTasksForFocus(tasks, now, focusSectionIds) {
 // and overdue spans many days — without it, an untimed task from three weeks ago
 // would sort below this morning's 09:00.
 export function sortByDueThenUntimed(tasks) {
-	return [...tasks].sort(byDueThenUntimed);
+	return tasks.toSorted(byDueThenUntimed);
 }
 
 function byDueThenUntimed(a, b) {

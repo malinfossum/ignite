@@ -847,7 +847,7 @@ export function createAreaView(rootEl, { areaId, callbacks }) {
 			rootEl.removeEventListener("input", addInputHandler);
 			document.removeEventListener("click", docClickHandler);
 			document.removeEventListener("keydown", docKeyHandler);
-			rootEl.innerHTML = "";
+			rootEl.replaceChildren();
 			lastState = null;
 			openMenuId = null;
 			openTaskMenuId = null;

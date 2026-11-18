@@ -29,7 +29,7 @@ import { escapeHtml } from "../utils/dom.js";
 
 export function renderMovePicker({ task, areas, sections }) {
 	const currentSectionId = task.sectionId;
-	const areasSorted = [...areas].sort((a, b) => a.order - b.order);
+	const areasSorted = areas.toSorted((a, b) => a.order - b.order);
 
 	const groups = areasSorted
 		.map((area) => {

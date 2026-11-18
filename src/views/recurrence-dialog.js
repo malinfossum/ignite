@@ -110,7 +110,7 @@ export function createRecurrenceDialog(rootEl, { onSave, onRemove, onClose }) {
 		if (keyHandler) document.removeEventListener("keydown", keyHandler);
 		formHandler = null;
 		keyHandler = null;
-		rootEl.innerHTML = ""; // detaches the panel
+		rootEl.replaceChildren(); // detaches the panel
 		taskId = null;
 		timeStr = "";
 	}
