@@ -432,7 +432,7 @@ export function createSidebarView(
 			unbindKeys();
 			document.removeEventListener("click", docClickHandler);
 			document.removeEventListener("keydown", docKeyHandler);
-			rootEl.innerHTML = "";
+			rootEl.replaceChildren();
 
 			// Clear every closure flag — explicit list, not "etc."
 			lastState = null;
@@ -480,7 +480,7 @@ function template(
 	const homeBadgeClass =
 		attention === 0 ? "sidebar__home-badge is-zero" : "sidebar__home-badge";
 
-	const sorted = state.areas.slice().sort((a, b) => a.order - b.order);
+	const sorted = state.areas.toSorted((a, b) => a.order - b.order);
 	// Focus is no longer a listed area — it IS the landing surface, reached by
 	// the wordmark above. Listing it as well would be a second door onto the same
 	// tasks, and its rename and icon controls belong to a surface that no longer

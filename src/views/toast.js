@@ -57,7 +57,7 @@ export function createToastView(rootEl) {
 		activeOnDismiss = null;
 		isHovered = false;
 		isFocused = false;
-		rootEl.innerHTML = ""; // detaches .toast div + its listeners
+		rootEl.replaceChildren(); // detaches .toast div + its listeners
 	}
 
 	function pause() {

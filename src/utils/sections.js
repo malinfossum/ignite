@@ -6,7 +6,7 @@
 // direction: "up" | "down"
 
 export function reorderSections(sections, sectionId, direction) {
-	const sorted = [...sections].sort((a, b) => a.order - b.order);
+	const sorted = sections.toSorted((a, b) => a.order - b.order);
 	const idx = sorted.findIndex((s) => s.id === sectionId);
 	if (idx === -1) return sections;
 
@@ -35,7 +35,7 @@ export function reorderSections(sections, sectionId, direction) {
 // falls back to the area's "＋ New section" button.
 
 export function previousSectionId(sections, sectionId) {
-	const sorted = [...sections].sort((a, b) => a.order - b.order);
+	const sorted = sections.toSorted((a, b) => a.order - b.order);
 	const idx = sorted.findIndex((s) => s.id === sectionId);
 	if (idx <= 0) return null; // -1 = not found, 0 = first → no predecessor
 	return sorted[idx - 1].id;

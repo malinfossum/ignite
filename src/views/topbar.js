@@ -31,7 +31,7 @@ export function createTopbarView(rootEl, { onToggleDrawer, onGoFocus }) {
 		},
 		destroy() {
 			unbindClick();
-			rootEl.innerHTML = "";
+			rootEl.replaceChildren();
 		},
 	};
 }

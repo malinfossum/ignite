@@ -540,7 +540,7 @@ export function createFocusView(rootEl, callbacks) {
 			rootEl.removeEventListener("dblclick", dblclickHandler);
 			document.removeEventListener("click", docClickHandler);
 			document.removeEventListener("keydown", docKeyHandler);
-			rootEl.innerHTML = "";
+			rootEl.replaceChildren();
 			lastState = null;
 			openMenuTaskId = null;
 			pendingFocusTaskId = null;

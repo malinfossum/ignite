@@ -293,7 +293,7 @@ export function createController({ models, els }) {
 				onAction: () => {
 					const batch = taskDeleteBatch;
 					taskDeleteBatch = null;
-					for (const t of [...batch.tasks].reverse()) {
+					for (const t of batch.tasks.toReversed()) {
 						tasks.restore(t);
 					}
 				},
