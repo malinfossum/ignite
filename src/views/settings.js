@@ -91,7 +91,7 @@ export function createSettingsView(
 		destroy() {
 			rootEl.removeEventListener("click", onClick);
 			rootEl.removeEventListener("change", onChange);
-			rootEl.innerHTML = "";
+			rootEl.replaceChildren();
 		},
 	};
 }

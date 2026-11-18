@@ -24,7 +24,7 @@ export function createConfirmDialog(rootEl) {
 		keyHandler = null;
 		current = null;
 		busy = false;
-		rootEl.innerHTML = "";
+		rootEl.replaceChildren();
 	}
 
 	function open(opts) {

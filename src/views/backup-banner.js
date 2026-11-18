@@ -31,7 +31,7 @@ export function createBackupBanner(rootEl, { onBackUp, onDismiss }) {
 		},
 		destroy() {
 			rootEl.removeEventListener("click", onClick);
-			rootEl.innerHTML = "";
+			rootEl.replaceChildren();
 		},
 	};
 }
